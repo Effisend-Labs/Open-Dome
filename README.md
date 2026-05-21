@@ -2,7 +2,7 @@
 ### *The Infrastructure Layer for the Super-App Era*
 
 <p align="center">
-  <img src="./Images/logo.png" alt="Logo">
+  <img src="./Images/logo.png" alt="Logo" width="300" align="center"/>
 </p>
 
 > Built for **Tokyo Dome City**. Designed to scale globally.
