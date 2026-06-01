@@ -1,130 +1,191 @@
-import mqtt from 'mqtt';
+import eventsData from './dbs/events.json';
 
 /**
- * Open-Dome Events SDK (Notice Board)
- * Powered by MQTT over WebSockets for real-time event distribution.
+ * Open-Dome Events SDK (Query API)
+ * Provides local database query capabilities to filter and search historical events.
  */
 export class EventsAPI {
   constructor() {
-    this.client = null;
-    this.subscriptions = new Map();
+    this.events = eventsData || [];
   }
 
   /**
-   * Connect to the MQTT Broker.
-   * @param {Object} config - { host, port, username, password, protocol, path }
+   * Helper to resolve Date object, ISO string, or timestamp into a numeric timestamp.
+   * @private
    */
-  connect(config) {
-    if (this.client && this.client.connected) {
-      console.log('[Open-Dome Events] Already connected.');
-      return this.client;
+  _toTimestamp(val) {
+    if (val instanceof Date) return val.getTime();
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      const parsed = Date.parse(val);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return null;
+  }
+
+  /**
+   * Get all loaded events from the database.
+   * @returns {Array} List of all events
+   */
+  getAll() {
+    return this.events;
+  }
+
+  /**
+   * Retrieve a single event by its ID.
+   * @param {number|string} id - Event ID
+   * @returns {Object|null} Matching event or null
+   */
+  getById(id) {
+    const numericId = Number(id);
+    if (isNaN(numericId)) return null;
+    return this.events.find(event => event.id === numericId) || null;
+  }
+
+  /**
+   * Search events based on search criteria.
+   * @param {Object} criteria - Search options
+   * @param {string} [criteria.query] - Text query to match title, title_ja, placeName, or category (case-insensitive)
+   * @param {string} [criteria.category] - Filter by category (case-insensitive, exact match)
+   * @param {string} [criteria.placeName] - Filter by placeName (case-insensitive, exact match)
+   * @param {Date|number|string} [criteria.from] - Start range limit for event 'from' timestamp
+   * @param {Date|number|string} [criteria.to] - End range limit for event 'to' timestamp
+   * @param {number} [criteria.limit] - Max number of results to return
+   * @param {number} [criteria.offset] - Offset for pagination
+   * @returns {Array} Filtered list of events
+   */
+  search(criteria = {}) {
+    let results = [...this.events];
+
+    const { query, category, placeName, from, to, limit, offset } = criteria;
+
+    if (query) {
+      const lowerQuery = query.toLowerCase();
+      results = results.filter(event => 
+        (event.title && event.title.toLowerCase().includes(lowerQuery)) ||
+        (event.title_ja && event.title_ja.toLowerCase().includes(lowerQuery)) ||
+        (event.placeName && event.placeName.toLowerCase().includes(lowerQuery)) ||
+        (event.category && event.category.toLowerCase().includes(lowerQuery))
+      );
     }
 
-    const { 
-      host = 'mqtt.effisend.dpdns.org', 
-      port = 443, 
-      username, 
-      password, 
-      jwt, // New JWT support
-      protocol = 'wss', 
-      path = '/'
-    } = config;
+    if (category) {
+      const lowerCat = category.toLowerCase();
+      results = results.filter(event => 
+        event.category && event.category.toLowerCase() === lowerCat
+      );
+    }
 
-    const url = `${protocol}://${host}${port === 443 ? '' : `:${port}`}${path === '/' ? '' : path}`;
-    const mqttUsername = username || (jwt ? 'opendome_mini_apps' : undefined);
-    
-    console.log(`[Open-Dome Events] Connecting to ${url} as ${mqttUsername}...`);
+    if (placeName) {
+      const lowerPlace = placeName.toLowerCase();
+      results = results.filter(event => 
+        event.placeName && event.placeName.toLowerCase() === lowerPlace
+      );
+    }
 
-    this.client = mqtt.connect(url, {
-      username: mqttUsername,
-      password: jwt || password,
-      clientId: `opendome_mini_app_${Math.random().toString(16).slice(2, 6)}`,
-      rejectUnauthorized: false,
-      protocolVersion: 4,
-      connectTimeout: 20000,
-      wsOptions: { protocol: 'mqtt' }
-    });
-
-    this.client.on('connect', () => {
-      console.log('[Open-Dome Events] Connected successfully.');
-      // Resubscribe to existing topics if any
-      this.subscriptions.forEach((_, topic) => {
-        this.client.subscribe(topic);
-      });
-    });
-
-    this.client.on('message', (topic, message) => {
-      const payload = message.toString();
-      try {
-        const data = JSON.parse(payload);
-        if (this.subscriptions.has(topic)) {
-          this.subscriptions.get(topic)(data, topic);
-        }
-      } catch (e) {
-        // Fallback to raw string if not JSON
-        if (this.subscriptions.has(topic)) {
-          this.subscriptions.get(topic)(payload, topic);
-        }
+    if (from !== undefined) {
+      const fromTs = this._toTimestamp(from);
+      if (fromTs !== null) {
+        results = results.filter(event => (event.from || 0) >= fromTs);
       }
-    });
+    }
 
-    this.client.on('error', (err) => {
-      console.error('[Open-Dome Events] Connection error:', err.message);
-    });
+    if (to !== undefined) {
+      const toTs = this._toTimestamp(to);
+      if (toTs !== null) {
+        results = results.filter(event => (event.to || 0) <= toTs);
+      }
+    }
 
-    this.client.on('close', () => {
-      console.warn('[Open-Dome Events] Connection closed.');
-    });
+    // Default chronological sorting (oldest to newest)
+    results.sort((a, b) => (a.from || 0) - (b.from || 0));
 
-    return this.client;
+    if (offset !== undefined) {
+      results = results.slice(offset);
+    }
+
+    if (limit !== undefined) {
+      results = results.slice(0, limit);
+    }
+
+    return results;
   }
 
   /**
-   * Subscribe to a topic (Notice Board).
-   * @param {string} topic 
-   * @param {Function} callback 
+   * Search for events that overlap with a specific date range.
+   * @param {Date|number|string} start - Start date/time of the range
+   * @param {Date|number|string} end - End date/time of the range
+   * @returns {Array} List of overlapping events
    */
-  subscribe(topic, callback) {
-    if (!this.client) {
-      throw new Error("Must connect to Events API before subscribing.");
-    }
-    this.subscriptions.set(topic, callback);
-    this.client.subscribe(topic);
-    console.log(`[Open-Dome Events] Subscribed to topic: ${topic}`);
+  getByDateRange(start, end) {
+    const startTs = this._toTimestamp(start);
+    const endTs = this._toTimestamp(end);
+    if (startTs === null || endTs === null) return [];
+
+    return this.events.filter(event => {
+      const fromTs = event.from || 0;
+      const toTs = event.to || fromTs;
+      return fromTs <= endTs && toTs >= startTs;
+    }).sort((a, b) => (a.from || 0) - (b.from || 0));
   }
 
   /**
-   * Unsubscribe from a topic.
-   * @param {string} topic 
+   * Retrieve all events occurring or overlapping in a specific month of a year.
+   * @param {number|string} year - Calendar year (e.g. 2027)
+   * @param {number|string} month - Calendar month (1-indexed, e.g. 2 for February)
+   * @returns {Array} Matching events
    */
-  unsubscribe(topic) {
-    if (this.client) {
-      this.client.unsubscribe(topic);
-    }
-    this.subscriptions.delete(topic);
+  getByMonth(year, month) {
+    const y = Number(year);
+    const m = Number(month);
+    if (isNaN(y) || isNaN(m) || m < 1 || m > 12) return [];
+
+    const start = new Date(y, m - 1, 1).getTime();
+    const end = new Date(y, m, 1).getTime() - 1;
+
+    return this.getByDateRange(start, end);
   }
 
   /**
-   * Publish an event to a topic.
-   * @param {string} topic 
-   * @param {Object|string} message 
+   * Retrieve all events occurring or overlapping in a specific calendar year.
+   * @param {number|string} year - Calendar year (e.g. 2027)
+   * @returns {Array} Matching events
    */
-  publish(topic, message) {
-    if (!this.client) {
-      throw new Error("Must connect to Events API before publishing.");
-    }
-    const payload = typeof message === 'object' ? JSON.stringify(message) : message;
-    this.client.publish(topic, payload);
+  getByYear(year) {
+    const y = Number(year);
+    if (isNaN(y)) return [];
+
+    const start = new Date(y, 0, 1).getTime();
+    const end = new Date(y + 1, 0, 1).getTime() - 1;
+
+    return this.getByDateRange(start, end);
   }
 
   /**
-   * Disconnect from the broker.
+   * Retrieve events occurring on a specific month and day across any year.
+   * Useful for finding anniversary-like events or seasonal occurrences.
+   * @param {number|string} month - Calendar month (1-indexed, 1-12)
+   * @param {number|string} day - Day of the month (1-31)
+   * @returns {Array} Matching events
    */
-  disconnect() {
-    if (this.client) {
-      this.client.end();
-      this.client = null;
-    }
+  getByDayAndMonth(month, day) {
+    const m = Number(month);
+    const d = Number(day);
+    if (isNaN(m) || isNaN(d) || m < 1 || m > 12 || d < 1 || d > 31) return [];
+
+    const targetMonth0 = m - 1; // 0-indexed month for javascript Date
+
+    return this.events.filter(event => {
+      if (event.from) {
+        const fromD = new Date(event.from);
+        if (fromD.getMonth() === targetMonth0 && fromD.getDate() === d) return true;
+      }
+      if (event.to) {
+        const toD = new Date(event.to);
+        if (toD.getMonth() === targetMonth0 && toD.getDate() === d) return true;
+      }
+      return false;
+    }).sort((a, b) => (a.from || 0) - (b.from || 0));
   }
 }
 

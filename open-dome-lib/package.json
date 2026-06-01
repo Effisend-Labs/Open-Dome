@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "module": "src/index.js",
   "scripts": {
-    "build": "babel src --out-dir dist --extensions \".js,.jsx\"",
+    "build": "babel src --out-dir dist --extensions \".js,.jsx\" --copy-files",
     "fix:noble": "node scripts/fix-noble.js",
     "prepare": "npm run fix:noble && npm run build",
     "postinstall": "npm run fix:noble"

@@ -8,13 +8,11 @@ import { GLOBAL_STYLES } from '../theme';
 import imgBase from '../assets/base.png';
 import imgMon from '../assets/mon.png';
 import imgSol from '../assets/sol.png';
-import imgStrk from '../assets/strk.png';
 
 const CHAIN_ASSETS = {
   base: { key: "0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681", logo: imgBase, ticker: 'ETH', explorer: 'https://basescan.org/address/' },
   monad: { key: "0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681", logo: imgMon, ticker: 'MON', explorer: 'https://explorer.monad.xyz/address/' },
-  solana: { key: "FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u", logo: imgSol, ticker: 'SOL', explorer: 'https://solscan.io/account/' },
-  starknet: { key: "0x559caafea358d824c9e397e45858129cb4b6f366857e8713b88f559e8502b5d", logo: imgStrk, ticker: 'STRK', explorer: 'https://starkscan.co/contract/' }
+  solana: { key: "FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u", logo: imgSol, ticker: 'SOL', explorer: 'https://solscan.io/account/' }
 };
 
 const formatBalance = (bal) => {
@@ -32,20 +30,29 @@ const truncateAddress = (addr) => {
 
 export default function WalletView({ theme, tokens }) {
   const isDark = theme === 'dark';
-  const { blockchain } = useOpenDome({ blockchain: { evm: ['base', 'monad'] } });
+  const { blockchain, user, isAuthorized } = useOpenDome({ blockchain: { evm: ['base', 'monad'] } });
   const [balances, setBalances] = useState({});
   const [loading, setLoading] = useState(true);
   const [copiedChain, setCopiedChain] = useState(null);
 
+  const resolvedEvmAddress = user?.evmAddress || "";
+  const resolvedSolanaAddress = user?.solanaAddress || "";
+
+  const chainAddresses = {
+    base: resolvedEvmAddress,
+    monad: resolvedEvmAddress,
+    solana: resolvedSolanaAddress
+  };
+
   useEffect(() => {
+    if (!isAuthorized) return;
     const fetchBalances = async () => {
       setLoading(true);
       try {
         const results = await blockchain.getBalances({
-          base: CHAIN_ASSETS.base.key,
-          monad: CHAIN_ASSETS.monad.key,
-          solana: CHAIN_ASSETS.solana.key,
-          starknet: CHAIN_ASSETS.starknet.key
+          base: chainAddresses.base,
+          monad: chainAddresses.monad,
+          solana: chainAddresses.solana
         });
         setBalances(results);
       } catch (err) {
@@ -54,7 +61,41 @@ export default function WalletView({ theme, tokens }) {
       setLoading(false);
     };
     fetchBalances();
-  }, []);
+  }, [isAuthorized]);
+
+  if (!isAuthorized) {
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.BG, padding: 20, justifyContent: 'center' }}>
+        <View style={{
+          borderWidth: 2,
+          borderColor: tokens.BORDER,
+          backgroundColor: tokens.SURFACE,
+          padding: 24,
+          // Brutalist hard shadow
+          ...(isDark ? { boxShadow: `4px 4px 0px ${tokens.NEON_PRIMARY}` } : { boxShadow: '4px 4px 0px #000000' }),
+        }}>
+          <Text style={{
+            fontSize: 16,
+            fontWeight: GLOBAL_STYLES.heavy,
+            color: tokens.FG,
+            fontFamily: GLOBAL_STYLES.monospace,
+            marginBottom: 10
+          }}>
+            AUTHENTICATION REQUIRED
+          </Text>
+          <Text style={{
+            fontSize: 9,
+            color: tokens.MUTED,
+            fontFamily: GLOBAL_STYLES.monospace,
+            marginBottom: 20,
+            lineHeight: 14
+          }}>
+            PLEASE GO TO THE USER TAB AND CONNECT YOUR SECURE PASSPORT TO ACCESS WALLET BALANCES AND ADDRESSES.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   const handleCopy = async (chain, address) => {
     await Clipboard.setStringAsync(address);
@@ -132,17 +173,17 @@ export default function WalletView({ theme, tokens }) {
                 paddingTop: 16
               }}>
                 <Text style={{ color: tokens.MUTED, fontSize: 11, fontFamily: GLOBAL_STYLES.monospace }}>
-                  {truncateAddress(CHAIN_ASSETS[chain].key)}
+                  {truncateAddress(chainAddresses[chain])}
                 </Text>
                 
                 <View style={{ flexDirection: 'row', gap: 16 }}>
-                  <TouchableOpacity onPress={() => handleCopy(chain, CHAIN_ASSETS[chain].key)}>
+                  <TouchableOpacity onPress={() => handleCopy(chain, chainAddresses[chain])}>
                     <Text style={{ color: copiedChain === chain ? tokens.NEON_SUCCESS : tokens.FG, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>
                       {copiedChain === chain ? 'COPIED' : 'COPY'}
                     </Text>
                   </TouchableOpacity>
                   
-                  <TouchableOpacity onPress={() => handleOpenExplorer(CHAIN_ASSETS[chain].explorer, CHAIN_ASSETS[chain].key)}>
+                  <TouchableOpacity onPress={() => handleOpenExplorer(CHAIN_ASSETS[chain].explorer, chainAddresses[chain])}>
                     <Text style={{ color: tokens.FG, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>EXPLORER</Text>
                   </TouchableOpacity>
                 </View>

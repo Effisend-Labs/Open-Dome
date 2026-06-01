@@ -1,0 +1,83 @@
+name: Auto Update and Publish Template
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Configure Git User
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Install Original Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Update Script
+        run: node scripts/update-packages.js
+
+      - name: Check for Changes
+        id: check_changes
+        run: |
+          if [ -n "$(git status --porcelain package.json)" ]; then
+            echo "CHANGED=true" >> $GITHUB_ENV
+          else
+            echo "CHANGED=false" >> $GITHUB_ENV
+            echo "No package changes detected. Skipping publish."
+          fi
+
+      - name: Commit, Version Bump, and Push
+        if: env.CHANGED == 'true'
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore(deps): update template dependencies and pin exact versions [skip ci]"
+          
+          # Automatically bump the patch version
+          npm version patch -m "chore(release): %s"
+          
+          git push origin HEAD
+          git push origin --tags
+
+      - name: Publish to NPM
+        if: env.CHANGED == 'true'
+        run: |
+          # 1. Nuke any local .npmrc file that is sabotaging the auth
+          rm -f .npmrc 
+          echo "🧹 Deleted local .npmrc to prevent conflicts."
+          
+          # 2. Hard diagnostic check on the token
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "❌ CRITICAL ERROR: NODE_AUTH_TOKEN is completely empty!"
+            echo "Please check your GitHub Repository Secrets."
+            exit 1
+          else
+            echo "✅ Token is present (Length: ${#NODE_AUTH_TOKEN} characters)"
+          fi
+          
+          # 3. Publish using the environment variable mapped by setup-node
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

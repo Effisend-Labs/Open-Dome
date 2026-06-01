@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Platform } from 'react-native';
 import { useOpenDome } from 'opendome';
 import { CYBERPUNK_THEME, GLOBAL_STYLES } from './theme';
@@ -8,22 +8,65 @@ import GameView from './components/GameView';
 import MapView from './components/MapView';
 import WalletView from './components/WalletView';
 import EventsView from './components/EventsView';
+import CommunicationView from './components/CommunicationView';
+import UserView from './components/UserView';
 
 const MINI_APPS = [
   { id: 'GAME', title: 'ARCADE' },
   { id: 'MAP', title: 'LOCATION' },
   { id: 'WALLET', title: 'WALLET' },
+  { id: 'USER', title: 'USER' },
+  { id: 'COMMS', title: 'COMMS' },
   { id: 'EVENTS', title: 'EVENTS' },
 ];
 
 export default function App() {
-  const { isAuthorized, token, context, loading, proxiedLocation } = useOpenDome();
+  const { isAuthorized, token, user, context, loading, proxiedLocation, register, login } = useOpenDome({
+    appId: process.env.EXPO_PUBLIC_OD_APP_ID,
+    appToken: process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN
+  });
   const themeType = (context?.theme || 'light').toLowerCase();
   const isDark = themeType === 'dark';
   const tokens = isDark ? CYBERPUNK_THEME.dark : CYBERPUNK_THEME.light;
 
   const [activeApp, setActiveApp] = useState('GAME');
-  const [scores, setScores] = useState({ P1: 0, AI: 0 }); // Shared scores
+  const [scores, setScores] = useState({ P1: 0, AI: 0 });
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (loading) return;
+    if (Platform.OS !== 'web') return;
+
+    const handleWheel = (e) => {
+      if (scrollRef.current) {
+        const node = scrollRef.current.getScrollableNode ? scrollRef.current.getScrollableNode() : scrollRef.current;
+        if (node) {
+          // Horizontal scrolling for the tab selector
+          node.scrollLeft += e.deltaY;
+        }
+      }
+    };
+
+    const node = scrollRef.current && (scrollRef.current.getScrollableNode ? scrollRef.current.getScrollableNode() : scrollRef.current);
+    if (node && typeof node.addEventListener === 'function') {
+      node.addEventListener('wheel', handleWheel, { passive: true });
+      return () => {
+        node.removeEventListener('wheel', handleWheel);
+      };
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      const activeIndex = MINI_APPS.findIndex(app => app.id === activeApp);
+      if (activeIndex !== -1) {
+        const tabWidth = 96; // Matches the minWidth of the tab
+        // Center the active tab in the visible viewport (assuming screen width is ~380px)
+        const targetX = Math.max(0, (activeIndex * tabWidth) - 120);
+        scrollRef.current.scrollTo({ x: targetX, animated: true });
+      }
+    }
+  }, [activeApp]);
 
   const navigateApp = (direction) => {
     const currentIndex = MINI_APPS.findIndex(app => app.id === activeApp);
@@ -48,7 +91,7 @@ export default function App() {
   const renderActiveApp = () => {
     const props = {
       isAuthorized,
-      username: context?.username || 'Guest',
+      username: user?.username || 'Guest',
       theme: themeType,
       tokens,
       scores,
@@ -58,10 +101,13 @@ export default function App() {
       case 'GAME': return <GameView {...props} />;
       case 'MAP': return <MapView {...props} proxiedLocation={proxiedLocation} />;
       case 'WALLET': return <WalletView {...props} />;
+      case 'USER': return <UserView {...props} />;
+      case 'COMMS': return <CommunicationView {...props} />;
       case 'EVENTS': return <EventsView {...props} />;
-      default: return <GameView {...props} />;
+      default: return <UserView {...props} />;
     }
   };
+
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: tokens.BG }]}>
@@ -84,7 +130,12 @@ export default function App() {
         </View>
 
         <View style={styles.selectorContainer}>
-          <View style={styles.navGrid}>
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.navGrid}
+          >
             {MINI_APPS.map((app) => {
               const isActive = activeApp === app.id;
               
@@ -126,7 +177,7 @@ export default function App() {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       </View>
 
@@ -172,11 +223,13 @@ const styles = StyleSheet.create({
   arrowText: { fontSize: 14, fontWeight: 'bold' },
 
   selectorContainer: { paddingHorizontal: 20, paddingBottom: 0 },
-  navGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  navGrid: { flexDirection: 'row' },
   tab: {
-    flex: 1,
-    alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 18,
+    minWidth: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     marginBottom: -1, // collapse borders
     marginRight: -1,

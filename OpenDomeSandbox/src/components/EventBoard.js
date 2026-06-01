@@ -6,7 +6,7 @@ const MQTT_CONFIG = {
   host: 'mqtt.effisend.dpdns.org',
   port: 443,
   protocol: 'wss',
-  username: 'opendome_sandbox'
+  username: 'opendome_host'
 };
 
 export default function EventBoard({ config = {} }) {
@@ -65,7 +65,9 @@ export default function EventBoard({ config = {} }) {
 
     client.on('connect', () => {
       setStatus('CONNECTED');
-      client.subscribe('opendome/public/events');
+      // Subscribe to the full opendome namespace — hears all apps and channels.
+      // The topic is shown in each card for easy debugging.
+      client.subscribe('opendome/#');
     });
 
     client.on('message', (topic, message) => {
@@ -96,7 +98,7 @@ export default function EventBoard({ config = {} }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>REAL-TIME_EVENTS</Text>
+        <Text style={styles.title}>COMMUNICATION API</Text>
         <View style={styles.statusBadge}>
           <View style={[styles.statusDot, { backgroundColor: status === 'CONNECTED' ? '#34C759' : '#FF3B30' }]} />
           <Text style={styles.statusText}>{status}</Text>
