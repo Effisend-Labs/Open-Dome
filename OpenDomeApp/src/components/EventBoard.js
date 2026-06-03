@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TextInput, Pressable, Animated, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import mqtt from 'mqtt';
+import { colors, space, radii, type as typeTokens } from '../core/tokens';
 
 const MQTT_CONFIG = {
   host: 'mqtt.effisend.dpdns.org',
@@ -135,8 +137,8 @@ export default function EventBoard({ config = {}, activeUserProfile = null }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>COMMUNICATION BUS</Text>
-        <View style={styles.statusBadge}>
-          <View style={[styles.statusDot, { backgroundColor: status === 'CONNECTED' ? '#34C759' : '#FF3B30' }]} />
+        <View style={styles.statusBadge} accessibilityLabel={`Connection status: ${status}`}>
+          <View style={[styles.statusDot, { backgroundColor: status === 'CONNECTED' ? colors.status.success : colors.status.danger }]} />
           <Text style={styles.statusText}>{status}</Text>
         </View>
       </View>
@@ -146,18 +148,21 @@ export default function EventBoard({ config = {}, activeUserProfile = null }) {
         <TextInput
           style={styles.composerInput}
           placeholder={status === 'CONNECTED' ? "Type a public message..." : "Waiting for connection..."}
-          placeholderTextColor="#555"
+          placeholderTextColor={colors.text.disabled}
           value={inputText}
           onChangeText={setInputText}
           editable={status === 'CONNECTED'}
+          accessibilityLabel="Public message composer"
         />
-        <Pressable 
+        <Pressable
           style={({ pressed }) => [
             styles.sendButton,
             (pressed || status !== 'CONNECTED') && { opacity: 0.8 }
           ]}
           onPress={handleSendMessage}
           disabled={status !== 'CONNECTED'}
+          accessibilityRole="button"
+          accessibilityLabel="Send public message"
         >
           <Text style={styles.sendButtonText}>Send</Text>
         </Pressable>
@@ -165,11 +170,11 @@ export default function EventBoard({ config = {}, activeUserProfile = null }) {
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {messages.length === 0 ? (
-          <View style={styles.emptyContainer}>
+          <View style={styles.emptyContainer} accessibilityLiveRegion="polite">
             {status === 'CONNECTED' && <Animated.View style={[styles.pulseDot, { opacity: pulseAnim }]} />}
             <Text style={styles.emptyText}>
-              {status === 'CONNECTED' 
-                ? 'Waiting for incoming events...' 
+              {status === 'CONNECTED'
+                ? 'Waiting for incoming events...'
                 : status === 'WAITING_FOR_JWT'
                   ? 'Login or load mini-app to initialize communication.'
                   : 'Disconnected from event broker.'
@@ -178,7 +183,7 @@ export default function EventBoard({ config = {}, activeUserProfile = null }) {
           </View>
         ) : (
           messages.map((msg) => (
-            <View key={msg.id} style={styles.noticeCard}>
+            <View key={msg.id} style={styles.noticeCard} accessible accessibilityLabel={`Message from ${msg.sender || 'unknown'} on ${msg.topic} at ${msg.timestamp}: ${msg.title}`}>
               <View style={styles.cardHeader}>
                 <Text style={styles.topic}>{msg.topic.toUpperCase()}</Text>
                 <Text style={styles.time}>{msg.timestamp}</Text>
@@ -186,7 +191,7 @@ export default function EventBoard({ config = {}, activeUserProfile = null }) {
               {msg.sender ? (
                 <View style={styles.senderRow}>
                   <View style={styles.senderBadge}>
-                    <Text style={styles.senderIcon}>👤</Text>
+                    <Ionicons name="person" size={9} color={colors.status.warning} style={{ marginRight: 4 }} />
                     <Text style={styles.senderText}>{msg.sender}</Text>
                   </View>
                 </View>
@@ -202,168 +207,164 @@ export default function EventBoard({ config = {}, activeUserProfile = null }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#121214', 
-    borderWidth: 1, 
-    borderColor: '#2C2C2E',
-    borderRadius: 8,
-    padding: 16
+  container: {
+    flex: 1,
+    backgroundColor: colors.bg.nested,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    borderRadius: radii.md,
+    padding: space.lg,
   },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 14, 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#2C2C2E', 
-    paddingBottom: 8 
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: space.md + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+    paddingBottom: space.sm,
   },
-  title: { 
-    color: '#8E8E93', 
-    fontSize: 10, 
-    fontWeight: '700', 
-    letterSpacing: 0.5 
+  title: {
+    color: colors.text.muted,
+    fontSize: typeTokens.micro,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  statusBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 6 
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  statusDot: { 
-    width: 6, 
-    height: 6, 
-    borderRadius: 3 
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  statusText: { 
-    color: '#FFFFFF', 
-    fontSize: 9, 
-    fontWeight: '700' 
+  statusText: {
+    color: colors.text.primary,
+    fontSize: typeTokens.micro,
+    fontWeight: '700',
   },
   composer: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+    gap: space.sm,
+    marginBottom: space.lg,
   },
   composerInput: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
-    color: '#FFFFFF',
+    backgroundColor: colors.bg.canvas,
+    color: colors.text.primary,
     borderWidth: 1,
-    borderColor: '#2C2C2E',
-    borderRadius: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    fontSize: 13,
+    borderColor: colors.border.default,
+    borderRadius: radii.sm,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    fontSize: typeTokens.body,
   },
   sendButton: {
-    backgroundColor: '#0A84FF',
-    borderRadius: 4,
-    paddingHorizontal: 16,
+    backgroundColor: colors.brand.alt,
+    borderRadius: radii.sm,
+    paddingHorizontal: space.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    color: colors.text.onAccent,
+    fontSize: typeTokens.small + 1,
     fontWeight: '700',
   },
-  scroll: { 
-    flex: 1 
+  scroll: {
+    flex: 1,
   },
-  noticeCard: { 
-    backgroundColor: '#1C1C1E', 
-    borderRadius: 6, 
-    padding: 12, 
-    marginBottom: 10,
+  noticeCard: {
+    backgroundColor: colors.bg.modal,
+    borderRadius: radii.sm + 2,
+    padding: space.md,
+    marginBottom: space.sm + 2,
     borderWidth: 1,
-    borderColor: '#2C2C2E',
+    borderColor: colors.border.default,
   },
-  cardHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    marginBottom: 4 
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: space.xs,
   },
-  topic: { 
-    color: '#0A84FF', 
-    fontSize: 9, 
-    fontWeight: '700', 
-    letterSpacing: 0.5 
+  topic: {
+    color: colors.brand.alt,
+    fontSize: typeTokens.micro,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  time: { 
-    color: '#8E8E93', 
-    fontSize: 9, 
-    fontFamily: 'monospace' 
+  time: {
+    color: colors.text.muted,
+    fontSize: typeTokens.micro,
+    fontFamily: 'monospace',
   },
-  senderRow: { 
-    flexDirection: 'row', 
-    marginBottom: 6 
+  senderRow: {
+    flexDirection: 'row',
+    marginBottom: 6,
   },
-  senderBadge: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 4, 
-    backgroundColor: '#2C2C2E', 
-    paddingHorizontal: 6, 
-    paddingVertical: 2, 
-    borderRadius: 12, 
+  senderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.border.default,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
-  senderIcon: { 
-    fontSize: 9 
+  senderText: {
+    color: colors.status.warning,
+    fontSize: typeTokens.micro,
+    fontWeight: '700',
+    fontFamily: 'monospace',
   },
-  senderText: { 
-    color: '#FFD60A', 
-    fontSize: 9, 
-    fontWeight: '700', 
-    fontFamily: 'monospace' 
+  noticeTitle: {
+    color: colors.text.primary,
+    fontSize: typeTokens.body,
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  noticeTitle: { 
-    color: '#FFFFFF', 
-    fontSize: 13, 
-    fontWeight: '600', 
-    marginBottom: 2 
+  noticeContent: {
+    color: colors.text.body,
+    fontSize: typeTokens.small + 1,
+    lineHeight: 16,
   },
-  noticeContent: { 
-    color: '#D2D2D7', 
-    fontSize: 12, 
-    lineHeight: 16 
+  jsonBlock: {
+    marginTop: space.xs,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 6,
+    borderRadius: radii.sm,
   },
-  jsonBlock: { 
-    marginTop: 4, 
-    backgroundColor: 'rgba(0,0,0,0.3)', 
-    padding: 6, 
-    borderRadius: 4 
+  jsonLine: {
+    fontFamily: 'monospace',
+    fontSize: typeTokens.micro,
+    marginBottom: 1,
   },
-  jsonLine: { 
-    fontFamily: 'monospace', 
-    fontSize: 10, 
-    marginBottom: 1 
+  jsonKey: {
+    color: colors.text.muted,
   },
-  jsonKey: { 
-    color: '#8E8E93' 
+  jsonString: {
+    color: colors.status.success,
   },
-  jsonString: { 
-    color: '#30D158' 
+  jsonNumber: {
+    color: colors.brand.alt,
   },
-  jsonNumber: { 
-    color: '#0A84FF' 
+  emptyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 30,
+    gap: space.sm,
   },
-  emptyContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    marginTop: 30, 
-    gap: 8 
+  pulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.text.muted,
   },
-  pulseDot: { 
-    width: 6, 
-    height: 6, 
-    borderRadius: 3, 
-    backgroundColor: '#8E8E93' 
+  emptyText: {
+    color: colors.text.disabled,
+    fontSize: typeTokens.small + 1,
+    fontStyle: 'italic',
   },
-  emptyText: { 
-    color: '#555558', 
-    fontSize: 12, 
-    fontStyle: 'italic' 
-  }
 });

@@ -134,7 +134,14 @@ const renderLogLine = (logLine, index) => {
 };
 
 export default function App() {
-  const [url, setUrl] = useState('https://miniapp.expo.app');
+  const [url, setUrl] = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return 'http://localhost:8082/';
+      }
+    } catch (e) {}
+    return 'https://miniapp.expo.app';
+  });
   const [verifiedToken, setVerifiedToken] = useState(() => {
     try {
       return typeof window !== 'undefined' ? window.localStorage.getItem('opendome_sandbox_verified_token') : null;
@@ -549,6 +556,8 @@ export default function App() {
       if (event.data && event.data.type === 'OPENDOME_READY') {
         const { token: appDebugToken, appId } = event.data;
         addLog(`[HANDSHAKE] OPENDOME_READY received. AppId="${appId || 'unknown'}", AppToken="${appDebugToken ? appDebugToken.slice(0, 10) + '...' : 'none'}"`);
+        
+        setEventsConfig(prev => ({ ...prev, appId: appId }));
 
         const iframeEl = document.querySelector('iframe');
         if (iframeEl && iframeEl.contentWindow) {
@@ -659,6 +668,40 @@ export default function App() {
         } catch (e) {}
         setUserProfile(null);
       }
+
+      // Handle AI Agent Prompt from Mini App
+      if (event.data && event.data.type === 'OPENDOME_AI_PROMPT') {
+        const { id, payload: aiPayload } = event.data;
+        const promptText = aiPayload?.prompt || '';
+        addLog(`[AGENT] Received prompt: "${promptText.substring(0, 30)}..."`);
+        
+        fetch('/api/agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: promptText })
+        })
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Server error');
+          return data;
+        })
+        .then(data => {
+          event.source.postMessage({
+            type: 'OPENDOME_AI_RESPONSE',
+            id,
+            response: data.response
+          }, event.origin);
+          addLog(`[AGENT] Success. Response sent to Mini App.`);
+        })
+        .catch(err => {
+          addLog(`[AGENT] Error: ${err.message}`);
+          event.source.postMessage({
+            type: 'OPENDOME_AI_RESPONSE',
+            id,
+            error: err.message
+          }, event.origin);
+        });
+      }
     };
 
     window.addEventListener('message', handleMessage);
@@ -694,6 +737,11 @@ export default function App() {
   const runTest = async () => {
     setIsInjecting(true);
     setSdkStatus({ detected: false, version: null, status: 'PENDING', error: null, context: {} });
+
+    // Clean session and force iframe unmount
+    setActiveUrl(null);
+    setEventsConfig(prev => ({ jwt: prev.jwt })); // Drops appId
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 

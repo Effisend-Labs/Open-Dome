@@ -3,6 +3,7 @@ import { Blockchain, Wallet, Transfer, TransferToken } from './blockchain';
 import { Location } from './location';
 import { Events } from './events';
 import { Communication } from './communication';
+import { Agent } from './agent';
 
 const ALLOWED_ORIGINS = ['https://opendome.expo.app', 'http://localhost:8081'];
 
@@ -339,6 +340,7 @@ export function useOpenDome(config = {}) {
     TransferToken,
     Location,
     Events,
-    Communication
+    Communication,
+    Agent
   };
 }

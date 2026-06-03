@@ -10,6 +10,7 @@ import WalletView from './components/WalletView';
 import EventsView from './components/EventsView';
 import CommunicationView from './components/CommunicationView';
 import UserView from './components/UserView';
+import AgentView from './components/AgentView';
 
 const MINI_APPS = [
   { id: 'GAME', title: 'ARCADE' },
@@ -17,6 +18,7 @@ const MINI_APPS = [
   { id: 'WALLET', title: 'WALLET' },
   { id: 'USER', title: 'USER' },
   { id: 'COMMS', title: 'COMMS' },
+  { id: 'AGENT', title: 'AGENT' },
   { id: 'EVENTS', title: 'EVENTS' },
 ];
 
@@ -103,6 +105,7 @@ export default function App() {
       case 'WALLET': return <WalletView {...props} />;
       case 'USER': return <UserView {...props} />;
       case 'COMMS': return <CommunicationView {...props} />;
+      case 'AGENT': return <AgentView {...props} />;
       case 'EVENTS': return <EventsView {...props} />;
       default: return <UserView {...props} />;
     }

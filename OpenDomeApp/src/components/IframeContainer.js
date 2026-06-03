@@ -1,16 +1,22 @@
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, Pressable, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, space, radii, type as typeTokens, shadow } from '../core/tokens';
 
-export default function IframeContainer({ 
-  activeUrl, 
-  verifiedToken, 
-  contextVariables = [], 
-  onUserAuthChanged, 
-  onTransactionIntent, 
+export default function IframeContainer({
+  activeUrl,
+  verifiedToken,
+  contextVariables = [],
+  onUserAuthChanged,
+  onTransactionIntent,
   onAddLog,
   gpsLocation
 }) {
   const iframeRef = useRef(null);
+  const [loadError, setLoadError] = useState(false);
+
+  // Reset error state whenever we navigate to a new URL
+  useEffect(() => { setLoadError(false); }, [activeUrl]);
 
   // Helper to extract the domain/origin of the loaded mini-app
   const getMiniAppOrigin = () => {
@@ -304,12 +310,15 @@ export default function IframeContainer({
 
   if (Platform.OS !== 'web') {
     return (
-      <View style={styles.nativeFallback}>
+      <View style={styles.nativeFallback} accessibilityRole="alert">
+        <Ionicons name="phone-portrait-outline" size={32} color={colors.text.muted} />
         <Text style={styles.fallbackTitle}>Native WebView Container</Text>
         <Text style={styles.fallbackText}>
           Open-Dome mini-apps are fully optimized for web view docking interfaces. Please deploy or run on Web to view this interactive experience.
         </Text>
-        <Text style={styles.urlText}>Target URL: {activeUrl || 'None'}</Text>
+        <Text style={styles.urlText} accessibilityLabel={`Target URL: ${activeUrl || 'None'}`}>
+          Target URL: {activeUrl || 'None'}
+        </Text>
       </View>
     );
   }
@@ -317,7 +326,36 @@ export default function IframeContainer({
   if (!activeUrl) {
     return (
       <View style={styles.placeholder}>
-        <Text style={styles.placeholderText}>Select a Mini App from the grid launchpad to mount the container.</Text>
+        <Ionicons name="grid-outline" size={28} color={colors.text.muted} />
+        <Text style={styles.placeholderText}>
+          Select a Mini App from the grid launchpad to mount the container.
+        </Text>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={styles.placeholder} accessibilityRole="alert">
+        <Ionicons name="cloud-offline-outline" size={28} color={colors.status.danger} />
+        <Text style={styles.errorTitle}>Mini App Unreachable</Text>
+        <Text style={styles.placeholderText}>{activeUrl}</Text>
+        <Pressable
+          style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.8 }]}
+          onPress={() => {
+            setLoadError(false);
+            if (iframeRef.current) {
+              const src = iframeRef.current.src;
+              iframeRef.current.src = '';
+              iframeRef.current.src = src;
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading mini app"
+        >
+          <Ionicons name="refresh" size={12} color={colors.text.onAccent} />
+          <Text style={styles.retryBtnText}>RETRY</Text>
+        </Pressable>
       </View>
     );
   }
@@ -331,6 +369,7 @@ export default function IframeContainer({
       style={styles.iframe}
       title="Open-Dome Active Mini App"
       allow="geolocation"
+      onError={() => setLoadError(true)}
     />
   );
 }
@@ -340,51 +379,73 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderWidth: 0,
-    backgroundColor: '#0A0A0A',
-    borderRadius: 8,
+    backgroundColor: colors.bg.canvas,
+    borderRadius: radii.md,
   },
   placeholder: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#121214',
+    backgroundColor: colors.bg.nested,
     borderWidth: 1,
-    borderColor: '#2C2C2E',
-    borderRadius: 8,
-    padding: 24,
+    borderColor: colors.border.default,
+    borderRadius: radii.md,
+    padding: space.xxl,
+    gap: space.md,
   },
   placeholderText: {
-    color: '#555558',
-    fontSize: 13,
+    color: colors.text.muted,
+    fontSize: typeTokens.body,
     fontStyle: 'italic',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: typeTokens.body + 5,
+  },
+  errorTitle: {
+    color: colors.text.primary,
+    fontSize: typeTokens.base,
+    fontWeight: '700',
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    backgroundColor: colors.status.danger,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    borderRadius: radii.sm,
+    marginTop: space.sm,
+  },
+  retryBtnText: {
+    color: colors.text.onAccent,
+    fontSize: typeTokens.micro + 1,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   nativeFallback: {
     flex: 1,
-    backgroundColor: '#121214',
+    backgroundColor: colors.bg.nested,
     borderWidth: 1,
-    borderColor: '#2C2C2E',
-    borderRadius: 8,
-    padding: 24,
+    borderColor: colors.border.default,
+    borderRadius: radii.md,
+    padding: space.xxl,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: space.md,
   },
   fallbackTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.text.primary,
+    fontSize: typeTokens.lead,
     fontWeight: '700',
   },
   fallbackText: {
-    color: '#8E8E93',
-    fontSize: 13,
+    color: colors.text.muted,
+    fontSize: typeTokens.body,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: typeTokens.body + 5,
   },
   urlText: {
-    color: '#0A84FF',
+    color: colors.brand.alt,
     fontFamily: 'monospace',
-    fontSize: 11,
-  }
+    fontSize: typeTokens.small,
+  },
 });

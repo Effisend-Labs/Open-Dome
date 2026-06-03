@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View, Pressable, Platform, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, space, radii, type as typeTokens } from '../core/tokens';
 
 let startRegistration, startAuthentication;
 if (Platform.OS === 'web') {
@@ -159,27 +161,35 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
             <TextInput
               style={styles.textInput}
               placeholder="e.g. victor_altaga"
-              placeholderTextColor="#555"
+              placeholderTextColor={colors.text.disabled}
               value={usernameInput}
               onChangeText={setUsernameInput}
               autoCapitalize="none"
               autoCorrect={false}
               editable={!loading}
+              accessibilityLabel="Username"
             />
           </View>
         )}
 
-        {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+        {errorMsg ? (
+          <View style={styles.errorBox} accessibilityRole="alert">
+            <Ionicons name="warning" size={12} color={colors.status.danger} style={{ marginRight: 4 }} />
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        ) : null}
 
         {loading ? (
-          <ActivityIndicator size="small" color="#0A84FF" style={styles.spinner} />
+          <ActivityIndicator size="small" color={colors.brand.alt} style={styles.spinner} />
         ) : (
-          <Pressable 
+          <Pressable
             style={({ pressed }) => [
-              styles.actionButton, 
+              styles.actionButton,
               pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }
             ]}
             onPress={mode === 'login' ? handleLogin : handleRegister}
+            accessibilityRole="button"
+            accessibilityLabel={mode === 'login' ? 'Sign in with passkey' : 'Create passkey'}
           >
             <Text style={styles.actionButtonText}>
               {mode === 'login' ? 'Sign In with Passkey' : 'Create Passkey'}
@@ -193,81 +203,91 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 8,
+    backgroundColor: colors.bg.modal,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#2C2C2E',
+    borderColor: colors.border.default,
     overflow: 'hidden',
     width: '100%',
   },
   tabContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#2C2C2E',
-    backgroundColor: '#121214',
+    borderBottomColor: colors.border.default,
+    backgroundColor: colors.bg.nested,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: space.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeTab: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.bg.modal,
     borderBottomWidth: 2,
-    borderBottomColor: '#0A84FF',
+    borderBottomColor: colors.brand.alt,
   },
   tabText: {
-    color: '#8E8E93',
-    fontSize: 13,
+    color: colors.text.muted,
+    fontSize: typeTokens.body,
     fontWeight: '600',
   },
   activeTabText: {
-    color: '#FFFFFF',
+    color: colors.text.primary,
   },
   cardContent: {
-    padding: 20,
-    gap: 16,
+    padding: space.xl,
+    gap: space.lg,
   },
   inputWrapper: {
     gap: 6,
   },
   label: {
-    color: '#8E8E93',
-    fontSize: 10,
+    color: colors.text.muted,
+    fontSize: typeTokens.micro,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   textInput: {
-    backgroundColor: '#0A0A0A',
-    color: '#FFFFFF',
+    backgroundColor: colors.bg.canvas,
+    color: colors.text.primary,
     borderWidth: 1,
-    borderColor: '#2C2C2E',
-    borderRadius: 4,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    fontSize: 14,
+    borderColor: colors.border.default,
+    borderRadius: radii.sm,
+    paddingVertical: space.sm + 2,
+    paddingHorizontal: space.md,
+    fontSize: typeTokens.base,
     fontFamily: 'monospace',
   },
   actionButton: {
-    backgroundColor: '#0A84FF',
-    borderRadius: 4,
-    paddingVertical: 12,
+    backgroundColor: colors.brand.alt,
+    borderRadius: radii.sm,
+    paddingVertical: space.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: colors.text.onAccent,
+    fontSize: typeTokens.body,
     fontWeight: '700',
   },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 69, 58, 0.12)',
+    padding: space.sm + 2,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.status.danger,
+  },
   errorText: {
-    color: '#FF453A',
-    fontSize: 12,
+    color: colors.status.danger,
+    fontSize: typeTokens.small + 1,
     lineHeight: 16,
+    flexShrink: 1,
   },
   spinner: {
-    marginVertical: 8,
-  }
+    marginVertical: space.sm,
+  },
 });

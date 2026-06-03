@@ -27,12 +27,14 @@ export class CommunicationAPI {
     this.client = null;
     this.appId = null;
     this.subscriptions = new Map(); // resolved topic → callback
+    this.PUBLIC_CHANNEL = CommunicationAPI.PUBLIC_CHANNEL;
   }
 
   // ── Internals ────────────────────────────────────────────────
 
   _buildTopic(subtopic) {
-    const clean = subtopic.replace(/^\/+/, ''); // strip leading slashes
+    if (!subtopic) return `opendome/${this.appId || 'unknown'}`;
+    const clean = String(subtopic).replace(/^\/+/, ''); // strip leading slashes
     
     // 1. If it's a public channel, pass through
     if (

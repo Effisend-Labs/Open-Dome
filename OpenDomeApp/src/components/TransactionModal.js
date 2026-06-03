@@ -1,5 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, Pressable, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, space, radii, type as typeTokens } from '../core/tokens';
 
 export default function TransactionModal({ visible, intent, onApprove, onReject, balances }) {
   if (!intent) return null;
@@ -17,7 +19,10 @@ export default function TransactionModal({ visible, intent, onApprove, onReject,
       <View style={styles.overlay}>
         <View style={styles.alertCard}>
           <View style={styles.alertHeader}>
-            <Text style={styles.alertBadge}>SECURITY GATEWAY</Text>
+            <View style={styles.alertBadgeRow}>
+              <Ionicons name="shield-checkmark" size={12} color={colors.status.warning} style={{ marginRight: 4 }} />
+              <Text style={styles.alertBadge}>SECURITY GATEWAY</Text>
+            </View>
             <Text style={styles.alertTitle}>Approve Transaction</Text>
             <Text style={styles.alertSubtitle}>
               An active mini-app is requesting authorization to transfer assets from your connected wallet.
@@ -57,24 +62,28 @@ export default function TransactionModal({ visible, intent, onApprove, onReject,
           </View>
 
           <View style={styles.actions}>
-            <Pressable 
+            <Pressable
               style={({ pressed }) => [
-                styles.button, 
-                styles.rejectButton, 
+                styles.button,
+                styles.rejectButton,
                 pressed && { opacity: 0.85 }
               ]}
               onPress={onReject}
+              accessibilityRole="button"
+              accessibilityLabel="Reject transaction"
             >
               <Text style={styles.rejectButtonText}>Reject</Text>
             </Pressable>
-            
-            <Pressable 
+
+            <Pressable
               style={({ pressed }) => [
-                styles.button, 
-                styles.approveButton, 
+                styles.button,
+                styles.approveButton,
                 pressed && { opacity: 0.85 }
               ]}
               onPress={onApprove}
+              accessibilityRole="button"
+              accessibilityLabel={`Approve and sign transaction: ${amount} ${chain.toUpperCase() === 'SOLANA' ? 'SOL' : 'ETH'}`}
             >
               <Text style={styles.approveButtonText}>Approve & Sign</Text>
             </Pressable>
@@ -88,49 +97,53 @@ export default function TransactionModal({ visible, intent, onApprove, onReject,
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: colors.bg.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: space.xxl,
   },
   alertCard: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.bg.modal,
     borderWidth: 1,
-    borderColor: '#2C2C2E',
-    borderRadius: 8,
+    borderColor: colors.border.default,
+    borderRadius: radii.md,
     width: '100%',
     maxWidth: 420,
-    padding: 24,
-    gap: 20,
+    padding: space.xxl,
+    gap: space.xl,
   },
   alertHeader: {
     gap: 6,
   },
+  alertBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   alertBadge: {
-    color: '#FFD60A',
-    fontSize: 9,
+    color: colors.status.warning,
+    fontSize: typeTokens.micro,
     fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   alertTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: colors.text.primary,
+    fontSize: typeTokens.h3,
     fontWeight: '700',
     letterSpacing: -0.3,
   },
   alertSubtitle: {
-    color: '#8E8E93',
-    fontSize: 12,
+    color: colors.text.muted,
+    fontSize: typeTokens.small + 1,
     lineHeight: 16,
   },
   detailsBox: {
-    backgroundColor: '#121214',
+    backgroundColor: colors.bg.nested,
     borderWidth: 1,
-    borderColor: '#2C2C2E',
-    borderRadius: 4,
-    padding: 16,
-    gap: 12,
+    borderColor: colors.border.default,
+    borderRadius: radii.sm,
+    padding: space.lg,
+    gap: space.md,
   },
   detailRow: {
     flexDirection: 'row',
@@ -138,54 +151,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailLabel: {
-    color: '#8E8E93',
-    fontSize: 11,
+    color: colors.text.muted,
+    fontSize: typeTokens.small,
     fontWeight: '600',
   },
   detailValue: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    color: colors.text.primary,
+    fontSize: typeTokens.small + 1,
     fontWeight: '700',
   },
   mono: {
     fontFamily: 'monospace',
   },
   highlightAmount: {
-    color: '#FFD60A',
-    fontSize: 13,
+    color: colors.status.warning,
+    fontSize: typeTokens.body,
   },
   divider: {
     height: 1,
-    backgroundColor: '#2C2C2E',
-    marginVertical: 4,
+    backgroundColor: colors.border.default,
+    marginVertical: space.xs,
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: space.md,
   },
   button: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 4,
+    paddingVertical: space.md,
+    borderRadius: radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rejectButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#FF453A',
+    borderColor: colors.status.danger,
   },
   rejectButtonText: {
-    color: '#FF453A',
-    fontSize: 13,
+    color: colors.status.danger,
+    fontSize: typeTokens.body,
     fontWeight: '700',
   },
   approveButton: {
-    backgroundColor: '#30D158',
+    backgroundColor: colors.status.success,
   },
   approveButtonText: {
-    color: '#0A0A0A',
-    fontSize: 13,
+    color: colors.text.inverse,
+    fontSize: typeTokens.body,
     fontWeight: '700',
-  }
+  },
 });

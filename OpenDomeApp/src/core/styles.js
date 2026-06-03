@@ -1,18 +1,24 @@
+/**
+ * @deprecated This file is a compatibility shim. New code should import
+ * from `./tokens` instead. The old "Luxury Dark" gold palette is no longer
+ * used in the live app.
+ */
+import { colors, type as typeTokens } from "./tokens";
+
+export const backgroundColor = colors.bg.canvas;
+export const cardColor       = colors.bg.card;
+export const accentColor     = colors.brand.primary;
+export const whiteColor      = colors.text.primary;
+export const textSecondary   = colors.text.secondary;
+export const borderColor     = colors.border.default;
+
+export const headerHeight = 84;
+export const footerHeight = 64;
+
 import { Dimensions, StatusBar, StyleSheet } from "react-native";
 
 export const screenHeight = Dimensions.get("screen").height;
 export const windowHeight = Dimensions.get("window").height;
-
-// ─── Luxury Dark Palette ──────────────────────────────────────────────────
-export const backgroundColor = "#0A0A0A"; // Rich Black
-export const cardColor = "#1C1C1E";       // Elevated surface
-export const accentColor = "#D4AF37";     // Metallic Gold
-export const whiteColor = "#FFFFFF";
-export const textSecondary = "#8E8E93";
-export const borderColor = "#2C2C2E";
-
-export const headerHeight = 84;
-export const footerHeight = 64;
 export const ratio =
   Dimensions.get("window").height / Dimensions.get("window").width;
 export const mainHeight =
@@ -21,21 +27,17 @@ export const mainHeight =
 export const StatusBarHeight = StatusBar.currentHeight ?? 0;
 
 export const createGlobalStyles = ({ normalize }) => {
-  const baseText = { 
-    color: whiteColor, 
-    fontFamily: "Exo2_400Regular"
+  const baseText = {
+    color: whiteColor,
+    fontFamily: "Exo2_400Regular",
   };
-  const baseBoldText = { 
-    ...baseText, 
-    fontFamily: "Exo2_700Bold" 
+  const baseBoldText = {
+    ...baseText,
+    fontFamily: "Exo2_700Bold",
   };
 
   return StyleSheet.create({
-    // ─── Core Layout ──────────────────────────────────────────────────────────
-    container: {
-      flex: 1,
-      backgroundColor,
-    },
+    container: { flex: 1, backgroundColor },
     header: {
       height: normalize(headerHeight),
       width: "100%",
@@ -46,10 +48,7 @@ export const createGlobalStyles = ({ normalize }) => {
       borderBottomWidth: 1,
       borderBottomColor: borderColor,
     },
-    main: {
-      flex: 1,
-      width: "100%",
-    },
+    main: { flex: 1, width: "100%" },
     footer: {
       width: "100%",
       height: normalize(footerHeight),
@@ -59,32 +58,22 @@ export const createGlobalStyles = ({ normalize }) => {
       borderTopWidth: 1,
       borderTopColor: borderColor,
     },
-    // ─── Typography (Luxury Minimalist) ───────────────────────────────────────
-    heroTitle: {
-      ...baseBoldText,
-      fontSize: normalize(32),
-      letterSpacing: -1,
-    },
+    heroTitle: { ...baseBoldText, fontSize: normalize(typeTokens.h1), letterSpacing: -1 },
     sectionHeader: {
       ...baseBoldText,
-      fontSize: normalize(18),
+      fontSize: normalize(typeTokens.h3),
       color: accentColor,
       textTransform: "uppercase",
       letterSpacing: 1.5,
     },
-    bodyText: {
-      ...baseText,
-      fontSize: normalize(16),
-      color: textSecondary,
-    },
+    bodyText: { ...baseText, fontSize: normalize(typeTokens.base), color: textSecondary },
     labelSmall: {
       ...baseText,
-      fontSize: normalize(12),
+      fontSize: normalize(typeTokens.small),
       color: textSecondary,
       textTransform: "uppercase",
       letterSpacing: 1,
     },
-    // ─── Template Components ──────────────────────────────────────────────────
     card: {
       backgroundColor: cardColor,
       borderRadius: normalize(16),
@@ -100,12 +89,7 @@ export const createGlobalStyles = ({ normalize }) => {
       alignItems: "center",
       justifyContent: "center",
     },
-    buttonText: {
-      ...baseBoldText,
-      color: backgroundColor,
-      fontSize: normalize(16),
-    },
-    // ─── Utility ──────────────────────────────────────────────────────────────
+    buttonText: { ...baseBoldText, color: backgroundColor, fontSize: normalize(typeTokens.base) },
     textAccent: { color: accentColor },
     textWhite: { color: whiteColor },
   });

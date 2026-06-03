@@ -205,7 +205,11 @@ export default function CommunicationView({ theme, tokens }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: tokens.BG, padding: 20 }}>
+    <ScrollView 
+      style={{ flex: 1, backgroundColor: tokens.BG }} 
+      contentContainerStyle={{ padding: 20, flexGrow: 1 }}
+      showsVerticalScrollIndicator={false}
+    >
       
       {/* Header Section */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -360,7 +364,7 @@ export default function CommunicationView({ theme, tokens }) {
       <View style={{ flex: 1 }}>
         <Text style={{ color: tokens.MUTED, fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 12, fontFamily: GLOBAL_STYLES.monospace }}>RECENT_BROADCASTS</Text>
         
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={{ paddingBottom: 40 }}>
           {logs.length === 0 ? (
             <View style={{ padding: 20, alignItems: 'center', borderWidth: 1, borderColor: tokens.BORDER, borderStyle: 'dashed' }}>
               <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace }}>NO EVENTS TRANSMITTED</Text>
@@ -370,8 +374,8 @@ export default function CommunicationView({ theme, tokens }) {
               <LogCard key={log.id} log={log} tokens={tokens} isDark={isDark} />
             ))
           )}
-        </ScrollView>
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
