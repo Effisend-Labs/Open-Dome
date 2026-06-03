@@ -197,6 +197,6 @@ export const springboardApps = [
     accentGlow: colors.neon.cyanGlow,
     symbol:     "TDC",          // monogram inside the custom dome icon
     happening:  3,              // count for the "HAPPENING NOW" pulse
-    url:        "https://miniapp.expo.app/",
+    url:        typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1') ? 'http://localhost:8082/' : 'https://miniapp.expo.app/',
   },
 ];

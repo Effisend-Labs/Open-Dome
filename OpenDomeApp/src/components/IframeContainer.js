@@ -302,6 +302,44 @@ export default function IframeContainer({
         onAddLog('[Bridge] Received logout command. Resetting Host user profile.');
         onUserAuthChanged({ token: null, profile: null, jwt: null });
       }
+
+      // 6. Handle AI Agent Prompt from Mini App
+      if (type === 'OPENDOME_AI_PROMPT') {
+        const { id, payload: aiPayload } = event.data;
+        const promptText = aiPayload?.prompt || '';
+        onAddLog(`[Bridge] Received AI prompt: "${promptText.substring(0, 30)}..."`);
+        
+        try {
+          const res = await fetch('/api/agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: promptText })
+          });
+          
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Server error');
+          
+          const iframe = document.querySelector('iframe');
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+              type: 'OPENDOME_AI_RESPONSE',
+              id,
+              response: data.response
+            }, origin);
+            onAddLog(`[Bridge] AI Response Success. Dispatching to Mini App.`);
+          }
+        } catch (err) {
+          onAddLog(`[Bridge] AI Agent Error: ${err.message}`);
+          const iframe = document.querySelector('iframe');
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+              type: 'OPENDOME_AI_RESPONSE',
+              id,
+              error: err.message
+            }, origin);
+          }
+        }
+      }
     };
 
     window.addEventListener('message', handleMessage);
