@@ -141,9 +141,9 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
       {/* Info Box */}
       <View style={{ padding: 20, borderBottomWidth: 2, borderBottomColor: tokens.BORDER, backgroundColor: tokens.SURFACE }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ color: tokens.FG, fontSize: 11, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 2, fontFamily: GLOBAL_STYLES.monospace }}>LOCATION TRACKER</Text>
+          <Text style={{ color: tokens.FG, fontSize: 11, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 2, fontFamily: tokens.font.primary }}>LOCATION TRACKER</Text>
           <TouchableOpacity
-            style={{ backgroundColor: isFine ? tokens.NEON_SUCCESS : tokens.BG, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: tokens.BORDER }}
+            style={{ backgroundColor: isFine ? tokens.NEON_SUCCESS : tokens.BG, paddingHorizontal: 12, paddingVertical: 6, borderWidth: tokens.shape.border, borderColor: tokens.BORDER, borderRadius: tokens.shape.buttonRadius }}
             onPress={async () => {
               if (!isFine) {
                 // Requesting High Acc
@@ -160,18 +160,18 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
               }
             }}
           >
-            <Text style={{ color: isFine ? '#000' : tokens.FG, fontSize: 8, fontWeight: '900', fontFamily: GLOBAL_STYLES.monospace }}>{isFine ? 'HIGH ACC' : 'LOW ACC'}</Text>
+            <Text style={{ color: isFine ? '#000' : tokens.FG, fontSize: 8, fontWeight: '900', fontFamily: tokens.font.primary }}>{isFine ? 'HIGH ACC' : 'LOW ACC'}</Text>
           </TouchableOpacity>
         </View>
         {coords ? (
-          <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: GLOBAL_STYLES.monospace, marginTop: 4 }}>
-            COORD: [{coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}] | ACC: {coords.accuracy.toFixed(1)}m
+          <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: tokens.font.mono, marginTop: 4 }}>
+            COORD: [{coords.latitude?.toFixed(4)}, {coords.longitude?.toFixed(4)}] | ACC: {(coords.accuracy || 0).toFixed(1)}m
           </Text>
         ) : (
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-            <Text style={{ color: tokens.NEON_DANGER, fontSize: 9, fontFamily: GLOBAL_STYLES.monospace, flex: 1 }}>{error || 'LOCATING...'}</Text>
-            <TouchableOpacity style={{ backgroundColor: tokens.NEON_DANGER, paddingHorizontal: 10, paddingVertical: 4 }} onPress={fetchLocation}>
-              <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '900', fontFamily: GLOBAL_STYLES.monospace }}>RETRY</Text>
+            <Text style={{ color: tokens.NEON_DANGER, fontSize: 9, fontFamily: tokens.font.mono, flex: 1 }}>{error || 'LOCATING...'}</Text>
+            <TouchableOpacity style={{ backgroundColor: tokens.NEON_PRIMARY, paddingHorizontal: 10, paddingVertical: 4, borderRadius: tokens.shape.buttonRadius }} onPress={fetchLocation}>
+              <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '900', fontFamily: tokens.font.primary }}>RETRY</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -181,12 +181,12 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
       {permissionStatus !== 'granted' && isFine && (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, position: 'absolute', top: 100, left: 0, right: 0, bottom: 0, zIndex: 10, backgroundColor: tokens.BG }}>
           <Text style={{ fontSize: 48, marginBottom: 20 }}>📡</Text>
-          <Text style={{ color: tokens.FG, fontSize: 13, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, marginBottom: 10, fontFamily: GLOBAL_STYLES.monospace }}>LOCATION REQUIRED</Text>
-          <Text style={{ color: tokens.MUTED, fontSize: 11, textAlign: 'center', lineHeight: 18, marginBottom: 30, fontFamily: GLOBAL_STYLES.monospace }}>
+          <Text style={{ color: tokens.FG, fontSize: 13, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, marginBottom: 10, fontFamily: tokens.font.primary }}>LOCATION REQUIRED</Text>
+          <Text style={{ color: tokens.MUTED, fontSize: 11, textAlign: 'center', lineHeight: 18, marginBottom: 30, fontFamily: tokens.font.mono }}>
             This app needs geolocation access to display your position on the map.
           </Text>
-          <TouchableOpacity style={{ backgroundColor: tokens.NEON_DANGER, paddingHorizontal: 24, paddingVertical: 16, borderWidth: 1, borderColor: tokens.FG }} onPress={requestPermission}>
-            <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '900', fontFamily: GLOBAL_STYLES.monospace }}>ALLOW ACCESS</Text>
+          <TouchableOpacity style={{ backgroundColor: tokens.NEON_PRIMARY, paddingHorizontal: 24, paddingVertical: 16, borderWidth: tokens.shape.border, borderColor: tokens.FG, borderRadius: tokens.shape.buttonRadius }} onPress={requestPermission}>
+            <Text style={{ color: isDark ? '#000' : '#FFF', fontSize: 10, fontWeight: '900', fontFamily: tokens.font.primary }}>ALLOW ACCESS</Text>
           </TouchableOpacity>
         </View>
       )}

@@ -62,7 +62,7 @@ const NeonToken = ({ type, tokens, isDark, isDimmed }) => {
   );
 };
 
-export default function GameView({ isAuthorized, username, theme, tokens, scores, setScores }) {
+export default function GameView({ isAuthorized, username, theme, tokens, scores, setScores, t }) {
   const isDark = theme === 'dark';
   const [gameMode, setGameMode] = useState(null);
   const [board, setBoard] = useState(Array(9).fill(null));
@@ -181,19 +181,19 @@ export default function GameView({ isAuthorized, username, theme, tokens, scores
     <View style={{ flex: 1, backgroundColor: tokens.BG }}>
       {!gameMode ? (
         <View style={{ flex: 1, justifyContent: 'center', padding: 30 }}>
-          <Text style={{ color: tokens.FG, fontSize: 32, fontWeight: GLOBAL_STYLES.heavy, marginBottom: 4, fontFamily: GLOBAL_STYLES.monospace }}>
-            ARCADE LOBBY
+          <Text style={{ color: tokens.FG, fontSize: 32, fontWeight: GLOBAL_STYLES.heavy, marginBottom: 4, fontFamily: tokens.font.primary }}>
+            {t.game?.lobby || 'ARCADE LOBBY'}
           </Text>
-          <Text style={{ color: tokens.NEON_DANGER, fontSize: 10, fontWeight: '900', letterSpacing: 2, marginBottom: 40, fontFamily: GLOBAL_STYLES.monospace }}>
-            PLAYER: {username?.toUpperCase() || 'GUEST_00'}
+          <Text style={{ color: tokens.NEON_PRIMARY, fontSize: 10, fontWeight: '900', letterSpacing: 2, marginBottom: 40, fontFamily: tokens.font.mono }}>
+            {t.game?.player || 'PLAYER'}: {username?.toUpperCase() || t.game?.guest || 'GUEST_00'}
           </Text>
 
-          <TouchableOpacity style={[styles.menuBtn, { backgroundColor: tokens.NEON_DANGER }]} onPress={() => setGameMode('SOLO')}>
-            <Text style={styles.menuBtnText}>PLAY SOLO (VS AI)</Text>
+          <TouchableOpacity style={[styles.menuBtn, { backgroundColor: tokens.NEON_PRIMARY, borderRadius: tokens.shape.buttonRadius }]} onPress={() => setGameMode('SOLO')}>
+            <Text style={[styles.menuBtnText, { fontFamily: tokens.font.primary }]}>{t.game?.playSolo || 'PLAY SOLO (VS AI)'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.menuBtn, { backgroundColor: 'transparent', borderWidth: 2, borderColor: tokens.FG }]} onPress={() => setGameMode('DUO')}>
-            <Text style={[styles.menuBtnText, { color: tokens.FG }]}>PLAY LOCAL (2P)</Text>
+          <TouchableOpacity style={[styles.menuBtn, { backgroundColor: 'transparent', borderWidth: 2, borderColor: tokens.FG, borderRadius: tokens.shape.buttonRadius }]} onPress={() => setGameMode('DUO')}>
+            <Text style={[styles.menuBtnText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>{t.game?.playLocal || 'PLAY LOCAL (2P)'}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -201,18 +201,18 @@ export default function GameView({ isAuthorized, username, theme, tokens, scores
           {/* Scoreboard */}
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
             {[
-              { id: 'P1', label: 'PLAYER 1 (X)', active: isP1Next },
-              { id: 'AI', label: gameMode === 'SOLO' ? 'AI (O)' : 'PLAYER 2 (O)', active: !isP1Next }
+              { id: 'P1', label: `${t.game?.player1 || 'PLAYER 1'} (X)`, active: isP1Next },
+              { id: 'AI', label: gameMode === 'SOLO' ? `${t.game?.aiSystem || 'AI'} (O)` : `${t.game?.player2 || 'PLAYER 2'} (O)`, active: !isP1Next }
             ].map((p) => (
-              <View key={p.id} style={[styles.scoreCard, { backgroundColor: tokens.SURFACE, borderLeftWidth: 4, borderLeftColor: p.active ? (p.id === 'P1' ? tokens.NEON_PRIMARY : tokens.NEON_DANGER) : tokens.BORDER }]}>
-                <Text style={[styles.scoreLabel, { color: tokens.MUTED }]}>{p.label}</Text>
-                <Text style={[styles.scoreValue, { color: tokens.FG }]}>{isAiThinking && p.id === 'AI' ? '...' : scores[p.id]}</Text>
+              <View key={p.id} style={[styles.scoreCard, { backgroundColor: tokens.SURFACE, borderLeftWidth: 4, borderLeftColor: p.active ? (p.id === 'P1' ? tokens.NEON_PRIMARY : tokens.NEON_DANGER) : tokens.BORDER, borderRadius: tokens.shape.cardRadius / 2, ...tokens.shadow.card }]}>
+                <Text style={[styles.scoreLabel, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>{p.label}</Text>
+                <Text style={[styles.scoreValue, { color: tokens.FG, fontFamily: tokens.font.mono }]}>{isAiThinking && p.id === 'AI' ? '...' : scores[p.id]}</Text>
               </View>
             ))}
           </View>
 
           {/* Grid */}
-          <View style={[styles.grid, { borderColor: tokens.BORDER }]}>
+          <View style={[styles.grid, { borderColor: tokens.BORDER, borderRadius: tokens.shape.cardRadius, overflow: 'hidden' }]}>
             {board.map((cell, i) => (
               <TouchableOpacity key={i} style={[styles.cell, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]} onPress={() => handlePress(i)} activeOpacity={0.9}>
                 {cell && <NeonToken type={cell} tokens={tokens} isDark={isDark} isDimmed={winData && !winData.line.includes(i)} />}
@@ -231,7 +231,7 @@ export default function GameView({ isAuthorized, username, theme, tokens, scores
                 backgroundColor: isDark ? 'rgba(10,10,12,0.95)' : 'rgba(244,244,245,0.95)' 
               }
             ]}>
-              <View style={[styles.resultCard, { borderColor: tokens.FG, backgroundColor: tokens.SURFACE }]}>
+              <View style={[styles.resultCard, { borderColor: tokens.BORDER, borderWidth: tokens.shape.border, backgroundColor: tokens.SURFACE, borderRadius: tokens.shape.cardRadius, ...tokens.shadow.card }]}>
                 <Text style={[
                   styles.resultTitle, 
                   { 
@@ -240,24 +240,25 @@ export default function GameView({ isAuthorized, username, theme, tokens, scores
                     // 3. Keep the glow strictly for dark mode
                     textShadowColor: draw ? tokens.NEON_WARNING : (winData?.winner === 'X' ? tokens.NEON_PRIMARY : tokens.NEON_DANGER),
                     textShadowRadius: isDark ? 15 : 0,
-                    textShadowOffset: { width: 0, height: 0 }
+                    textShadowOffset: { width: 0, height: 0 },
+                    fontFamily: tokens.font.primary
                   }
                 ]}>
-                  {draw ? 'DRAW' : 'WINNER'}
+                  {draw ? (t.game?.draw || 'DRAW') : (t.game?.winner || 'WINNER')}
                 </Text>
                 
                 {!draw && (
-                  <Text style={[styles.resultSubtitle, { color: tokens.FG }]}>
-                    {winData.winner === 'X' ? 'PLAYER 1' : (gameMode === 'SOLO' ? 'AI SYSTEM' : 'PLAYER 2')}
+                  <Text style={[styles.resultSubtitle, { color: tokens.FG, fontFamily: tokens.font.mono }]}>
+                    {winData.winner === 'X' ? (t.game?.player1 || 'PLAYER 1') : (gameMode === 'SOLO' ? (t.game?.aiSystem || 'AI SYSTEM') : (t.game?.player2 || 'PLAYER 2'))}
                   </Text>
                 )}
 
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: tokens.NEON_PRIMARY, marginTop: 30 }]} onPress={nextRound}>
+                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: tokens.NEON_PRIMARY, marginTop: 30, borderRadius: tokens.shape.buttonRadius }]} onPress={nextRound}>
                   {/* 4. Fix Button Text: Ensure high contrast against the Corporate Blue in light mode */}
-                  <Text style={[styles.actionBtnText, { color: isDark ? '#000000' : '#FFFFFF' }]}>PLAY AGAIN</Text>
+                  <Text style={[styles.actionBtnText, { color: isDark ? '#000000' : '#FFFFFF', fontFamily: tokens.font.primary }]}>{t.game?.playAgain || 'PLAY AGAIN'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.exitBtn} onPress={exitToMenu}>
-                  <Text style={{ color: tokens.MUTED, fontSize: 10, fontWeight: 'bold', fontFamily: GLOBAL_STYLES.monospace }}>EXIT TO MENU</Text>
+                  <Text style={{ color: tokens.MUTED, fontSize: 10, fontWeight: 'bold', fontFamily: tokens.font.mono }}>{t.game?.exit || 'EXIT TO MENU'}</Text>
                 </TouchableOpacity>
               </View>
             </Animated.View>
@@ -269,11 +270,11 @@ export default function GameView({ isAuthorized, username, theme, tokens, scores
 }
 
 const styles = StyleSheet.create({
-  menuBtn: { height: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderRadius: 0 },
-  menuBtnText: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: 1, fontFamily: GLOBAL_STYLES.monospace },
+  menuBtn: { height: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  menuBtnText: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
   scoreCard: { flex: 1, padding: 12 },
-  scoreLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 1, marginBottom: 4, fontFamily: GLOBAL_STYLES.monospace },
-  scoreValue: { fontSize: 18, fontWeight: '900', fontFamily: GLOBAL_STYLES.monospace },
+  scoreLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 1, marginBottom: 4 },
+  scoreValue: { fontSize: 18, fontWeight: '900' },
   grid: { width: '100%', aspectRatio: 1, flexDirection: 'row', flexWrap: 'wrap', borderWidth: 1 },
   cell: { width: '33.333%', aspectRatio: 1, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   
@@ -292,10 +293,10 @@ const styles = StyleSheet.create({
   stitchRight: { position: 'absolute', right: '10%', top: 0, bottom: 0, width: '20%', borderLeftWidth: 2, borderStyle: 'dotted' },
 
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
-  resultCard: { padding: 40, borderWidth: 2, alignItems: 'center', width: '90%' },
-  resultTitle: { fontSize: 32, fontWeight: '900', marginBottom: 40, fontFamily: GLOBAL_STYLES.monospace, letterSpacing: 2 },
-  resultSubtitle: { fontSize: 14, fontWeight: '900', letterSpacing: 2, fontFamily: GLOBAL_STYLES.monospace, marginTop: 10 },
+  resultCard: { padding: 40, alignItems: 'center', width: '90%' },
+  resultTitle: { fontSize: 32, fontWeight: '900', marginBottom: 40, letterSpacing: 2 },
+  resultSubtitle: { fontSize: 14, fontWeight: '900', letterSpacing: 2, marginTop: 10 },
   actionBtn: { paddingHorizontal: 40, paddingVertical: 18, marginBottom: 20 },
-  actionBtnText: { color: '#000', fontSize: 12, fontWeight: '900', letterSpacing: 1, fontFamily: GLOBAL_STYLES.monospace },
+  actionBtnText: { color: '#000', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
   exitBtn: { padding: 10 },
 });

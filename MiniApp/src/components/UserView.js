@@ -6,7 +6,7 @@ import {
 import { useOpenDome } from 'opendome';
 import { GLOBAL_STYLES } from '../theme';
 
-export default function UserView({ tokens, theme }) {
+export default function UserView({ tokens, theme, t }) {
   const isDark = theme === 'dark';
   const { isAuthorized, user, register, login, logout } = useOpenDome();
 
@@ -16,7 +16,7 @@ export default function UserView({ tokens, theme }) {
 
   const handleRegister = () => {
     if (!username.trim()) {
-      setError('USERNAME_REQUIRED — enter a handle to register.');
+      setError(t.userProfile?.usernameRequired || 'USERNAME_REQUIRED — enter a handle to register.');
       return;
     }
     setError(null);
@@ -48,63 +48,65 @@ export default function UserView({ tokens, theme }) {
         <View>
           <View style={[styles.card, {
             backgroundColor: tokens.SURFACE,
-            borderColor: tokens.NEON_SUCCESS,
+            borderColor: tokens.BORDER,
             marginBottom: 20,
-            // Brutalist hard shadow — no blurred glow
-            ...(isDark ? { boxShadow: `4px 4px 0px ${tokens.NEON_SUCCESS}` } : { boxShadow: '4px 4px 0px #000000' })
+            borderRadius: tokens.shape.cardRadius,
+            ...tokens.shadow.card
           }]}>
             <View style={styles.cardHeader}>
-              <View style={[styles.dot, { backgroundColor: tokens.NEON_SUCCESS }]} />
-              <Text style={[styles.statusText, { color: tokens.NEON_SUCCESS }]}>
-                SESSION ACTIVE
+              <View style={[styles.dot, { backgroundColor: tokens.NEON_SUCCESS, borderRadius: tokens.shape.pillRadius }]} />
+              <Text style={[styles.statusText, { color: tokens.NEON_SUCCESS, fontFamily: tokens.font.primary }]}>
+                {t.userProfile?.sessionActive || 'SESSION ACTIVE'}
               </Text>
             </View>
 
-            <Text style={[styles.handle, { color: tokens.FG }]}>
+            <Text style={[styles.handle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
               @{user.username || 'unknown'}
             </Text>
 
             <View style={styles.divider} />
 
-            <AddressRow label="EVM" value={user.evmAddress} tokens={tokens} />
-            <AddressRow label="SOL" value={user.solanaAddress} tokens={tokens} />
+            <AddressRow label="EVM" value={user.evmAddress} tokens={tokens} t={t} />
+            <AddressRow label="SOL" value={user.solanaAddress} tokens={tokens} t={t} />
           </View>
 
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: 'transparent', borderColor: tokens.NEON_DANGER }]}
+            style={[styles.button, { backgroundColor: 'transparent', borderColor: tokens.NEON_DANGER, borderRadius: tokens.shape.buttonRadius }]}
             onPress={handleLogout}
             activeOpacity={0.7}
           >
-            <Text style={[styles.buttonText, { color: tokens.NEON_DANGER }]}>
-              DISCONNECT PASSPORT
+            <Text style={[styles.buttonText, { color: tokens.NEON_DANGER, fontFamily: tokens.font.primary }]}>
+              {t.userProfile?.disconnect || 'DISCONNECT PASSPORT'}
             </Text>
           </TouchableOpacity>
         </View>
       ) : (
         /* Unauthorized State: Show Login / Register */
         <View>
-          <Text style={[styles.title, { color: tokens.FG }]}>SECURE PASSPORT</Text>
-          <Text style={[styles.subtitle, { color: tokens.MUTED }]}>
-            BIOMETRIC AUTH IS EXECUTED SECURELY BY THE PARENT SANDBOX.
+          <Text style={[styles.title, { color: tokens.FG, fontFamily: tokens.font.primary }]}>{t.userProfile?.securePassport || 'SECURE PASSPORT'}</Text>
+          <Text style={[styles.subtitle, { color: tokens.MUTED, fontFamily: tokens.font.mono }]}>
+            {t.userProfile?.bioAuthMsg || 'BIOMETRIC AUTH IS EXECUTED SECURELY BY THE PARENT SANDBOX.'}
           </Text>
 
           {/* Register */}
           <View style={[styles.card, {
             backgroundColor: tokens.SURFACE,
             borderColor: tokens.BORDER,
-            // Brutalist hard offset shadow — razor-sharp, no blur
-            ...(isDark ? { boxShadow: `4px 4px 0px ${tokens.NEON_PRIMARY}` } : { boxShadow: '4px 4px 0px #000000' }),
+            borderRadius: tokens.shape.cardRadius,
+            ...tokens.shadow.card
           }]}>
-            <Text style={[styles.sectionLabel, { color: tokens.FG }]}>CREATE ACCOUNT</Text>
+            <Text style={[styles.sectionLabel, { color: tokens.FG, fontFamily: tokens.font.primary }]}>{t.userProfile?.createAccount || 'CREATE ACCOUNT'}</Text>
             <TextInput
               style={[styles.input, {
                 backgroundColor: tokens.BG,
                 borderColor: tokens.BORDER,
                 color: tokens.FG,
+                borderRadius: tokens.shape.buttonRadius,
+                fontFamily: tokens.font.mono
               }]}
               value={username}
               onChangeText={setUsername}
-              placeholder="username (e.g. alice)"
+              placeholder={t.userProfile?.usernamePlaceholder || 'username (e.g. alice)'}
               placeholderTextColor={tokens.MUTED}
               autoCapitalize="none"
               autoCorrect={false}
@@ -112,15 +114,15 @@ export default function UserView({ tokens, theme }) {
             />
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: tokens.NEON_PRIMARY, borderColor: tokens.FG }]}
+              style={[styles.button, { backgroundColor: tokens.NEON_PRIMARY, borderColor: tokens.NEON_PRIMARY, borderRadius: tokens.shape.buttonRadius }]}
               onPress={handleRegister}
               activeOpacity={0.7}
               disabled={pending}
             >
               {pending
                 ? <ActivityIndicator color={isDark ? '#000' : '#fff'} size="small" />
-                : <Text style={[styles.buttonText, { color: isDark ? '#000' : '#fff' }]}>
-                    REGISTER WITH PASSKEY
+                : <Text style={[styles.buttonText, { color: isDark ? '#000' : '#fff', fontFamily: tokens.font.primary }]}>
+                    {t.userProfile?.registerBtn || 'REGISTER WITH PASSKEY'}
                   </Text>
               }
             </TouchableOpacity>
@@ -129,35 +131,35 @@ export default function UserView({ tokens, theme }) {
           {/* Separator */}
           <View style={styles.orRow}>
             <View style={[styles.orLine, { backgroundColor: tokens.BORDER }]} />
-            <Text style={[styles.orText, { color: tokens.MUTED }]}>OR</Text>
+            <Text style={[styles.orText, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>{t.userProfile?.or || 'OR'}</Text>
             <View style={[styles.orLine, { backgroundColor: tokens.BORDER }]} />
           </View>
 
           {/* Login */}
           <TouchableOpacity
-            style={[styles.button, styles.loginButton, { borderColor: tokens.BORDER }]}
+            style={[styles.button, styles.loginButton, { borderColor: tokens.BORDER, borderRadius: tokens.shape.buttonRadius }]}
             onPress={handleLogin}
             activeOpacity={0.7}
             disabled={pending}
           >
             {pending
               ? <ActivityIndicator color={tokens.FG} size="small" />
-              : <Text style={[styles.buttonText, { color: tokens.FG }]}>
-                  SIGN IN WITH PASSKEY
+              : <Text style={[styles.buttonText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+                  {t.userProfile?.signInBtn || 'SIGN IN WITH PASSKEY'}
                 </Text>
             }
           </TouchableOpacity>
 
           {/* Error */}
           {error && (
-            <View style={[styles.errorBox, { borderColor: tokens.NEON_DANGER }]}>
-              <Text style={[styles.errorText, { color: tokens.NEON_DANGER }]}>{error}</Text>
+            <View style={[styles.errorBox, { borderColor: tokens.NEON_DANGER, borderRadius: tokens.shape.cardRadius / 2 }]}>
+              <Text style={[styles.errorText, { color: tokens.NEON_DANGER, fontFamily: tokens.font.mono }]}>{error}</Text>
             </View>
           )}
 
           {pending && (
-            <Text style={[styles.hint, { color: tokens.MUTED, marginTop: 20, textAlign: 'center' }]}>
-              AWAITING BIOMETRIC VERIFICATION IN SANDBOX...
+            <Text style={[styles.hint, { color: tokens.MUTED, marginTop: 20, textAlign: 'center', fontFamily: tokens.font.mono }]}>
+              {t.userProfile?.awaitingBio || 'AWAITING BIOMETRIC VERIFICATION IN SANDBOX...'}
             </Text>
           )}
         </View>
@@ -166,12 +168,12 @@ export default function UserView({ tokens, theme }) {
   );
 }
 
-function AddressRow({ label, value, tokens }) {
+function AddressRow({ label, value, tokens, t }) {
   if (!value) return null;
   return (
     <View style={{ marginBottom: 12 }}>
-      <Text style={[styles.addressLabel, { color: tokens.MUTED }]}>{label} ADDRESS</Text>
-      <Text style={[styles.addressValue, { color: tokens.FG }]} numberOfLines={1} ellipsizeMode="middle">
+      <Text style={[styles.addressLabel, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>{label} {t?.userProfile?.address || 'ADDRESS'}</Text>
+      <Text style={[styles.addressValue, { color: tokens.FG, fontFamily: tokens.font.mono }]} numberOfLines={1} ellipsizeMode="middle">
         {value}
       </Text>
     </View>
@@ -196,7 +198,6 @@ const styles = StyleSheet.create({
   card: {
     padding: 20,
     borderWidth: 1,
-    borderRadius: 0, // razor-sharp corners — no rounded-lg
   },
   cardHeader: {
     flexDirection: 'row',
@@ -204,17 +205,15 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  dot: { width: 6, height: 6, borderRadius: 0 }, // square dot — not pill
+  dot: { width: 6, height: 6 },
   statusText: {
     fontSize: 9,
     fontWeight: '700',
-    fontFamily: GLOBAL_STYLES.monospace,
     letterSpacing: 1,
   },
   handle: {
     fontSize: 28,
     fontWeight: '900',
-    fontFamily: GLOBAL_STYLES.monospace,
     letterSpacing: -1,
     marginBottom: 16,
   },
@@ -243,16 +242,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderRadius: 0, // razor-sharp
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 13,
-    fontFamily: GLOBAL_STYLES.monospace,
     marginBottom: 16,
   },
   button: {
     borderWidth: 1,
-    borderRadius: 0, // razor-sharp — no pill, no rounded-lg
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -263,7 +259,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 11,
     fontWeight: '800',
-    fontFamily: GLOBAL_STYLES.monospace,
     letterSpacing: 1,
   },
   orRow: {

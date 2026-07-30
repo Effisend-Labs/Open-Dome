@@ -4,6 +4,7 @@
 
 const PRODUCTION_ALLOWED_ORIGINS = [
   'https://opendome.expo.app',
+  'https://opendomeos.expo.app',
   'https://miniapp.expo.app',
 ];
 

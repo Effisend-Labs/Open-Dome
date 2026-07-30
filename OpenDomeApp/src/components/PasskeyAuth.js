@@ -180,7 +180,7 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
         ) : null}
 
         {loading ? (
-          <ActivityIndicator size="small" color={colors.brand.alt} style={styles.spinner} />
+          <ActivityIndicator size="small" color={colors.brand.primary} style={styles.spinner} />
         ) : (
           <Pressable
             style={({ pressed }) => [
@@ -225,12 +225,13 @@ const styles = StyleSheet.create({
   activeTab: {
     backgroundColor: colors.bg.modal,
     borderBottomWidth: 2,
-    borderBottomColor: colors.brand.alt,
+    borderBottomColor: colors.brand.primary,
   },
   tabText: {
-    color: colors.text.muted,
+    color: colors.text.secondary,
     fontSize: typeTokens.body,
     fontWeight: '600',
+    fontFamily: typeTokens.fontFamily,
   },
   activeTabText: {
     color: colors.text.primary,
@@ -258,19 +259,20 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm + 2,
     paddingHorizontal: space.md,
     fontSize: typeTokens.base,
-    fontFamily: 'monospace',
+    fontFamily: typeTokens.fontFamilyCode,
   },
   actionButton: {
-    backgroundColor: colors.brand.alt,
+    backgroundColor: colors.brand.primary,
     borderRadius: radii.sm,
     paddingVertical: space.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionButtonText: {
-    color: colors.text.onAccent,
+    color: colors.text.inverse,
     fontSize: typeTokens.body,
     fontWeight: '700',
+    fontFamily: typeTokens.fontFamily,
   },
   errorBox: {
     flexDirection: 'row',

@@ -129,13 +129,15 @@ const styles = StyleSheet.create({
   alertTitle: {
     color: colors.text.primary,
     fontSize: typeTokens.h3,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    fontFamily: typeTokens.fontFamily,
   },
   alertSubtitle: {
-    color: colors.text.muted,
+    color: colors.text.secondary,
     fontSize: typeTokens.small + 1,
-    lineHeight: 16,
+    lineHeight: 18,
+    fontFamily: typeTokens.fontFamily,
   },
   detailsBox: {
     backgroundColor: colors.bg.nested,
@@ -151,21 +153,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   detailLabel: {
-    color: colors.text.muted,
+    color: colors.text.secondary,
     fontSize: typeTokens.small,
     fontWeight: '600',
+    fontFamily: typeTokens.fontFamily,
   },
   detailValue: {
     color: colors.text.primary,
     fontSize: typeTokens.small + 1,
     fontWeight: '700',
+    fontFamily: typeTokens.fontFamily,
   },
   mono: {
-    fontFamily: 'monospace',
+    fontFamily: typeTokens.fontFamilyCode,
   },
   highlightAmount: {
     color: colors.status.warning,
     fontSize: typeTokens.body,
+    fontWeight: '700',
+    fontFamily: typeTokens.fontFamily,
   },
   divider: {
     height: 1,
@@ -192,6 +198,7 @@ const styles = StyleSheet.create({
     color: colors.status.danger,
     fontSize: typeTokens.body,
     fontWeight: '700',
+    fontFamily: typeTokens.fontFamily,
   },
   approveButton: {
     backgroundColor: colors.status.success,
@@ -200,5 +207,6 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     fontSize: typeTokens.body,
     fontWeight: '700',
+    fontFamily: typeTokens.fontFamily,
   },
 });

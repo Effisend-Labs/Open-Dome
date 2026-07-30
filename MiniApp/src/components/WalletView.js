@@ -28,7 +28,7 @@ const truncateAddress = (addr) => {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
-export default function WalletView({ theme, tokens }) {
+export default function WalletView({ theme, tokens, t }) {
   const isDark = theme === 'dark';
   const { blockchain, user, isAuthorized } = useOpenDome({ blockchain: { evm: ['base', 'monad'] } });
   const [balances, setBalances] = useState({});
@@ -71,26 +71,26 @@ export default function WalletView({ theme, tokens }) {
           borderColor: tokens.BORDER,
           backgroundColor: tokens.SURFACE,
           padding: 24,
-          // Brutalist hard shadow
-          ...(isDark ? { boxShadow: `4px 4px 0px ${tokens.NEON_PRIMARY}` } : { boxShadow: '4px 4px 0px #000000' }),
+          borderRadius: tokens.shape.cardRadius,
+          ...tokens.shadow.card
         }}>
           <Text style={{
             fontSize: 16,
             fontWeight: GLOBAL_STYLES.heavy,
             color: tokens.FG,
-            fontFamily: GLOBAL_STYLES.monospace,
+            fontFamily: tokens.font.primary,
             marginBottom: 10
           }}>
-            AUTHENTICATION REQUIRED
+            {t.wallet?.authRequired || 'AUTHENTICATION REQUIRED'}
           </Text>
           <Text style={{
             fontSize: 9,
             color: tokens.MUTED,
-            fontFamily: GLOBAL_STYLES.monospace,
+            fontFamily: tokens.font.mono,
             marginBottom: 20,
             lineHeight: 14
           }}>
-            PLEASE GO TO THE USER TAB AND CONNECT YOUR SECURE PASSPORT TO ACCESS WALLET BALANCES AND ADDRESSES.
+            {t.wallet?.authDesc || 'PLEASE GO TO THE USER TAB AND CONNECT YOUR SECURE PASSPORT TO ACCESS WALLET BALANCES AND ADDRESSES.'}
           </Text>
         </View>
       </View>
@@ -112,9 +112,9 @@ export default function WalletView({ theme, tokens }) {
       
       {/* Header Section */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Text style={{ color: tokens.FG, fontSize: 16, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: GLOBAL_STYLES.monospace }}>PORTFOLIO</Text>
+        <Text style={{ color: tokens.FG, fontSize: 16, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: tokens.font.primary }}>{t.wallet?.portfolio || 'PORTFOLIO'}</Text>
         <TouchableOpacity onPress={() => setBalances({})}>
-          <Text style={{ color: tokens.NEON_PRIMARY, fontSize: 11, fontWeight: 'bold', fontFamily: GLOBAL_STYLES.monospace }}>REFRESH</Text>
+          <Text style={{ color: tokens.NEON_PRIMARY, fontSize: 11, fontWeight: 'bold', fontFamily: tokens.font.primary }}>{t.wallet?.refresh || 'REFRESH'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -122,7 +122,7 @@ export default function WalletView({ theme, tokens }) {
       <ScrollView showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={{ alignItems: 'center', marginTop: 50 }}>
-            <Text style={{ color: tokens.MUTED, fontSize: 12, fontWeight: GLOBAL_STYLES.heavy, fontFamily: GLOBAL_STYLES.monospace, letterSpacing: 1 }}>SYNCING...</Text>
+            <Text style={{ color: tokens.MUTED, fontSize: 12, fontWeight: GLOBAL_STYLES.heavy, fontFamily: tokens.font.mono, letterSpacing: 1 }}>{t.wallet?.syncing || 'SYNCING...'}</Text>
           </View>
         ) : (
           Object.entries(balances).map(([chain, bal]) => (
@@ -131,14 +131,16 @@ export default function WalletView({ theme, tokens }) {
               marginBottom: 16,
               backgroundColor: tokens.SURFACE,
               borderLeftWidth: 4,
-              borderLeftColor: isDark ? tokens.NEON_WARNING : tokens.FG,
+              borderLeftColor: isDark ? tokens.NEON_WARNING : tokens.NEON_PRIMARY,
+              borderRadius: tokens.shape.cardRadius,
+              ...tokens.shadow.card
             }}>
               
               {/* Card Header */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <Image source={CHAIN_ASSETS[chain].logo} style={{ width: 16, height: 16, resizeMode: 'contain' }} />
-                  <Text style={{ color: tokens.FG, fontSize: 12, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: GLOBAL_STYLES.monospace }}>
+                  <Text style={{ color: tokens.FG, fontSize: 12, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: tokens.font.primary }}>
                     {chain.toUpperCase()}
                   </Text>
                 </View>
@@ -146,19 +148,19 @@ export default function WalletView({ theme, tokens }) {
                 {/* Clean Status Indicator */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <View style={{ 
-                    width: 6, height: 6, borderRadius: 3, backgroundColor: tokens.NEON_SUCCESS,
+                    width: 6, height: 6, borderRadius: tokens.shape.pillRadius, backgroundColor: tokens.NEON_SUCCESS,
                     shadowColor: isDark ? tokens.NEON_SUCCESS : 'transparent', shadowRadius: 4, shadowOpacity: 0.8
                   }} />
-                  <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>ACTIVE</Text>
+                  <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>{t.wallet?.active || 'ACTIVE'}</Text>
                 </View>
               </View>
 
               {/* Balance Readout (Clean, no boxes) */}
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 24 }}>
-                <Text style={{ color: tokens.FG, fontSize: 36, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: -1, fontFamily: GLOBAL_STYLES.monospace }}>
+                <Text style={{ color: tokens.FG, fontSize: 36, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: -1, fontFamily: tokens.font.mono }}>
                   {formatBalance(bal)}
                 </Text>
-                <Text style={{ fontSize: 14, color: tokens.MUTED, fontFamily: GLOBAL_STYLES.monospace, marginBottom: 6, fontWeight: 'bold' }}>
+                <Text style={{ fontSize: 14, color: tokens.MUTED, fontFamily: tokens.font.mono, marginBottom: 6, fontWeight: 'bold' }}>
                   {CHAIN_ASSETS[chain].ticker}
                 </Text>
               </View>
@@ -172,19 +174,19 @@ export default function WalletView({ theme, tokens }) {
                 borderTopColor: tokens.BORDER,
                 paddingTop: 16
               }}>
-                <Text style={{ color: tokens.MUTED, fontSize: 11, fontFamily: GLOBAL_STYLES.monospace }}>
+                <Text style={{ color: tokens.MUTED, fontSize: 11, fontFamily: tokens.font.mono }}>
                   {truncateAddress(chainAddresses[chain])}
                 </Text>
                 
                 <View style={{ flexDirection: 'row', gap: 16 }}>
                   <TouchableOpacity onPress={() => handleCopy(chain, chainAddresses[chain])}>
-                    <Text style={{ color: copiedChain === chain ? tokens.NEON_SUCCESS : tokens.FG, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>
-                      {copiedChain === chain ? 'COPIED' : 'COPY'}
+                    <Text style={{ color: copiedChain === chain ? tokens.NEON_SUCCESS : tokens.FG, fontSize: 10, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>
+                      {copiedChain === chain ? (t.wallet?.copied || 'COPIED') : (t.wallet?.copy || 'COPY')}
                     </Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity onPress={() => handleOpenExplorer(CHAIN_ASSETS[chain].explorer, chainAddresses[chain])}>
-                    <Text style={{ color: tokens.FG, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>EXPLORER</Text>
+                    <Text style={{ color: tokens.FG, fontSize: 10, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>{t.wallet?.explorer || 'EXPLORER'}</Text>
                   </TouchableOpacity>
                 </View>
               </View>

@@ -18,6 +18,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8081',
   'http://localhost:8082',
   'https://opendome.expo.app',
+  'https://opendomeos.expo.app',
   'https://miniapp.expo.app',
 ];
 

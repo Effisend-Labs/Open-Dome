@@ -5,7 +5,7 @@ import { Events } from './events';
 import { Communication } from './communication';
 import { Agent } from './agent';
 
-const ALLOWED_ORIGINS = ['https://opendome.expo.app', 'http://localhost:8081'];
+const ALLOWED_ORIGINS = ['https://opendome.expo.app', 'https://opendomeos.expo.app', 'http://localhost:8081'];
 
 const isLocalhostOrigin = (urlStr) => {
   try {

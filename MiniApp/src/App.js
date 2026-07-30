@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Platform } from 'react-native';
 import { useOpenDome } from 'opendome';
-import { CYBERPUNK_THEME, GLOBAL_STYLES } from './theme';
+import { MINI_APP_THEMES, GLOBAL_STYLES } from './theme';
+import { locales } from './core/locales';
 
 // Sub-App Imports
 import GameView from './components/GameView';
@@ -27,9 +28,14 @@ export default function App() {
     appId: process.env.EXPO_PUBLIC_OD_APP_ID,
     appToken: process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN
   });
+  
+  // Dynamic Context Resolution
+  const lang = context?.lang || 'en';
+  const t = locales[lang] || locales.en;
+  
   const themeType = (context?.theme || 'light').toLowerCase();
-  const isDark = themeType === 'dark';
-  const tokens = isDark ? CYBERPUNK_THEME.dark : CYBERPUNK_THEME.light;
+  const isDark = ['dark', 'synthwave', 'deep_space'].includes(themeType);
+  const tokens = MINI_APP_THEMES[themeType] || MINI_APP_THEMES.dark;
 
   const [activeApp, setActiveApp] = useState('GAME');
   const [scores, setScores] = useState({ P1: 0, AI: 0 });
@@ -84,20 +90,21 @@ export default function App() {
   if (loading) return (
     <View style={[styles.loadingContainer, { backgroundColor: tokens.BG }]}>
       <Text style={[styles.loadingText, { color: tokens.NEON_PRIMARY, textShadowColor: isDark ? tokens.NEON_PRIMARY : 'transparent', textShadowRadius: 10 }]}>
-        INITIALIZING SYSTEM...
+        {t.init}
       </Text>
-      <Text style={[styles.loadingSubText, { color: tokens.MUTED }]}>Connecting to Open-Dome...</Text>
+      <Text style={[styles.loadingSubText, { color: tokens.MUTED }]}>{t.connecting}</Text>
     </View>
   );
 
   const renderActiveApp = () => {
     const props = {
       isAuthorized,
-      username: user?.username || 'Guest',
+      username: user?.username || t.game?.guest || 'Guest',
       theme: themeType,
       tokens,
       scores,
-      setScores
+      setScores,
+      t // Inject translation dictionary
     };
     switch (activeApp) {
       case 'GAME': return <GameView {...props} />;
@@ -113,21 +120,21 @@ export default function App() {
 
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: tokens.BG }]}>
+    <View style={[styles.container, { backgroundColor: tokens.BG }]}>
       {/* Cyberpunk Header Selector */}
       <View style={[styles.header, { backgroundColor: tokens.SURFACE, borderBottomColor: tokens.BORDER }]}>
         <View style={styles.brandRow}>
           <View style={styles.brand}>
-            <Text style={[styles.brandTitle, { color: tokens.FG }]}>OPEN-DOME</Text>
-            <Text style={[styles.brandSubtitle, { color: tokens.NEON_DANGER }]}>MINI APPS DEMO</Text>
+            <Text style={[styles.brandTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>{t.brand}</Text>
+            <Text style={[styles.brandSubtitle, { color: tokens.NEON_PRIMARY, fontFamily: tokens.font.mono }]}>{t.demo}</Text>
           </View>
 
           <View style={styles.navArrows}>
-            <TouchableOpacity onPress={() => navigateApp('prev')} style={[styles.arrowButton, { borderColor: tokens.BORDER, backgroundColor: tokens.BG }]}>
-              <Text style={[styles.arrowText, { color: tokens.FG }]}>←</Text>
+            <TouchableOpacity onPress={() => navigateApp('prev')} style={[styles.arrowButton, { borderColor: tokens.BORDER, backgroundColor: tokens.BG, borderRadius: tokens.shape.buttonRadius, borderWidth: tokens.shape.border }]}>
+              <Text style={[styles.arrowText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>←</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigateApp('next')} style={[styles.arrowButton, { borderColor: tokens.BORDER, backgroundColor: tokens.BG }]}>
-              <Text style={[styles.arrowText, { color: tokens.FG }]}>→</Text>
+            <TouchableOpacity onPress={() => navigateApp('next')} style={[styles.arrowButton, { borderColor: tokens.BORDER, backgroundColor: tokens.BG, borderRadius: tokens.shape.buttonRadius, borderWidth: tokens.shape.border }]}>
+              <Text style={[styles.arrowText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>→</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -157,11 +164,11 @@ export default function App() {
                     styles.tab,
                     {
                       borderColor: tokens.BORDER,
-                      backgroundColor: tokens.BG, // Keep it solid with the background
-                      // Only the bottom border changes color
-                      borderBottomWidth: isActive ? 3 : 1,
+                      backgroundColor: tokens.BG,
+                      borderBottomWidth: isActive ? 3 : tokens.shape.border,
                       borderBottomColor: isActive ? tokens.NEON_PRIMARY : tokens.BORDER,
-                      // CRITICAL: Ensure no shadow properties are on this container!
+                      borderTopLeftRadius: tokens.shape.cardRadius > 0 ? tokens.shape.cardRadius / 2 : 0,
+                      borderTopRightRadius: tokens.shape.cardRadius > 0 ? tokens.shape.cardRadius / 2 : 0,
                       shadowOpacity: 0,
                       elevation: 0, 
                     }
@@ -171,11 +178,11 @@ export default function App() {
                   <Text 
                     style={[
                       styles.tabText, 
-                      { color: isActive ? tokens.NEON_PRIMARY : tokens.MUTED },
-                      textGlow // The magic happens here, making the text itself emit light
+                      { color: isActive ? tokens.NEON_PRIMARY : tokens.MUTED, fontFamily: tokens.font.primary },
+                      textGlow 
                     ]}
                   >
-                    {app.title}
+                    {t.apps[app.id] || app.title}
                   </Text>
                 </TouchableOpacity>
               );
@@ -194,16 +201,16 @@ export default function App() {
         <View style={styles.statusGroup}>
           <View style={[
             styles.dot,
-            { backgroundColor: isAuthorized ? tokens.NEON_SUCCESS : tokens.NEON_DANGER },
-            isDark && { shadowColor: isAuthorized ? tokens.NEON_SUCCESS : tokens.NEON_DANGER, shadowOpacity: 0.8, shadowRadius: 8 }
+            { backgroundColor: isAuthorized ? tokens.NEON_SUCCESS : tokens.NEON_PRIMARY, borderRadius: tokens.shape.pillRadius },
+            isDark && { shadowColor: isAuthorized ? tokens.NEON_SUCCESS : tokens.NEON_PRIMARY, shadowOpacity: 0.8, shadowRadius: 8 }
           ]} />
-          <Text style={[styles.statusText, { color: tokens.FG }]}>
-            {isAuthorized ? 'SECURE CONNECTION' : 'DISCONNECTED'}
+          <Text style={[styles.statusText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+            {isAuthorized ? t.secure : t.disconnected}
           </Text>
         </View>
-        <Text style={[styles.tokenText, { color: tokens.MUTED }]}>ID_{token?.substring(0, 12).toUpperCase()}</Text>
+        <Text style={[styles.tokenText, { color: tokens.MUTED, fontFamily: tokens.font.mono }]}>ID_{token?.substring(0, 12).toUpperCase()}</Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -214,15 +221,15 @@ const styles = StyleSheet.create({
   loadingSubText: { fontSize: 8, fontWeight: 'bold', letterSpacing: 1, fontFamily: GLOBAL_STYLES.monospace },
 
   header: {
-    paddingTop: 40,
+    paddingTop: 12,
     borderBottomWidth: 2,
   },
   brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
-  brandTitle: { fontSize: 18, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: -1, fontFamily: GLOBAL_STYLES.monospace },
-  brandSubtitle: { fontSize: 8, fontWeight: 'bold', letterSpacing: 2, fontFamily: GLOBAL_STYLES.monospace },
+  brandTitle: { fontSize: 18, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: -1 },
+  brandSubtitle: { fontSize: 8, fontWeight: 'bold', letterSpacing: 2 },
 
   navArrows: { flexDirection: 'row', gap: 4 },
-  arrowButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 0, borderWidth: 1 },
+  arrowButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   arrowText: { fontSize: 14, fontWeight: 'bold' },
 
   selectorContainer: { paddingHorizontal: 20, paddingBottom: 0 },
@@ -233,11 +240,11 @@ const styles = StyleSheet.create({
     minWidth: 96,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    marginBottom: -1, // collapse borders
+    borderWidth: 1, // Will be overridden
+    marginBottom: -1, 
     marginRight: -1,
   },
-  tabText: { fontSize: 10, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: GLOBAL_STYLES.monospace },
+  tabText: { fontSize: 10, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1 },
 
   stage: { flex: 1 },
 
@@ -249,7 +256,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
   },
   statusGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 6, height: 6, borderRadius: 0 },
-  statusText: { fontSize: 8, fontWeight: 'bold', fontFamily: GLOBAL_STYLES.monospace },
-  tokenText: { fontSize: 8, fontFamily: GLOBAL_STYLES.monospace }
+  dot: { width: 6, height: 6 },
+  statusText: { fontSize: 8, fontWeight: 'bold' },
+  tokenText: { fontSize: 8 }
 });

@@ -18,27 +18,29 @@ import { GLOBAL_STYLES } from '../theme';
       marginBottom: 12,
       borderLeftWidth: 4,
       borderLeftColor: tokens.NEON_PRIMARY,
-      borderWidth: 1,
-      borderColor: tokens.BORDER
+      borderWidth: tokens.shape.border,
+      borderColor: tokens.BORDER,
+      borderRadius: tokens.shape.cardRadius,
+      ...tokens.shadow.card
     }}>
       {/* Topic badge */}
       {log.topic && (
-        <Text style={{ color: tokens.NEON_SUCCESS, fontSize: 8, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 6 }}>
+        <Text style={{ color: tokens.NEON_SUCCESS, fontSize: 8, fontFamily: tokens.font.mono, fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 6 }}>
           ▶ {log.topic}
         </Text>
       )}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-        <Text style={{ color: tokens.NEON_PRIMARY, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>
+        <Text style={{ color: tokens.NEON_PRIMARY, fontSize: 10, fontFamily: tokens.font.mono, fontWeight: 'bold' }}>
           {log.sender}
         </Text>
-        <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: GLOBAL_STYLES.monospace }}>
+        <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: tokens.font.mono }}>
           {log.time}
         </Text>
       </View>
-      <Text style={{ color: tokens.FG, fontSize: 14, fontWeight: GLOBAL_STYLES.heavy, marginBottom: 4, fontFamily: GLOBAL_STYLES.monospace }}>
+      <Text style={{ color: tokens.FG, fontSize: 14, fontWeight: GLOBAL_STYLES.heavy, marginBottom: 4, fontFamily: tokens.font.primary }}>
         {log.title}
       </Text>
-      <Text style={{ color: tokens.MUTED, fontSize: 11, fontFamily: GLOBAL_STYLES.monospace, lineHeight: 16 }}>
+      <Text style={{ color: tokens.MUTED, fontSize: 11, fontFamily: tokens.font.mono, lineHeight: 16 }}>
         {log.content}
       </Text>
     </Animated.View>
@@ -213,7 +215,7 @@ export default function CommunicationView({ theme, tokens }) {
       
       {/* Header Section */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Text style={{ color: tokens.FG, fontSize: 16, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: GLOBAL_STYLES.monospace }}>COMMS_TESTER</Text>
+        <Text style={{ color: tokens.FG, fontSize: 16, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: tokens.font.primary }}>COMMS_TESTER</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <View style={{ 
             width: 6, height: 6, borderRadius: 3, 
@@ -221,15 +223,15 @@ export default function CommunicationView({ theme, tokens }) {
             shadowColor: status === 'CONNECTED' ? tokens.NEON_SUCCESS : (status === 'ERROR' ? tokens.NEON_DANGER : 'transparent'), 
             shadowRadius: 4, shadowOpacity: 0.8
           }} />
-          <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>
+          <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: tokens.font.mono, fontWeight: 'bold' }}>
             {status}
           </Text>
         </View>
       </View>
 
       {lastError && (
-        <View style={{ backgroundColor: '#331111', padding: 10, marginBottom: 20, borderWidth: 1, borderColor: tokens.NEON_DANGER }}>
-          <Text style={{ color: tokens.NEON_DANGER, fontSize: 9, fontFamily: GLOBAL_STYLES.monospace }}>ERROR: {lastError}</Text>
+        <View style={{ backgroundColor: '#331111', padding: 10, marginBottom: 20, borderWidth: tokens.shape.border, borderColor: tokens.NEON_DANGER, borderRadius: tokens.shape.cardRadius / 2 }}>
+          <Text style={{ color: tokens.NEON_DANGER, fontSize: 9, fontFamily: tokens.font.mono }}>ERROR: {lastError}</Text>
         </View>
       )}
 
@@ -238,14 +240,14 @@ export default function CommunicationView({ theme, tokens }) {
         
         {/* Read-Only Sender Tag */}
         <View style={{ flexDirection: 'row', marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-          <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace }}>SENDER:</Text>
+          <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.primary }}>SENDER:</Text>
           {user?.username && (
-            <View style={{ backgroundColor: isDark ? '#0F2A1A' : '#D4F5E2', paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: tokens.NEON_SUCCESS }}>
-              <Text style={{ color: tokens.NEON_SUCCESS, fontSize: 10, fontWeight: 'bold', fontFamily: GLOBAL_STYLES.monospace }}>@{user.username}</Text>
+            <View style={{ backgroundColor: isDark ? '#0F2A1A' : '#D4F5E2', paddingHorizontal: 8, paddingVertical: 4, borderWidth: tokens.shape.border, borderColor: tokens.NEON_SUCCESS, borderRadius: tokens.shape.pillRadius }}>
+              <Text style={{ color: tokens.NEON_SUCCESS, fontSize: 10, fontWeight: 'bold', fontFamily: tokens.font.mono }}>@{user.username}</Text>
             </View>
           )}
-          <View style={{ backgroundColor: isDark ? '#1A1A24' : '#E5E5EA', paddingHorizontal: 8, paddingVertical: 4 }}>
-            <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace }}>{process.env.EXPO_PUBLIC_OD_APP_ID}</Text>
+          <View style={{ backgroundColor: isDark ? '#1A1A24' : '#E5E5EA', paddingHorizontal: 8, paddingVertical: 4, borderRadius: tokens.shape.pillRadius }}>
+            <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.mono }}>{process.env.EXPO_PUBLIC_OD_APP_ID}</Text>
           </View>
         </View>
 
@@ -256,13 +258,14 @@ export default function CommunicationView({ theme, tokens }) {
               flex: 1,
               padding: 10,
               backgroundColor: channelType === 'app' ? tokens.NEON_PRIMARY : tokens.SURFACE,
-              borderWidth: 1,
+              borderWidth: tokens.shape.border,
               borderColor: tokens.BORDER,
-              alignItems: 'center'
+              alignItems: 'center',
+              borderRadius: tokens.shape.buttonRadius
             }}
             onPress={() => setChannelType('app')}
           >
-            <Text style={{ color: channelType === 'app' ? '#000' : tokens.FG, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>
+            <Text style={{ color: channelType === 'app' ? '#000' : tokens.FG, fontSize: 10, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>
               APP SUBTOPIC
             </Text>
           </TouchableOpacity>
@@ -271,13 +274,14 @@ export default function CommunicationView({ theme, tokens }) {
               flex: 1,
               padding: 10,
               backgroundColor: channelType === 'public' ? tokens.NEON_PRIMARY : tokens.SURFACE,
-              borderWidth: 1,
+              borderWidth: tokens.shape.border,
               borderColor: tokens.BORDER,
-              alignItems: 'center'
+              alignItems: 'center',
+              borderRadius: tokens.shape.buttonRadius
             }}
             onPress={() => setChannelType('public')}
           >
-            <Text style={{ color: channelType === 'public' ? '#000' : tokens.FG, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>
+            <Text style={{ color: channelType === 'public' ? '#000' : tokens.FG, fontSize: 10, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>
               PUBLIC CHANNEL
             </Text>
           </TouchableOpacity>
@@ -290,10 +294,11 @@ export default function CommunicationView({ theme, tokens }) {
               fontSize: 12,
               backgroundColor: tokens.SURFACE,
               color: tokens.FG,
-              borderWidth: 1,
+              borderWidth: tokens.shape.border,
               borderColor: tokens.BORDER,
               marginBottom: 12,
-              fontFamily: GLOBAL_STYLES.monospace
+              fontFamily: tokens.font.mono,
+              borderRadius: tokens.shape.buttonRadius
             }}
             value={subtopic}
             onChangeText={setSubtopic}
@@ -308,10 +313,11 @@ export default function CommunicationView({ theme, tokens }) {
             fontSize: 12,
             backgroundColor: tokens.SURFACE,
             color: tokens.FG,
-            borderWidth: 1,
+            borderWidth: tokens.shape.border,
             borderColor: tokens.BORDER,
             marginBottom: 12,
-            fontFamily: GLOBAL_STYLES.monospace
+            fontFamily: tokens.font.mono,
+            borderRadius: tokens.shape.buttonRadius
           }}
           value={title}
           onChangeText={setTitle}
@@ -325,12 +331,13 @@ export default function CommunicationView({ theme, tokens }) {
             fontSize: 12,
             backgroundColor: tokens.SURFACE,
             color: tokens.FG,
-            borderWidth: 1,
+            borderWidth: tokens.shape.border,
             borderColor: tokens.BORDER,
             marginBottom: 16,
-            fontFamily: GLOBAL_STYLES.monospace,
+            fontFamily: tokens.font.mono,
             height: 80,
-            textAlignVertical: 'top'
+            textAlignVertical: 'top',
+            borderRadius: tokens.shape.buttonRadius
           }}
           value={message}
           onChangeText={setMessage}
@@ -341,19 +348,20 @@ export default function CommunicationView({ theme, tokens }) {
         
         <TouchableOpacity
           style={{ 
-            backgroundColor: (title && message && status === 'CONNECTED') ? tokens.NEON_DANGER : (isDark ? '#331111' : '#FFCCCC'), 
+            backgroundColor: (title && message && status === 'CONNECTED') ? tokens.NEON_PRIMARY : (isDark ? '#333' : '#E5E5EA'), 
             padding: 16, 
-            alignItems: 'center' 
+            alignItems: 'center',
+            borderRadius: tokens.shape.buttonRadius
           }}
           onPress={publish}
           disabled={!title || !message || status !== 'CONNECTED'}
         >
           <Text style={{ 
-            color: (title && message && status === 'CONNECTED') ? '#FFF' : (isDark ? '#666' : '#FFF'), 
+            color: (title && message && status === 'CONNECTED') ? (isDark ? '#000' : '#FFF') : (isDark ? '#666' : '#999'), 
             fontSize: 11, 
             fontWeight: GLOBAL_STYLES.heavy, 
             letterSpacing: 1, 
-            fontFamily: GLOBAL_STYLES.monospace 
+            fontFamily: tokens.font.primary 
           }}>
             {status === 'CONNECTED' ? 'BROADCAST PAYLOAD' : 'CONNECTING...'}
           </Text>
@@ -362,12 +370,12 @@ export default function CommunicationView({ theme, tokens }) {
 
       {/* Activity Log */}
       <View style={{ flex: 1 }}>
-        <Text style={{ color: tokens.MUTED, fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 12, fontFamily: GLOBAL_STYLES.monospace }}>RECENT_BROADCASTS</Text>
+        <Text style={{ color: tokens.MUTED, fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 12, fontFamily: tokens.font.primary }}>RECENT_BROADCASTS</Text>
         
         <View style={{ paddingBottom: 40 }}>
           {logs.length === 0 ? (
-            <View style={{ padding: 20, alignItems: 'center', borderWidth: 1, borderColor: tokens.BORDER, borderStyle: 'dashed' }}>
-              <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace }}>NO EVENTS TRANSMITTED</Text>
+            <View style={{ padding: 20, alignItems: 'center', borderWidth: tokens.shape.border, borderColor: tokens.BORDER, borderStyle: 'dashed', borderRadius: tokens.shape.cardRadius }}>
+              <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.mono }}>NO EVENTS TRANSMITTED</Text>
             </View>
           ) : (
             logs.map((log) => (

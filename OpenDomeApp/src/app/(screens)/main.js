@@ -1,576 +1,871 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, Pressable, ScrollView,
-  Animated, Platform, useWindowDimensions
+  Animated, Platform, StatusBar, Modal
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSmartSize } from '../../providers/smartProvider';
-import { colors, space, radii, type, shadow, springboardApps } from '../../core/tokens';
-import DomeIcon from '../../components/DomeIcon';
-import FrostedPill from '../../components/FrostedPill';
-import GlassCard from '../../components/GlassCard';
-import LiveTicker from '../../components/LiveTicker';
-import HappeningNow from '../../components/HappeningNow';
-import PasskeyAuth from '../../components/PasskeyAuth';
-import TransactionModal from '../../components/TransactionModal';
+import { Image } from 'expo-image';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import IframeContainer from '../../components/IframeContainer';
+import { springboardApps } from '../../core/tokens';
+import { useSmartSize } from '../../providers/smartProvider';
+import { useTheme, WALLPAPERS } from '../../providers/ThemeProvider';
+import SettingsApp from '../../components/SettingsApp';
+import UserApp from '../../components/UserApp';
+import WalletApp from '../../components/WalletApp';
+import QRApp from '../../components/QRApp';
+import VectorBackground from '../../components/VectorBackground';
+import { locales } from '../../core/locales';
+import ContextModule from '../../providers/contextModule';
+import { Events } from '../api/events';
+import StoreApp from '../../components/StoreApp';
+import MapApp from '../../components/MapApp';
 
-const TOKYO_COORDS = { latitude: 35.70564, longitude: 139.75191 };
-const CTX_VARS = [
-  { key: 'theme', value: 'dark' },
-  { key: 'lang',  value: 'ja'   },
+
+const miniAppUrl = __DEV__ ? 'http://localhost:8082/' : 'https://miniapp.expo.app/';
+
+const CORE_APPS = [
+  { id: 'miniapp', name: 'MiniApp',  iconSource: require('../../assets/logoMA.png'), color: '#FFFFFF', url: miniAppUrl },
+  { id: 'store', name: 'OpenStore', icon: 'bag-handle', color: '#007AFF' },
+  { id: 'settings', name: 'Settings',  icon: 'settings',     color: '#8E8E93' },
 ];
 
+// Helper to simulate glassmorphism across platforms
+const getGlassStyles = (theme) => Platform.select({
+  web: {
+    backgroundColor: theme.isDark ? 'rgba(28, 28, 30, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+    backdropFilter: 'blur(24px)',
+    borderWidth: theme.border?.width ?? 1,
+    borderColor: theme.border.default, // Use default border for clearer component framing
+  },
+  default: {
+    backgroundColor: theme.bg.panel,
+    borderWidth: theme.border?.width ?? 1,
+    borderColor: theme.border.default,
+  }
+});
+
+const defaultFont = Platform.select({
+  ios: 'System',
+  web: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
+  default: 'sans-serif',
+});
+
 export default function Main() {
-  const { normalize } = useSmartSize();
-  const { width: winW } = useWindowDimensions();
-
+  const { normalize: n } = useSmartSize();
+  const { themeId, wallpaperId, colors: theme, language, isLoaded } = useTheme();
+  const insets = useSafeAreaInsets();
+  const t = locales[language]?.os || locales.en.os;
+  const globalContext = React.useContext(ContextModule);
+  
+  useEffect(() => {
+    if (globalContext?.setValue) {
+      globalContext.setValue({
+        theme: themeId,
+        language: language
+      });
+    }
+  }, [themeId, language, globalContext?.setValue]);
+  
+  const CTX_VARS = React.useMemo(() => [
+    { key: 'theme', value: themeId },
+    { key: 'lang',  value: language },
+  ], [themeId, language]);
+  
+  const glassStyles = React.useMemo(() => getGlassStyles(theme), [theme]);
+  const s = React.useMemo(() => useStyles(n, theme), [n, theme]);
+  
   const [activeApp, setActiveApp] = useState(null);
+  const [appsLayout, setAppsLayout] = useState(CORE_APPS);
+  const [installedAppIds, setInstalledAppIds] = useState(['miniapp', 'store', 'settings']);
+  const [availableApps, setAvailableApps] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedAppId, setSelectedAppId] = useState(null);
   const [verifiedToken, setVerifiedToken] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-  const [commJwt, setCommJwt] = useState(null);
-  const [showAuth, setShowAuth] = useState(false);
-  const [pendingIntent, setPendingIntent] = useState(null);
+  const [activeTab, setActiveTab] = useState('home');
+  const [nextEvent, setNextEvent] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [appToDelete, setAppToDelete] = useState(null);
 
-  // Animations
-  const launchAnim    = useRef(new Animated.Value(0)).current;
-  const fadeIn        = useRef(new Animated.Value(0)).current;
-  const pressScale    = useRef(new Animated.Value(1)).current;
-  const heroDrift     = useRef(new Animated.Value(0)).current;
+  const confirmDelete = () => {
+    if (appToDelete) {
+      handleUninstallApp(appToDelete.id);
+      setAppToDelete(null);
+    }
+  };
 
   useEffect(() => {
-    Animated.timing(fadeIn, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(heroDrift, { toValue: 1, duration: 6000, useNativeDriver: true }),
-        Animated.timing(heroDrift, { toValue: 0, duration: 6000, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [fadeIn, heroDrift]);
+    try {
+      const allEvents = Events.getAll();
+      if (allEvents && allEvents.length > 0) {
+        // Just take the first one
+        setNextEvent(allEvents[0]);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch events', e);
+    }
+  }, []);
+  
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0.3)).current;
+  const jiggle = useRef(new Animated.Value(0)).current;
 
+  // Load saved layout on mount and dynamically fetch Sandbox metadata
   useEffect(() => {
     (async () => {
       try {
-        const token = await AsyncStorage.getItem('od_session');
-        if (token) {
-          const res = await verifyServer(token);
-          if (res?.authenticated) {
-            setVerifiedToken(res.token);
-            setUserProfile({ username: res.username, evmAddress: res.evmAddress, solanaAddress: res.solanaAddress });
-            setCommJwt(res.wsJwt);
-            return;
-          }
-          await AsyncStorage.removeItem('od_session');
+        const res = await fetch('/api/apps');
+        const json = await res.json();
+        if (json.success && json.data) {
+          setAvailableApps(json.data);
         }
-        const guest = await verifyServer(null);
-        if (guest?.wsJwt) setCommJwt(guest.wsJwt);
-      } catch (e) { /* silent */ }
+      } catch (e) {
+        console.warn('Failed to fetch available apps', e);
+      }
+
+      try {
+        const savedIds = await AsyncStorage.getItem('opendome_installed_app_ids');
+        if (savedIds) {
+          const parsedIds = JSON.parse(savedIds);
+          setInstalledAppIds(parsedIds);
+        } else {
+          // First boot or no saved apps
+          setInstalledAppIds(['miniapp', 'store', 'settings']);
+        }
+      } catch (e) {}
+
+      try {
+        const savedToken = await AsyncStorage.getItem('opendome_auth_token');
+        if (savedToken) {
+          setVerifiedToken(savedToken);
+        }
+      } catch (e) {}
     })();
   }, []);
 
-  const verifyServer = async (token) => {
-    try {
-      const r = await fetch('/api/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
-      if (!r.ok) return null;
-      return r.json();
-    } catch { return null; }
-  };
+  useEffect(() => {
+    const newLayout = installedAppIds.map(id => {
+      const core = CORE_APPS.find(c => c.id === id);
+      if (core) return core;
+      return availableApps.find(a => a.id === id);
+    }).filter(Boolean);
+    setAppsLayout(newLayout);
+  }, [installedAppIds, availableApps]);
 
-  const handleAuthSuccess = async (token) => {
-    await AsyncStorage.setItem('od_session', token);
-    const res = await verifyServer(token);
-    if (res?.authenticated) {
-      setVerifiedToken(res.token);
-      setUserProfile({ username: res.username, evmAddress: res.evmAddress, solanaAddress: res.solanaAddress });
-      setCommJwt(res.wsJwt);
-      setShowAuth(false);
-    }
-  };
+  // Initial fade-in & pulsing dot
+  useEffect(() => {
+    Animated.timing(fadeIn, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1500, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.3, duration: 1500, useNativeDriver: true })
+      ])
+    ).start();
+  }, [fadeIn, pulse]);
 
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem('od_session');
-    setVerifiedToken(null);
-    setUserProfile(null);
-    const guest = await verifyServer(null);
-    if (guest?.wsJwt) setCommJwt(guest.wsJwt);
-    if (Platform.OS === 'web') {
-      document.querySelector('iframe')?.contentWindow?.postMessage({ type: 'OPENDOME_LOGOUT' }, '*');
-    }
-  };
-
-  const handleAuthFromIframe = ({ token, profile, jwt }) => {
-    if (token) {
-      AsyncStorage.setItem('od_session', token);
-      setVerifiedToken(token); setUserProfile(profile); setCommJwt(jwt);
+  // Jiggle animation loop
+  useEffect(() => {
+    if (isEditing) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(jiggle, { toValue: 1, duration: 120, useNativeDriver: true }),
+          Animated.timing(jiggle, { toValue: -1, duration: 120, useNativeDriver: true }),
+          Animated.timing(jiggle, { toValue: 0, duration: 120, useNativeDriver: true })
+        ])
+      ).start();
     } else {
-      AsyncStorage.removeItem('od_session');
-      setVerifiedToken(null); setUserProfile(null);
+      jiggle.setValue(0);
+      jiggle.stopAnimation();
+      setSelectedAppId(null);
+    }
+  }, [isEditing, jiggle]);
+
+  const saveLayout = async (newLayout) => {
+    setAppsLayout(newLayout);
+    try {
+      // Only store IDs to avoid serializing require() Metro module IDs
+      const idsOnly = newLayout.map(a => a.id);
+      setInstalledAppIds(idsOnly);
+      await AsyncStorage.setItem('opendome_installed_app_ids', JSON.stringify(idsOnly));
+    } catch (e) {}
+  };
+
+  const handleInstallApp = async (app) => {
+    const newIds = [...installedAppIds, app.id];
+    setInstalledAppIds(newIds);
+    await AsyncStorage.setItem('opendome_installed_app_ids', JSON.stringify(newIds));
+  };
+
+  const handleUninstallApp = async (appId) => {
+    const newIds = installedAppIds.filter(id => id !== appId);
+    setInstalledAppIds(newIds);
+    await AsyncStorage.setItem('opendome_installed_app_ids', JSON.stringify(newIds));
+  };
+
+  const handleUserAuthChanged = async (authData) => {
+    try {
+      if (authData && authData.token) {
+        setVerifiedToken(authData.token);
+        await AsyncStorage.setItem('opendome_auth_token', authData.token);
+      } else {
+        setVerifiedToken(null);
+        await AsyncStorage.removeItem('opendome_auth_token');
+      }
+    } catch (e) {
+      console.warn('Failed to save auth token', e);
     }
   };
 
-  const launchApp = (app) => {
-    Animated.parallel([
-      Animated.spring(launchAnim, { toValue: 1, tension: 80, friction: 14, useNativeDriver: true }),
-      Animated.timing(fadeIn, { toValue: 0, duration: 200, useNativeDriver: true }),
-    ]).start(() => setActiveApp(app));
-  };
-
-  const closeApp = () => {
-    setActiveApp(null);
-    Animated.parallel([
-      Animated.spring(launchAnim, { toValue: 0, tension: 80, friction: 14, useNativeDriver: true }),
-      Animated.timing(fadeIn, { toValue: 1, duration: 300, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const pillState = userProfile ? 'authenticated' : 'available';
-  const onPillPress = userProfile ? handleLogout : () => setShowAuth(true);
-
-  const approveIntent = () => {
-    const i = pendingIntent; if (!i) return;
-    setPendingIntent(null);
-    if (Platform.OS === 'web') {
-      document.querySelector('iframe')?.contentWindow?.postMessage({
-        type: 'OPENDOME_INTENT_RESPONSE', status: 'SUCCESS',
-        payload: { txHash: `0x${Math.random().toString(16).slice(2, 18)}` }
-      }, '*');
+  const handleAppPress = (appId) => {
+    if (isEditing) {
+      if (selectedAppId === null) {
+        setSelectedAppId(appId);
+      } else {
+        if (selectedAppId === appId) {
+          setSelectedAppId(null); // deselect
+        } else {
+          // Swap logic
+          const newLayout = [...appsLayout];
+          const index1 = newLayout.findIndex(a => a.id === selectedAppId);
+          const index2 = newLayout.findIndex(a => a.id === appId);
+          const temp = newLayout[index1];
+          newLayout[index1] = newLayout[index2];
+          newLayout[index2] = temp;
+          saveLayout(newLayout);
+          setSelectedAppId(null);
+        }
+      }
+    } else {
+      // Launch the specific URL if the app has one, else use default
+      const targetApp = appsLayout.find(a => a.id === appId);
+      const targetUrl = targetApp?.url || springboardApps[0]?.url || 'https://miniapp.expo.app/';
+      setActiveApp({ id: appId, url: targetUrl });
     }
   };
 
-  const rejectIntent = () => {
-    setPendingIntent(null);
-    if (Platform.OS === 'web') {
-      document.querySelector('iframe')?.contentWindow?.postMessage({
-        type: 'OPENDOME_INTENT_RESPONSE', status: 'REJECTED', error: 'USER_REJECTED'
-      }, '*');
-    }
+  const handleLongPress = () => {
+    if (!isEditing) setIsEditing(true);
   };
+
+  const closeApp = () => setActiveApp(null);
 
   return (
-    <SafeAreaView style={s.root}>
-      {/* Ambient backdrop gradient layers */}
-      <View style={s.ambientTop} pointerEvents="none" />
-      <View style={s.ambientBottom} pointerEvents="none" />
-
+    <View style={s.desktopWrapper}>
+      <StatusBar barStyle="light-content" />
+      
       <Animated.View style={[s.root, { opacity: fadeIn }]}>
+        {/* --- VECTOR WALLPAPER --- */}
+        <VectorBackground themeId={themeId} theme={theme} />
+
         {activeApp ? (
-          /* ────── MINI APP WINDOW ────── */
-          <View style={s.windowWrap}>
-            <View style={s.windowChrome}>
-              <Pressable
-                style={({ pressed }) => [s.closeLight, pressed && s.pressed]}
-                onPress={closeApp}
-                accessibilityRole="button"
-                accessibilityLabel="Close window"
+          /* ────── MINI APP CANVAS ────── */
+          <View style={s.canvasWrap}>
+            {activeApp.id === 'settings' ? (
+              <SettingsApp />
+            ) : activeApp.id === 'store' ? (
+              <StoreApp 
+                installedAppIds={installedAppIds}
+                onInstallApp={handleInstallApp}
+                onUninstallApp={handleUninstallApp}
               />
-              <View style={s.windowTitle}>
-                <Text style={s.windowTitleText} numberOfLines={1}>{activeApp.name}</Text>
-                <View style={[s.windowTitleDot, { backgroundColor: activeApp.accent, shadowColor: activeApp.accentGlow }]} />
-                <Text style={s.windowTitleBadge}>SECURED</Text>
-              </View>
-              <Pressable
-                onPress={() => {
-                  if (Platform.OS === 'web') {
-                    const f = document.querySelector('iframe');
-                    if (f) { const src = f.src; f.src = ''; f.src = src; }
-                  }
-                }}
-                style={({ pressed }) => [s.reloadBtn, pressed && s.pressed]}
-                accessibilityRole="button"
-                accessibilityLabel="Reload mini app"
-              >
-                <Text style={s.reloadGlyph}>↻</Text>
-              </Pressable>
-            </View>
-            <View style={s.viewport}>
+            ) : activeApp.id === 'app2' ? (
+              <MapApp />
+            ) : (
               <IframeContainer
                 activeUrl={activeApp.url}
                 verifiedToken={verifiedToken}
                 contextVariables={CTX_VARS}
-                onUserAuthChanged={handleAuthFromIframe}
-                onTransactionIntent={setPendingIntent}
-                onAddLog={() => {}}
-                gpsLocation={TOKYO_COORDS}
+                onUserAuthChanged={handleUserAuthChanged}
+                onTransactionIntent={() => {}}
+                onAddLog={(msg) => console.log(msg)}
+                gpsLocation={null}
               />
-            </View>
+            )}
+            {/* Minimal Centered Exit Cross */}
+            <Pressable style={[s.exitCapsule, { top: Math.max(insets.top, n(16)) + n(8) }]} onPress={closeApp}>
+              <View style={[s.perfectCrossLine, { transform: [{ rotate: '45deg' }] }]} />
+              <View style={[s.perfectCrossLine, { transform: [{ rotate: '-45deg' }] }]} />
+            </Pressable>
           </View>
         ) : (
-          /* ────── SPRINGBOARD ────── */
-          <ScrollView
-            contentContainerStyle={s.springboard}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-          >
-            {/* ── Header / Portal ── */}
-            <View style={s.header}>
-              <View style={s.brandRow}>
-                <View style={s.brandMark}>
-                  <View style={s.brandMarkInner} />
-                </View>
-                <View style={s.brandTextBlock}>
-                  <Text style={s.brandWordmark} numberOfLines={1} accessibilityRole="header">
-                    OPEN·DOME
-                  </Text>
-                  <Text style={s.brandSubline} numberOfLines={1}>ECOSYSTEM HUB</Text>
-                </View>
-                <FrostedPill state={pillState} username={userProfile?.username} onPress={onPillPress} />
+          /* ────── OPENDOME OS HOME SCREEN ────── */
+          <View style={s.osShell}>
+            
+            {/* A. Dynamic Island */}
+            <View style={[s.islandWrapper, { paddingTop: Math.max(insets.top, n(16)) + n(8) }]}>
+              <View style={s.dynamicIsland}>
+                <Animated.View style={[s.islandDot, { opacity: pulse }]} />
+                <Text style={s.islandText}>{t.crowdLevel}</Text>
               </View>
-              <LiveTicker />
+              {isEditing && (
+                <Pressable style={s.doneButton} onPress={() => setIsEditing(false)}>
+                  <Text style={s.doneButtonText}>{t.done}</Text>
+                </Pressable>
+              )}
             </View>
 
-            {/* ── Hero / Display ── */}
-            <View style={s.hero}>
-              <Animated.View
-                style={[
-                  s.heroAmbient,
-                  {
-                    opacity: heroDrift.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0.85] }),
-                    transform: [
-                      { scale: heroDrift.interpolate({ inputRange: [0, 1], outputRange: [1.0, 1.12] }) },
-                    ],
-                  },
-                ]}
-                pointerEvents="none"
+            {activeTab === 'person' ? (
+              <UserApp 
+                verifiedToken={verifiedToken} 
+                onAuthSuccess={(token) => handleUserAuthChanged({ token })}
+                onLogout={() => handleUserAuthChanged(null)}
               />
-              <View style={s.heroLabelRow}>
-                <View style={s.heroLabelPill}>
-                  <Text style={s.heroLabelPillText}>DESTINATION · 01</Text>
+            ) : activeTab === 'wallet' ? (
+              <WalletApp verifiedToken={verifiedToken} />
+            ) : activeTab === 'qr' ? (
+              <QRApp verifiedToken={verifiedToken} />
+            ) : (
+              <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
+              
+              {/* B. Smart Widgets */}
+              <View style={s.widgetSection}>
+                {/* Widget 1 */}
+                <View style={[s.widgetLarge, glassStyles]}>
+                  <Text style={s.widgetSubtitle}>{t.nextEvent}</Text>
+                  <Text style={s.widgetTitle}>{nextEvent?.title || t.eventTitle}</Text>
+                  <Pressable style={s.ctaButton} onPress={() => setShowEventModal(true)}>
+                    <Text style={s.ctaButtonText}>View Event Info</Text>
+                  </Pressable>
                 </View>
-                <Text style={s.heroLabelSub}>TOKYO DOME CITY · BUNKYO</Text>
+
               </View>
-              <Text style={s.heroTitle} accessibilityRole="header">TOKYO</Text>
-              <Text style={s.heroSubtitle}>DOME·CITY</Text>
+
+              {/* C. Mini-App Grid */}
+              <View style={s.appGrid}>
+                {(() => {
+                  const remainder = appsLayout.length % 4;
+                  const placeholdersCount = remainder === 0 ? 0 : 4 - remainder;
+                  const displayApps = [...appsLayout];
+                  for (let i = 0; i < placeholdersCount; i++) {
+                    displayApps.push({ id: `placeholder_${i}`, isPlaceholder: true });
+                  }
+                  
+                  return displayApps.map((app) => {
+                    if (app.isPlaceholder) {
+                      return <View key={app.id} style={s.appIconWrapper} />;
+                    }
+
+                    const isSelected = isEditing && selectedAppId === app.id;
+                  const animatedStyle = isEditing ? {
+                    transform: [{
+                      rotate: jiggle.interpolate({
+                        inputRange: [-1, 1],
+                        outputRange: ['-2deg', '2deg']
+                      })
+                    }]
+                  } : {};
+                  
+                  let appColor = app.color;
+                  let iconColor = '#FFFFFF';
+
+                  if (theme.icons?.overrideBg) {
+                    appColor = theme.icons.overrideBg;
+                    iconColor = theme.icons.overrideColor || '#FFFFFF';
+                  } else if (theme.icons?.mapColors && theme.icons.mapColors[app.color]) {
+                    appColor = theme.icons.mapColors[app.color];
+                    // If the theme is pastel, a dark icon often looks better on light pastel squares, 
+                    // or keep it white? Let's use theme's primary text if it's light mode pastel
+                    iconColor = theme.isDark ? '#FFFFFF' : theme.text.primary;
+                  } else if (theme.icons?.desaturate && app.color !== '#FFFFFF') {
+                    appColor = '#78909C'; // Muted slate color
+                  }
+                  
+                  const isCoreApp = ['miniapp', 'store', 'settings'].includes(app.id);
+                  
+                  return (
+                    <Animated.View key={app.id} style={[s.appIconWrapper, animatedStyle]}>
+                      <View>
+                        {isEditing && !isCoreApp && (
+                          <Pressable 
+                            style={s.deleteBadge} 
+                            onPress={() => setAppToDelete(app)}
+                            hitSlop={15}
+                          >
+                            <Ionicons name="remove" size={n(18)} color="#000000" />
+                          </Pressable>
+                        )}
+                        <Pressable 
+                          onPress={() => handleAppPress(app.id)} 
+                          onLongPress={handleLongPress}
+                          delayLongPress={500}
+                        >
+                          <View style={[s.appIcon, { backgroundColor: appColor }, isSelected && s.appIconSelected]}>
+                            {app.iconSource ? (
+                              <Image source={app.iconSource} style={[s.appIconImage, (theme.icons?.overrideColor || theme.icons?.mapColors) ? { tintColor: iconColor } : {}]} contentFit="contain" />
+                            ) : app.iconUrl ? (
+                              <Image source={{ uri: app.iconUrl }} style={[s.appIconImage, (theme.icons?.overrideColor || theme.icons?.mapColors) ? { tintColor: iconColor } : {}]} contentFit="contain" />
+                            ) : (
+                              <Ionicons name={app.icon} size={n(28)} color={iconColor} />
+                            )}
+                          </View>
+                          <Text style={s.appLabel}>{t.apps[app.id] || app.name}</Text>
+                        </Pressable>
+                      </View>
+                    </Animated.View>
+                  );
+                  });
+                })()}
+              </View>
+              
+            </ScrollView>
+            )}
+
+            {/* D. System Dock */}
+            <View style={s.dockWrapper}>
+              <View style={[s.dock, glassStyles]}>
+                <Pressable style={s.dockBtn} onPress={() => { setActiveTab('home'); closeApp(); }}>
+                  <Ionicons name="home" size={n(24)} color={activeTab === 'home' ? (theme.text.accent || theme.text.primary) : theme.text.primary} style={activeTab === 'home' ? {} : { opacity: 0.6 }} />
+                </Pressable>
+                <Pressable style={s.dockBtn} onPress={() => { setActiveTab('wallet'); closeApp(); }}>
+                  <Ionicons name="wallet" size={n(24)} color={activeTab === 'wallet' ? (theme.text.accent || theme.text.primary) : theme.text.primary} style={activeTab === 'wallet' ? {} : { opacity: 0.6 }} />
+                </Pressable>
+                <Pressable style={s.dockBtn} onPress={() => { setActiveTab('qr'); closeApp(); }}>
+                  <Ionicons name="qr-code" size={n(24)} color={activeTab === 'qr' ? (theme.text.accent || theme.text.primary) : theme.text.primary} style={activeTab === 'qr' ? {} : { opacity: 0.6 }} />
+                </Pressable>
+                <Pressable style={s.dockBtn} onPress={() => { setActiveTab('person'); closeApp(); }}>
+                  <Ionicons name="person" size={n(24)} color={activeTab === 'person' ? (theme.text.accent || theme.text.primary) : theme.text.primary} style={activeTab === 'person' ? {} : { opacity: 0.6 }} />
+                </Pressable>
+              </View>
             </View>
 
-            {/* ── App Card (TDC Events only) ── */}
-            {springboardApps.map(app => (
-              <AppCard
-                key={app.id}
-                app={app}
-                onPress={() => launchApp(app)}
-                onCardPressIn={() => Animated.spring(pressScale, { toValue: 0.98, tension: 200, friction: 18, useNativeDriver: true }).start()}
-                onCardPressOut={() => Animated.spring(pressScale, { toValue: 1, tension: 200, friction: 18, useNativeDriver: true }).start()}
-                pressScale={pressScale}
-              />
-            ))}
-
-            {/* ── Footer Telemetry ── */}
-            <View style={s.footer}>
-              <View style={s.footerLine} />
-              <View style={s.footerRow}>
-                <Text style={s.footerText}>SECURED · PASSKEY PROTECTED</Text>
-                <Text style={s.footerText}>·</Text>
-                <Text style={s.footerText}>{springboardApps.length} ACTIVE MODULE</Text>
-              </View>
-            </View>
-          </ScrollView>
+          </View>
         )}
+
+        <Modal visible={!!appToDelete} transparent animationType="fade">
+          <View style={s.modalOverlay}>
+            <View style={s.modalCard}>
+              <Text style={s.modalTitle}>Remove "{appToDelete?.name || 'App'}"?</Text>
+              <Text style={s.modalSubtitle}>This app will be removed from your home screen. You can add it back later from the OpenStore.</Text>
+              <View style={s.modalActions}>
+                <Pressable style={[s.modalBtn, s.modalBtnCancel]} onPress={() => setAppToDelete(null)}>
+                  <Text style={s.modalBtnText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={[s.modalBtn, s.modalBtnDelete]} onPress={confirmDelete}>
+                  <Text style={[s.modalBtnText, s.modalBtnTextDelete]}>Remove</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={showEventModal} transparent animationType="slide">
+          <View style={s.modalOverlay}>
+            <View style={s.eventModalCard}>
+              <View style={s.eventModalHeaderRow}>
+                <Text style={s.modalTitle}>Event Information</Text>
+                <Pressable onPress={() => setShowEventModal(false)} hitSlop={10}>
+                  <Ionicons name="close-circle" size={n(24)} color={theme.text.secondary} />
+                </Pressable>
+              </View>
+              
+              {nextEvent ? (
+                <View style={s.eventDetails}>
+                  <Text style={s.eventTitle}>{nextEvent.title}</Text>
+                  <Text style={s.eventCategory}>{nextEvent.category}</Text>
+                  
+                  <View style={s.eventRow}>
+                    <Ionicons name="time-outline" size={n(16)} color={theme.text.secondary} />
+                    <Text style={s.eventText}>
+                      {new Date(nextEvent.from).toLocaleDateString()} {nextEvent.fromTime ? `at ${nextEvent.fromTime}` : ''}
+                    </Text>
+                  </View>
+                  
+                  <View style={s.eventRow}>
+                    <Ionicons name="location-outline" size={n(16)} color={theme.text.secondary} />
+                    <Text style={s.eventText}>{nextEvent.placeName}</Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={s.modalSubtitle}>No event selected.</Text>
+              )}
+            </View>
+          </View>
+        </Modal>
+
       </Animated.View>
-
-      {/* ── Auth sheet ── */}
-      {showAuth && (
-        <View style={s.overlay}>
-          <Pressable style={s.overlayBackdrop} onPress={() => setShowAuth(false)} accessibilityRole="button" accessibilityLabel="Close auth sheet" />
-          <View style={s.sheet}>
-            <View style={s.sheetHandle} />
-            <Text style={s.sheetTitle}>Connect Passport</Text>
-            <Text style={s.sheetSub}>
-              Authenticate with your passkey to access your wallets and personalized apps.
-            </Text>
-            <PasskeyAuth onAuthSuccess={handleAuthSuccess} addLog={() => {}} />
-          </View>
-        </View>
-      )}
-
-      {/* ── Transaction modal ── */}
-      <TransactionModal
-        visible={!!pendingIntent}
-        intent={pendingIntent}
-        onApprove={approveIntent}
-        onReject={rejectIntent}
-        balances={{ evm: '2.4550', solana: '34.20' }}
-      />
-    </SafeAreaView>
+    </View>
   );
 }
 
-/* ─── App Card ─────────────────────────────────────── */
-function AppCard({ app, onPress, onCardPressIn, onCardPressOut, pressScale }) {
-  return (
-    <Animated.View style={{ transform: [{ scale: pressScale }] }}>
-      <GlassCard
-        onPress={onPress}
-        accent={app.accent}
-        accentGlow={app.accentGlow}
-        accessibilityLabel={`Open ${app.name}, ${app.subtitle}`}
-        style={s.card}
-      >
-        {/* Top row: monogram + meta */}
-        <View style={s.cardTop}>
-          <DomeIcon size={56} accent={app.accent} accentGlow={app.accentGlow} monogram={app.symbol} />
-          <View style={s.cardMeta}>
-            <Text style={s.cardSubtitle}>{app.subtitle.toUpperCase()}</Text>
-            <Text style={s.cardMetaTiny}>{app.meta}</Text>
-          </View>
-        </View>
-
-        {/* Live status row */}
-        <HappeningNow count={app.happening} accent={app.accent} accentGlow={app.accentGlow} />
-
-        {/* Hairline divider */}
-        <View style={s.cardHairline} />
-
-        {/* Title block */}
-        <View style={s.cardTitleBlock}>
-          <Text style={s.cardName} numberOfLines={1}>{app.name}</Text>
-          <Text style={s.cardSubline}>SECURE PASSAGE · BIOMETRIC UNLOCK</Text>
-        </View>
-
-        {/* CTA — replaces the chevron with a thin "ENTER →" text-only hint */}
-        <View style={s.cardFooterRow}>
-          <Text style={[s.cardCta, { color: app.accent }]}>ENTER</Text>
-          <Text style={[s.cardCtaArrow, { color: app.accent }]}>→</Text>
-        </View>
-      </GlassCard>
-    </Animated.View>
-  );
-}
-
-/* ─── Styles ────────────────────────────────────────── */
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg.canvas },
-
-  // Ambient backdrop glows — two radial-style View layers
-  ambientTop: {
-    position: 'absolute', top: -80, left: -40, right: -40, height: 280,
-    backgroundColor: 'rgba(59, 130, 246, 0.18)',
-    borderRadius: 600,
-    ...Platform.select({
-      web: { filter: 'blur(80px)' },
-      default: { opacity: 0.3 },
-    }),
+const useStyles = (n, theme) => StyleSheet.create({
+  desktopWrapper: {
+    flex: 1,
+    backgroundColor: '#000', // Deep black for desktop letterboxing
   },
-  ambientBottom: {
-    position: 'absolute', bottom: -100, left: 20, right: 20, height: 240,
-    backgroundColor: 'rgba(255, 46, 146, 0.10)',
-    borderRadius: 600,
-    ...Platform.select({
-      web: { filter: 'blur(80px)' },
-      default: { opacity: 0.2 },
-    }),
+  root: {
+    flex: 1,
+    backgroundColor: theme.bg.root,
+    position: 'relative',
   },
-
-  /* Header */
-  header: {
-    paddingTop: space.lg,
-    paddingHorizontal: space.xl,
-    paddingBottom: space.lg,
-    gap: space.md,
-  },
-  brandRow: {
-    flexDirection: 'row', alignItems: 'center', gap: space.md,
-  },
-  brandTextBlock: {
-    flex: 1, minWidth: 0, gap: 2,
-  },
-  brandMark: {
-    width: 28, height: 28, borderRadius: 8,
-    borderWidth: 1, borderColor: colors.border.glass,
-    backgroundColor: colors.bg.cardGlass,
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-  },
-  brandMarkInner: {
-    width: 10, height: 10, borderRadius: 2,
-    backgroundColor: colors.neon.cyan,
-    shadowColor: colors.neon.cyanGlow,
-    shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 },
-  },
-  brandWordmark: {
-    color: colors.text.primary,
-    fontSize: 12, fontWeight: '800',
-    letterSpacing: 2.5, fontFamily: 'monospace',
-  },
-  brandSubline: {
-    color: colors.text.disabled,
-    fontSize: 8, fontWeight: '700',
-    letterSpacing: 1.2, fontFamily: 'monospace',
-  },
-
-  /* Hero */
-  hero: {
-    paddingHorizontal: space.xl,
-    paddingTop: space.xl,
-    paddingBottom: space.xxl,
+  wallpaper: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.bg.canvas,
     overflow: 'hidden',
+    zIndex: 0,
   },
-  heroAmbient: {
-    position: 'absolute', top: -40, left: -40, right: -40, height: 180,
-    backgroundColor: 'rgba(0, 224, 255, 0.18)',
-    borderRadius: 400,
-    ...Platform.select({
-      web: { filter: 'blur(70px)' },
-      default: { opacity: 0.5 },
+  blob: {
+    position: 'absolute',
+    borderRadius: 999,
+    ...Platform.select({ web: { filter: `blur(${n(80)}px)` } }),
+  },
+  osShell: {
+    flex: 1,
+    zIndex: 1,
+  },
+  
+  /* Dynamic Island */
+  islandWrapper: {
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  dynamicIsland: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.bg.card,
+    borderWidth: theme.border?.width ?? StyleSheet.hairlineWidth,
+    borderColor: theme.border.default,
+    paddingVertical: n(10),
+    paddingHorizontal: n(16),
+    borderRadius: theme.shape?.cardRadius ?? n(99),
+    gap: n(8),
+    ...(theme.shadow?.card || {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
     }),
   },
-  heroLabelRow: {
-    flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.md,
+  islandDot: {
+    width: n(6),
+    height: n(6),
+    borderRadius: n(3),
+    backgroundColor: '#34C759',
+    shadowColor: '#34C759',
+    shadowOpacity: 0.8,
+    shadowRadius: n(6),
+    shadowOffset: { width: 0, height: 0 },
   },
-  heroLabelPill: {
-    paddingHorizontal: space.sm, paddingVertical: 3,
-    borderRadius: radii.sm,
-    backgroundColor: colors.bg.cardGlass,
-    borderWidth: 1, borderColor: colors.border.glass,
+  islandText: {
+    color: theme.text.primary,
+    fontSize: n(12),
+    fontWeight: '600',
+    fontFamily: theme.typography?.fontFamily || defaultFont,
+    letterSpacing: 0.3,
   },
-  heroLabelPillText: {
-    color: colors.neon.cyan, fontSize: 8, fontWeight: '800',
-    letterSpacing: 1.5, fontFamily: 'monospace',
+  doneButton: {
+    position: 'absolute',
+    right: n(20),
+    top: n(20),
+    backgroundColor: theme.bg.panel,
+    borderWidth: theme.border?.width ?? StyleSheet.hairlineWidth,
+    borderColor: theme.border.subtle,
+    paddingHorizontal: n(12),
+    paddingVertical: n(6),
+    borderRadius: n(16),
   },
-  heroLabelSub: {
-    color: colors.text.disabled, fontSize: 8, fontWeight: '700',
-    letterSpacing: 1.5, fontFamily: 'monospace',
-  },
-  heroTitle: {
-    color: colors.text.primary,
-    fontSize: 56, fontWeight: '900',
-    letterSpacing: -2, lineHeight: 56,
-  },
-  heroSubtitle: {
-    color: colors.text.secondary,
-    fontSize: 28, fontWeight: '300',
-    letterSpacing: 4, fontFamily: 'monospace',
-  },
-
-  /* Card */
-  card: {
-    marginHorizontal: space.xl,
-    marginTop: space.xl,
-    padding: space.xl,
-    gap: space.lg,
-  },
-  cardTop: {
-    flexDirection: 'row', alignItems: 'center', gap: space.lg,
-  },
-  cardMeta: {
-    flex: 1, gap: 4,
-  },
-  cardSubtitle: {
-    color: colors.text.muted,
-    fontSize: 9, fontWeight: '800',
-    letterSpacing: 1.2, fontFamily: 'monospace',
-  },
-  cardMetaTiny: {
-    color: colors.text.disabled,
-    fontSize: 9, fontWeight: '600',
-    letterSpacing: 1, fontFamily: 'monospace',
-  },
-  cardHairline: {
-    height: 1, backgroundColor: colors.border.subtle,
-  },
-  cardTitleBlock: {
-    gap: 4,
-  },
-  cardName: {
-    color: colors.text.primary,
-    fontSize: 28, fontWeight: '800',
-    letterSpacing: -0.5, fontFamily: 'monospace',
-  },
-  cardSubline: {
-    color: colors.text.disabled,
-    fontSize: 8, fontWeight: '700',
-    letterSpacing: 1.5, fontFamily: 'monospace',
-  },
-  cardFooterRow: {
-    flexDirection: 'row', alignItems: 'center', gap: space.sm,
-  },
-  cardCta: {
-    fontSize: 11, fontWeight: '800',
-    letterSpacing: 4, fontFamily: 'monospace',
-  },
-  cardCtaArrow: {
-    fontSize: 14, fontWeight: '300',
+  doneButtonText: {
+    color: theme.text.primary,
+    fontSize: n(12),
+    fontWeight: '700',
+    fontFamily: theme.typography?.fontFamily || defaultFont,
   },
 
-  /* Footer */
-  footer: {
-    paddingHorizontal: space.xl,
-    paddingTop: space.xxl,
-    paddingBottom: space.xl,
-  },
-  footerLine: {
-    height: 1, backgroundColor: colors.border.subtle, marginBottom: space.md,
-  },
-  footerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: space.sm,
-  },
-  footerText: {
-    color: colors.text.disabled, fontSize: 8,
-    fontWeight: '700', letterSpacing: 1.5, fontFamily: 'monospace',
+  /* Content */
+  scrollContent: {
+    paddingHorizontal: n(20),
+    paddingTop: n(32),
+    paddingBottom: n(120), // space for dock
   },
 
-  /* Window */
-  windowWrap: {
-    flex: 1, margin: space.md,
-    borderRadius: radii.xl, borderWidth: 1, borderColor: colors.border.glass,
-    backgroundColor: colors.bg.cardGlass, overflow: 'hidden',
-    ...shadow.lg,
+  /* Widgets */
+  widgetSection: {
+    gap: n(16),
+    marginBottom: n(32),
   },
-  windowChrome: {
-    height: 44, flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: space.lg, gap: space.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border.subtle,
+  widgetLarge: {
+    borderRadius: theme.shape?.cardRadius ?? n(24),
+    padding: n(20),
+    borderWidth: theme.border?.width ?? StyleSheet.hairlineWidth,
+    borderColor: theme.border.default,
+    backgroundColor: theme.bg.card,
+    ...(theme.shadow?.card || {}),
   },
-  closeLight: {
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: colors.traffic.close,
+  widgetSmall: {
+    borderRadius: theme.shape?.cardRadius ?? n(24),
+    padding: n(16),
+    width: '48%', // Half width approximation
+    borderWidth: theme.border?.width ?? StyleSheet.hairlineWidth,
+    borderColor: theme.border.default,
+    backgroundColor: theme.bg.card,
+    ...(theme.shadow?.card || {}),
   },
-  windowTitle: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: space.sm,
+  widgetSubtitle: {
+    color: theme.text.secondary,
+    fontSize: n(13),
+    fontWeight: '600',
+    fontFamily: theme.typography?.fontFamily || defaultFont,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: n(4),
   },
-  windowTitleText: {
-    color: colors.text.primary, fontSize: 11,
-    fontWeight: '800', letterSpacing: 2, fontFamily: 'monospace',
-  },
-  windowTitleDot: {
-    width: 5, height: 5, borderRadius: 3,
-    shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 },
-  },
-  windowTitleBadge: {
-    color: colors.text.muted, fontSize: 8,
-    fontWeight: '800', letterSpacing: 1.5, fontFamily: 'monospace',
-  },
-  reloadBtn: {
-    width: 28, height: 28, borderRadius: 6,
-    borderWidth: 1, borderColor: colors.border.glass,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  reloadGlyph: {
-    color: colors.text.muted, fontSize: 14, fontWeight: '700',
-  },
-  viewport: { flex: 1 },
-
-  /* Overlay / sheet */
-  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', zIndex: 100 },
-  overlayBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.bg.overlay },
-  sheet: {
-    backgroundColor: colors.bg.modal, borderTopLeftRadius: radii.xxl, borderTopRightRadius: radii.xxl,
-    borderTopWidth: 1, borderColor: colors.border.glass,
-    padding: space.xxl, paddingBottom: space.massive, gap: space.lg,
-  },
-  sheetHandle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: colors.border.glass, alignSelf: 'center', marginBottom: space.xs,
-  },
-  sheetTitle: {
-    color: colors.text.primary, fontSize: 22, fontWeight: '800',
+  widgetTitle: {
+    color: theme.text.primary,
+    fontSize: n(22),
+    fontWeight: '700',
+    fontFamily: theme.typography?.fontFamily || defaultFont,
     letterSpacing: -0.5,
+    marginBottom: n(16),
+    ...(theme.typography?.textShadow || {}),
   },
-  sheetSub: {
-    color: colors.text.secondary, fontSize: 13, lineHeight: 18,
+  widgetTitleSmall: {
+    color: theme.text.primary,
+    fontSize: n(16),
+    fontWeight: '700',
+    fontFamily: theme.typography?.fontFamily || defaultFont,
+    letterSpacing: -0.3,
+    ...(theme.typography?.textShadow || {}),
+  },
+  ctaButton: {
+    backgroundColor: theme.text.accent,
+    paddingVertical: n(14),
+    borderRadius: theme.shape?.cardRadius ?? n(16),
+    alignItems: 'center',
+  },
+  ctaButtonText: {
+    color: theme.text.buttonText || (theme.isDark ? '#000000' : '#FFFFFF'),
+    fontSize: n(15),
+    fontWeight: '700',
+    fontFamily: theme.typography?.fontFamily || defaultFont,
+  },
+
+  /* App Grid */
+  appGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: n(24),
+  },
+  appIconWrapper: {
+    width: '25%', // 4 columns
+    alignItems: 'center',
+    gap: n(6),
+  },
+  appIcon: {
+      width: n(60),
+      height: n(60),
+      borderRadius: theme.shape?.iconRadius ?? n(16),
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: n(6),
+      borderWidth: theme.border?.width ?? 0,
+      borderColor: theme.border.default,
+      ...(theme.shadow?.icon || {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: n(4) },
+        shadowOpacity: 0.3,
+        shadowRadius: n(8),
+      }),
+    },
+    deleteBadge: {
+      position: 'absolute',
+      top: n(-8),
+      left: n(-6),
+      width: n(24),
+      height: n(24),
+      borderRadius: n(12),
+      backgroundColor: '#D1D1D6',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 3,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: n(20),
+    },
+    modalCard: {
+      backgroundColor: theme.bg.panel,
+      borderRadius: n(24),
+      padding: n(24),
+      width: '100%',
+      maxWidth: 320,
+      borderWidth: 1,
+      borderColor: theme.border.subtle,
+      alignItems: 'center',
+    },
+    modalTitle: {
+      fontSize: n(18),
+      fontWeight: '700',
+      color: theme.text.primary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+      marginBottom: n(8),
+      textAlign: 'center',
+    },
+    modalSubtitle: {
+      fontSize: n(14),
+      color: theme.text.secondary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+      textAlign: 'center',
+      marginBottom: n(24),
+      lineHeight: n(20),
+    },
+    modalActions: {
+      flexDirection: 'row',
+      gap: n(12),
+      width: '100%',
+    },
+    modalBtn: {
+      flex: 1,
+      paddingVertical: n(14),
+      borderRadius: n(12),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalBtnCancel: {
+      backgroundColor: theme.bg.card,
+      borderWidth: 1,
+      borderColor: theme.border.default,
+    },
+    modalBtnDelete: {
+      backgroundColor: theme.text.danger || '#FF3B30',
+    },
+    modalBtnText: {
+      fontSize: n(15),
+      fontWeight: '700',
+      color: theme.text.primary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+    },
+    modalBtnTextDelete: {
+      color: '#FFF',
+    },
+    eventModalCard: {
+      backgroundColor: theme.bg.panel,
+      borderRadius: n(24),
+      padding: n(24),
+      width: '100%',
+      maxWidth: 360,
+      borderWidth: 1,
+      borderColor: theme.border.subtle,
+    },
+    eventModalHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: n(16),
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.border.subtle,
+      paddingBottom: n(12),
+    },
+    eventDetails: {
+      gap: n(12),
+    },
+    eventTitle: {
+      fontSize: n(20),
+      fontWeight: '800',
+      color: theme.text.primary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+      lineHeight: n(24),
+    },
+    eventCategory: {
+      fontSize: n(13),
+      color: theme.text.accent || theme.text.primary,
+      fontWeight: '600',
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    eventRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: n(8),
+    },
+    eventText: {
+      fontSize: n(15),
+      color: theme.text.secondary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+    },
+  appIconSelected: {
+    borderWidth: n(3),
+    borderColor: theme.text.primary,
+    opacity: 0.8,
+  },
+  appIconImage: {
+    width: '75%',
+    height: '75%',
+    borderRadius: n(4),
+  },
+  appLabel: {
+    color: theme.text.primary,
+    fontSize: n(11),
+    fontWeight: '500',
+    fontFamily: theme.typography?.fontFamily || defaultFont,
+    textAlign: 'center',
+    ...(theme.typography?.textShadow || {}),
+  },
+
+  /* System Dock */
+  dockWrapper: {
+    position: 'absolute',
+    bottom: n(24),
+    left: n(20),
+    right: n(20),
+    alignItems: 'center',
+  },
+  dock: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: n(400),
+    borderRadius: n(32),
+    paddingVertical: n(16),
+    paddingHorizontal: n(24),
+  },
+  dockBtn: {
+    width: n(44),
+    height: n(44),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Mini App Canvas */
+  canvasWrap: {
+    flex: 1,
+    backgroundColor: theme.bg.canvas,
+    zIndex: 999,
+  },
+  exitCapsule: {
+    position: 'absolute',
+    alignSelf: 'center',
+    backgroundColor: theme.text.primary, // Inverted high-contrast solid background
+    borderWidth: theme.border?.width ?? StyleSheet.hairlineWidth,
+    borderColor: theme.text.primary,
+    width: n(36), // Increased size
+    height: n(36),
+    borderRadius: n(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(theme.shadow?.card || {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 6,
+      elevation: 5,
+    }),
+  },
+  perfectCrossLine: {
+    position: 'absolute',
+    width: n(16), // Scaled up to match new capsule size
+    height: n(2.5),
+    backgroundColor: theme.bg.root, // Inverted high-contrast cross line
+    borderRadius: n(1.5),
   },
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, space, radii, type as typeTokens, shadow } from '../core/tokens';
 
@@ -14,9 +14,13 @@ export default function IframeContainer({
 }) {
   const iframeRef = useRef(null);
   const [loadError, setLoadError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Reset error state whenever we navigate to a new URL
-  useEffect(() => { setLoadError(false); }, [activeUrl]);
+  // Reset error & loading state whenever we navigate to a new URL
+  useEffect(() => { 
+    setLoadError(false); 
+    setIsLoading(true);
+  }, [activeUrl]);
 
   // Helper to extract the domain/origin of the loaded mini-app
   const getMiniAppOrigin = () => {
@@ -49,7 +53,7 @@ export default function IframeContainer({
   useEffect(() => {
     if (Platform.OS !== 'web' || !activeUrl || !gpsLocation) return;
 
-    const iframe = document.querySelector('iframe');
+    const iframe = iframeRef.current;
     if (iframe && iframe.contentWindow) {
       const targetOrigin = getMiniAppOrigin();
       iframe.contentWindow.postMessage({
@@ -84,8 +88,8 @@ export default function IframeContainer({
       if (type === 'OPENDOME_READY') {
         onAddLog(`[Bridge] Received OPENDOME_READY from Mini App (AppId="${appId || 'unknown'}")`);
         
-        const iframe = document.querySelector('iframe');
-        if (iframe && iframe.contentWindow) {
+        const sourceWindow = event.source;
+        if (sourceWindow) {
           // Build context object
           const contextObj = {};
           contextVariables.forEach(row => {
@@ -106,7 +110,7 @@ export default function IframeContainer({
               
               if (userRes && userRes.authenticated) {
                 onAddLog(`[Bridge] Handshake SUCCESS: Verified User @${userRes.username}. Injecting wallets.`);
-                iframe.contentWindow.postMessage({
+                sourceWindow.postMessage({
                   type: 'OPENDOME_HANDSHAKE',
                   status: 'VERIFIED',
                   payload: userRes.token,
@@ -137,7 +141,7 @@ export default function IframeContainer({
 
             // Fallback: Guest Mode Handshake
             onAddLog('[Bridge] Handshake SUCCESS: Guest Mode (no user active).');
-            iframe.contentWindow.postMessage({
+            sourceWindow.postMessage({
               type: 'OPENDOME_HANDSHAKE',
               status: 'UNAUTHENTICATED',
               payload: null,
@@ -149,7 +153,7 @@ export default function IframeContainer({
             }, origin);
           } else {
             onAddLog('[Bridge] Handshake FAILED: App Token is invalid.');
-            iframe.contentWindow.postMessage({
+            sourceWindow.postMessage({
               type: 'OPENDOME_HANDSHAKE',
               status: 'UNAUTHORIZED',
               error: 'INVALID_TOKEN'
@@ -194,9 +198,9 @@ export default function IframeContainer({
             onAddLog(`[Bridge] Delegated Registration complete. Dispatched Success.`);
             const userProfile = await verifyTokenOnServer(verifyResult.token);
             
-            const iframe = document.querySelector('iframe');
-            if (iframe && iframe.contentWindow && userProfile) {
-              iframe.contentWindow.postMessage({
+            const sourceWindow = event.source;
+            if (sourceWindow && userProfile) {
+              sourceWindow.postMessage({
                 type: 'OPENDOME_REGISTER_RESPONSE',
                 status: 'SUCCESS',
                 payload: { token: verifyResult.token },
@@ -221,9 +225,9 @@ export default function IframeContainer({
           }
         } catch (err) {
           onAddLog(`[Bridge] Delegated REGISTER Failed: ${err.message}`);
-          const iframe = document.querySelector('iframe');
-          if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({
+          const sourceWindow = event.source;
+          if (sourceWindow) {
+            sourceWindow.postMessage({
               type: 'OPENDOME_REGISTER_RESPONSE',
               status: 'ERROR',
               error: err.message
@@ -259,9 +263,9 @@ export default function IframeContainer({
             onAddLog(`[Bridge] Delegated Authentication complete. Dispatched Success.`);
             const userProfile = await verifyTokenOnServer(verifyResult.token);
             
-            const iframe = document.querySelector('iframe');
-            if (iframe && iframe.contentWindow && userProfile) {
-              iframe.contentWindow.postMessage({
+            const sourceWindow = event.source;
+            if (sourceWindow && userProfile) {
+              sourceWindow.postMessage({
                 type: 'OPENDOME_LOGIN_RESPONSE',
                 status: 'SUCCESS',
                 payload: { token: verifyResult.token },
@@ -286,9 +290,9 @@ export default function IframeContainer({
           }
         } catch (err) {
           onAddLog(`[Bridge] Delegated LOGIN Failed: ${err.message}`);
-          const iframe = document.querySelector('iframe');
-          if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({
+          const sourceWindow = event.source;
+          if (sourceWindow) {
+            sourceWindow.postMessage({
               type: 'OPENDOME_LOGIN_RESPONSE',
               status: 'ERROR',
               error: err.message
@@ -319,9 +323,9 @@ export default function IframeContainer({
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Server error');
           
-          const iframe = document.querySelector('iframe');
-          if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({
+          const sourceWindow = event.source;
+          if (sourceWindow) {
+            sourceWindow.postMessage({
               type: 'OPENDOME_AI_RESPONSE',
               id,
               response: data.response
@@ -330,9 +334,9 @@ export default function IframeContainer({
           }
         } catch (err) {
           onAddLog(`[Bridge] AI Agent Error: ${err.message}`);
-          const iframe = document.querySelector('iframe');
-          if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({
+          const sourceWindow = event.source;
+          if (sourceWindow) {
+            sourceWindow.postMessage({
               type: 'OPENDOME_AI_RESPONSE',
               id,
               error: err.message
@@ -345,6 +349,24 @@ export default function IframeContainer({
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [activeUrl, verifiedToken, contextVariables]);
+
+  // Sync GPS Location continuously down to the iframe
+  useEffect(() => {
+    if (!isLoading && gpsLocation && iframeRef.current && iframeRef.current.contentWindow) {
+      try {
+        const urlObj = new URL(activeUrl);
+        iframeRef.current.contentWindow.postMessage({
+          type: 'OPENDOME_LOCATION_UPDATE',
+          payload: gpsLocation
+        }, urlObj.origin);
+      } catch (e) {
+        iframeRef.current.contentWindow.postMessage({
+          type: 'OPENDOME_LOCATION_UPDATE',
+          payload: gpsLocation
+        }, '*');
+      }
+    }
+  }, [gpsLocation, isLoading, activeUrl]);
 
   if (Platform.OS !== 'web') {
     return (
@@ -391,7 +413,7 @@ export default function IframeContainer({
           accessibilityRole="button"
           accessibilityLabel="Retry loading mini app"
         >
-          <Ionicons name="refresh" size={12} color={colors.text.onAccent} />
+          <Ionicons name="refresh" size={12} color={colors.text.inverse} />
           <Text style={styles.retryBtnText}>RETRY</Text>
         </Pressable>
       </View>
@@ -401,24 +423,55 @@ export default function IframeContainer({
   const iframeSrc = `${activeUrl}?parentOrigin=${encodeURIComponent(window.location.origin)}`;
 
   return (
-    <iframe
-      ref={iframeRef}
-      src={iframeSrc}
-      style={styles.iframe}
-      title="Open-Dome Active Mini App"
-      allow="geolocation"
-      onError={() => setLoadError(true)}
-    />
+    <View style={styles.container}>
+      {isLoading && !loadError && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
+          <Text style={styles.loadingText}>Connecting to Mini App...</Text>
+        </View>
+      )}
+      <View style={[{ flex: 1 }, isLoading && { opacity: 0 }]}>
+        <iframe
+          ref={iframeRef}
+          src={iframeSrc}
+          style={styles.iframe}
+          title="Open-Dome Active Mini App"
+          allow="geolocation"
+          onLoad={() => setIsLoading(false)}
+          onError={() => setLoadError(true)}
+        />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: 'relative',
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    backgroundColor: colors.bg.canvas,
+  },
   iframe: {
     width: '100%',
     height: '100%',
     borderWidth: 0,
     backgroundColor: colors.bg.canvas,
-    borderRadius: radii.md,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.bg.canvas,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    gap: space.md,
+  },
+  loadingText: {
+    color: colors.text.muted,
+    fontSize: typeTokens.small,
+    fontFamily: typeTokens.fontFamily,
+    fontWeight: '500',
   },
   placeholder: {
     flex: 1,
@@ -437,11 +490,13 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     lineHeight: typeTokens.body + 5,
+    fontFamily: typeTokens.fontFamily,
   },
   errorTitle: {
     color: colors.text.primary,
     fontSize: typeTokens.base,
     fontWeight: '700',
+    fontFamily: typeTokens.fontFamily,
   },
   retryBtn: {
     flexDirection: 'row',
@@ -454,10 +509,11 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
   },
   retryBtnText: {
-    color: colors.text.onAccent,
+    color: colors.text.inverse,
     fontSize: typeTokens.micro + 1,
     fontWeight: '800',
     letterSpacing: 0.5,
+    fontFamily: typeTokens.fontFamily,
   },
   nativeFallback: {
     flex: 1,
@@ -482,8 +538,8 @@ const styles = StyleSheet.create({
     lineHeight: typeTokens.body + 5,
   },
   urlText: {
-    color: colors.brand.alt,
-    fontFamily: 'monospace',
+    color: colors.brand.primary,
+    fontFamily: typeTokens.fontFamilyCode,
     fontSize: typeTokens.small,
   },
 });

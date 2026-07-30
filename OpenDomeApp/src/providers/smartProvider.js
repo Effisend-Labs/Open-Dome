@@ -136,7 +136,7 @@ export default function SmartProvider({ children }) {
                 alignSelf: "center",
                 justifyContent: "center",
                 overflow: "hidden",
-                paddingVertical: 20,
+                borderRadius: internalSize.normalize(50),
               }}
             >
               {children}

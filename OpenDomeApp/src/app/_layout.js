@@ -12,6 +12,7 @@ import React from "react";
 import "react-native-reanimated";
 import "../core/error";
 import ContextLoader from "../providers/contextLoader";
+import { ThemeProvider } from "../providers/ThemeProvider";
 
 export default function RootLayout() {
   useFonts({
@@ -23,36 +24,38 @@ export default function RootLayout() {
       {
         // This provider put a phone frame around the app if the app is running on a desktop
       }
-      <SmartProvider>
-        {
-          // This provider provides the context to the app
-        }
-        <ContextProvider>
+      <ThemeProvider>
+        <SmartProvider>
           {
-            // This provider provides metamask connectivity
+            // This provider provides the context to the app
           }
-          <ContextLoader />
-          {
-            // Base App Analytics
-          }
-          <Stack
-            initialRouteName="index"
-            screenOptions={{
-              animation: "simple_push",
-              headerShown: false,
-              contentStyle: { backgroundColor: "black" },
-            }}
-          >
+          <ContextProvider>
             {
-              // Splash Loading Screen
+              // This provider provides metamask connectivity
             }
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(screens)/main" />
-            <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
-          </Stack>
-          <StatusBar style="auto" />
-        </ContextProvider>
-      </SmartProvider>
+            <ContextLoader />
+            {
+              // Base App Analytics
+            }
+            <Stack
+              initialRouteName="index"
+              screenOptions={{
+                animation: "simple_push",
+                headerShown: false,
+                contentStyle: { backgroundColor: "black" },
+              }}
+            >
+              {
+                // Splash Loading Screen
+              }
+              <Stack.Screen name="index" options={{ title: 'OpenDomeOS' }} />
+              <Stack.Screen name="(screens)/main" options={{ title: 'OpenDomeOS' }} />
+              <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+            </Stack>
+            <StatusBar style="auto" />
+          </ContextProvider>
+        </SmartProvider>
+      </ThemeProvider>
     </React.Fragment>
   );
 }

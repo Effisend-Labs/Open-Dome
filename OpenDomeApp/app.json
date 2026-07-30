@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "OpenDomeApp",
-    "slug": "OpenDomeApp",
+    "name": "OpenDomeOS",
+    "slug": "opendomeos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/logo.png",
@@ -52,6 +52,15 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "unstable_useServerMiddleware": true
+      },
+      "eas": {
+        "projectId": "df390456-2a5d-4a55-b46a-f20047a72d3b"
+      }
+    },
+    "owner": "altaga"
   }
 }

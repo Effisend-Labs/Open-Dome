@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platfo
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import SmartProvider from '../components/SmartProvider';
 import EventBoard from '../components/EventBoard';
-import LogoO from '../assets/logoP.png';
+import LogoO from '../assets/logoopen.png';
 
 const verifyTokenOnServer = async (token) => {
   console.log(`[Open-Dome Sandbox Frontend] Calling Server API to verify token...`);

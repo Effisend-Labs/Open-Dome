@@ -72,15 +72,15 @@ function FilterDropdown({ label, value, options, onSelect, tokens }) {
           paddingHorizontal: 12,
           paddingVertical: 10,
           backgroundColor: isFiltered ? tokens.NEON_PRIMARY : tokens.SURFACE,
-          borderWidth: 1,
+          borderWidth: tokens.shape.border,
           borderColor: isFiltered ? tokens.NEON_PRIMARY : tokens.BORDER,
-          borderRadius: 2,
+          borderRadius: tokens.shape.buttonRadius,
         }}
       >
         <Text style={{
           fontSize: 10,
           fontWeight: 'bold',
-          fontFamily: GLOBAL_STYLES.monospace,
+          fontFamily: tokens.font.primary,
           color: isFiltered ? '#000' : tokens.FG,
           letterSpacing: 0.5,
         }}>
@@ -89,7 +89,7 @@ function FilterDropdown({ label, value, options, onSelect, tokens }) {
         <Text style={{
           fontSize: 10,
           color: isFiltered ? '#000' : tokens.MUTED,
-          fontFamily: GLOBAL_STYLES.monospace,
+          fontFamily: tokens.font.primary,
         }}>
           {open ? '▲' : '▼'}
         </Text>
@@ -98,11 +98,12 @@ function FilterDropdown({ label, value, options, onSelect, tokens }) {
       {/* Options panel */}
       {open && (
         <View style={{
-          borderWidth: 1,
+          borderWidth: tokens.shape.border,
           borderTopWidth: 0,
           borderColor: tokens.BORDER,
           backgroundColor: tokens.SURFACE,
-          borderRadius: 2,
+          borderBottomLeftRadius: tokens.shape.buttonRadius,
+          borderBottomRightRadius: tokens.shape.buttonRadius,
         }}>
           {options.map((opt, idx) => {
             const active = value === opt.id;
@@ -126,7 +127,7 @@ function FilterDropdown({ label, value, options, onSelect, tokens }) {
               >
                 <Text style={{
                   fontSize: 11,
-                  fontFamily: GLOBAL_STYLES.monospace,
+                  fontFamily: tokens.font.primary,
                   color: active ? tokens.NEON_PRIMARY : tokens.FG,
                   fontWeight: active ? 'bold' : 'normal',
                 }}>
@@ -146,7 +147,7 @@ function FilterDropdown({ label, value, options, onSelect, tokens }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function EventsView({ theme, tokens }) {
+export default function EventsView({ theme, tokens, t }) {
   const isDark = theme === 'dark';
 
   // Filter state
@@ -223,13 +224,13 @@ export default function EventsView({ theme, tokens }) {
             fontSize: 16,
             fontWeight: GLOBAL_STYLES.heavy,
             letterSpacing: 1,
-            fontFamily: GLOBAL_STYLES.monospace,
+            fontFamily: tokens.font.primary,
             marginBottom: 4,
           }}>
-            TOKYO_DOME_EVENTS
+            {t.events?.title || 'TOKYO_DOME_EVENTS'}
           </Text>
-          <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: GLOBAL_STYLES.monospace }}>
-            Historical & scheduled events registry · SDK local DB
+          <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.mono }}>
+            {t.events?.subtitle || 'Historical & scheduled events registry · SDK local DB'}
           </Text>
         </View>
 
@@ -242,14 +243,14 @@ export default function EventsView({ theme, tokens }) {
             fontSize: 13,
             backgroundColor: tokens.SURFACE,
             color: tokens.FG,
-            borderWidth: 1,
+            borderWidth: tokens.shape.border,
             borderColor: tokens.BORDER,
             marginBottom: 12,
-            fontFamily: GLOBAL_STYLES.monospace,
-            borderRadius: 2,
+            fontFamily: tokens.font.primary,
+            borderRadius: tokens.shape.buttonRadius,
             outlineStyle: 'none', // web: remove focus ring in favour of border
           }}
-          placeholder="SEARCH TITLE, ARTIST, PLACE…"
+          placeholder={t.events?.searchPlaceholder || "SEARCH TITLE, ARTIST, PLACE…"}
           placeholderTextColor={tokens.MUTED}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -276,19 +277,19 @@ export default function EventsView({ theme, tokens }) {
                   paddingVertical: 9,
                   alignItems: 'center',
                   backgroundColor: active ? tokens.NEON_PRIMARY : tokens.SURFACE,
-                  borderWidth: 1,
+                  borderWidth: tokens.shape.border,
                   borderColor:  active ? tokens.NEON_PRIMARY : tokens.BORDER,
-                  borderRadius: 2,
+                  borderRadius: tokens.shape.buttonRadius,
                 }}
               >
                 <Text style={{
                   color: active ? '#000' : tokens.FG,
                   fontSize: 10,
                   fontWeight: 'bold',
-                  fontFamily: GLOBAL_STYLES.monospace,
+                  fontFamily: tokens.font.primary,
                   letterSpacing: 0.5,
                 }}>
-                  {tf.label}
+                  {tf.id === 'all' ? (t.events?.timeAll || tf.label) : tf.id === 'upcoming' ? (t.events?.timeUpcoming || tf.label) : (t.events?.timePast || tf.label)}
                 </Text>
               </TouchableOpacity>
             );
@@ -297,7 +298,7 @@ export default function EventsView({ theme, tokens }) {
 
         {/* ── Collapsible category dropdown ───────────────────────────────── */}
         <FilterDropdown
-          label="Category"
+          label={t.events?.category || "Category"}
           value={selectedCategory}
           options={CATEGORIES}
           onSelect={setSelectedCategory}
@@ -306,7 +307,7 @@ export default function EventsView({ theme, tokens }) {
 
         {/* ── Collapsible location dropdown ───────────────────────────────── */}
         <FilterDropdown
-          label="Location"
+          label={t.events?.location || "Location"}
           value={selectedLocation}
           options={LOCATIONS}
           onSelect={setSelectedLocation}
@@ -329,15 +330,15 @@ export default function EventsView({ theme, tokens }) {
             fontSize: 10,
             fontWeight: 'bold',
             letterSpacing: 1.5,
-            fontFamily: GLOBAL_STYLES.monospace,
+            fontFamily: tokens.font.primary,
           }}>
-            REGISTRY_RESULTS
+            {t.events?.results || 'REGISTRY_RESULTS'}
           </Text>
           <View style={{
             backgroundColor: tokens.NEON_PRIMARY + '22',
-            borderWidth: 1,
+            borderWidth: tokens.shape.border,
             borderColor: tokens.NEON_PRIMARY,
-            borderRadius: 2,
+            borderRadius: tokens.shape.pillRadius,
             paddingHorizontal: 8,
             paddingVertical: 2,
           }}>
@@ -345,9 +346,9 @@ export default function EventsView({ theme, tokens }) {
               color: tokens.NEON_PRIMARY,
               fontSize: 10,
               fontWeight: 'bold',
-              fontFamily: GLOBAL_STYLES.monospace,
+              fontFamily: tokens.font.primary,
             }}>
-              {events.length} EVENTS
+              {events.length} {t.events?.eventsCount || 'EVENTS'}
             </Text>
           </View>
         </View>
@@ -360,16 +361,16 @@ export default function EventsView({ theme, tokens }) {
             borderWidth: 1,
             borderColor: tokens.BORDER,
             borderStyle: 'dashed',
-            borderRadius: 2,
+            borderRadius: tokens.shape.cardRadius,
             marginTop: 8,
           }}>
             <Text style={{
               color: tokens.MUTED,
               fontSize: 11,
-              fontFamily: GLOBAL_STYLES.monospace,
+              fontFamily: tokens.font.primary,
               textAlign: 'center',
             }}>
-              NO MATCHING EVENTS FOUND{'\n'}Try adjusting your filters.
+              {t.events?.noMatches || 'NO MATCHING EVENTS FOUND'}{'\n'}{t.events?.tryAdjusting || 'Try adjusting your filters.'}
             </Text>
           </View>
         )}
@@ -381,11 +382,12 @@ export default function EventsView({ theme, tokens }) {
             key={`${event.id}-${index}`}
             style={{
               backgroundColor: tokens.SURFACE,
-              borderWidth: 1,
+              borderWidth: tokens.shape.border,
               borderColor: tokens.BORDER,
-              borderRadius: 2,
+              borderRadius: tokens.shape.cardRadius,
               padding: 16,
               marginBottom: 10,
+              ...tokens.shadow.card
             }}
           >
             {/* Date + Category badge */}
@@ -398,7 +400,7 @@ export default function EventsView({ theme, tokens }) {
               <Text style={{
                 color: tokens.NEON_PRIMARY,
                 fontSize: 11,
-                fontFamily: GLOBAL_STYLES.monospace,
+                fontFamily: tokens.font.mono,
                 fontWeight: 'bold',
               }}>
                 {formatDate(event.from)}
@@ -407,13 +409,13 @@ export default function EventsView({ theme, tokens }) {
                 backgroundColor: isDark ? '#1A1A24' : '#E5E5EA',
                 paddingHorizontal: 7,
                 paddingVertical: 3,
-                borderRadius: 2,
+                borderRadius: tokens.shape.pillRadius,
               }}>
                 <Text style={{
                   color: tokens.MUTED,
                   fontSize: 9,
                   fontWeight: 'bold',
-                  fontFamily: GLOBAL_STYLES.monospace,
+                  fontFamily: tokens.font.primary,
                   letterSpacing: 0.5,
                 }}>
                   {(event.category || '').toUpperCase()}
@@ -426,7 +428,7 @@ export default function EventsView({ theme, tokens }) {
               color: tokens.FG,
               fontSize: 14,
               fontWeight: GLOBAL_STYLES.heavy,
-              fontFamily: GLOBAL_STYLES.monospace,
+              fontFamily: tokens.font.primary,
               marginBottom: 4,
               lineHeight: 20,
             }}>
@@ -438,7 +440,7 @@ export default function EventsView({ theme, tokens }) {
               <Text style={{
                 color: tokens.MUTED,
                 fontSize: 12,
-                fontFamily: GLOBAL_STYLES.monospace,
+                fontFamily: tokens.font.primary,
                 marginBottom: 8,
                 lineHeight: 18,
               }}>
@@ -456,7 +458,7 @@ export default function EventsView({ theme, tokens }) {
               <Text style={{
                 color: tokens.MUTED,
                 fontSize: 9,
-                fontFamily: GLOBAL_STYLES.monospace,
+                fontFamily: tokens.font.primary,
               }}>
                 LOCATION:
               </Text>
@@ -464,7 +466,7 @@ export default function EventsView({ theme, tokens }) {
                 color: tokens.FG,
                 fontSize: 11,
                 fontWeight: 'bold',
-                fontFamily: GLOBAL_STYLES.monospace,
+                fontFamily: tokens.font.primary,
               }}>
                 {(event.placeName || '').toUpperCase()}
               </Text>
@@ -486,13 +488,13 @@ export default function EventsView({ theme, tokens }) {
                 }}
               >
                 <Text style={{
-                  color: tokens.NEON_DANGER,
+                  color: tokens.NEON_PRIMARY,
                   fontSize: 10,
                   fontWeight: 'bold',
-                  fontFamily: GLOBAL_STYLES.monospace,
+                  fontFamily: tokens.font.primary,
                   letterSpacing: 0.5,
                 }}>
-                  VISIT EVENT PAGE →
+                  {t.events?.visitPage || 'VISIT EVENT PAGE →'}
                 </Text>
               </TouchableOpacity>
             )}

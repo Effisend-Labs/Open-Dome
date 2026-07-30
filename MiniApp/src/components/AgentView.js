@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView } from 
 import { useOpenDome } from 'opendome';
 import { GLOBAL_STYLES } from '../theme';
 
-export default function AgentView({ tokens, theme, username }) {
+export default function AgentView({ tokens, theme, username, t }) {
   const isDark = theme === 'dark';
   const { Agent } = useOpenDome();
   const [prompt, setPrompt] = useState('');
@@ -38,11 +38,11 @@ export default function AgentView({ tokens, theme, username }) {
       {/* Header */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: isDark ? '#1C1C1E' : '#E5E5EA' }}>
         <View>
-          <Text style={{ color: tokens.FG, fontSize: 18, fontWeight: '700', letterSpacing: -0.5, fontFamily: GLOBAL_STYLES.sans }}>Agent Workspace</Text>
-          <Text style={{ color: tokens.MUTED, fontSize: 11, fontFamily: GLOBAL_STYLES.sans, marginTop: 4 }}>Powered by Bedrock</Text>
+          <Text style={{ color: tokens.FG, fontSize: 18, fontWeight: '700', letterSpacing: -0.5, fontFamily: tokens.font.primary }}>{t.agent?.workspace || 'Agent Workspace'}</Text>
+          <Text style={{ color: tokens.MUTED, fontSize: 11, fontFamily: tokens.font.primary, marginTop: 4 }}>{t.agent?.poweredBy || 'Powered by Bedrock'}</Text>
         </View>
-        <View style={{ backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: isDark ? '#2C2C2E' : '#E5E5EA' }}>
-          <Text style={{ color: '#34C759', fontSize: 9, fontFamily: GLOBAL_STYLES.monospace, fontWeight: 'bold' }}>SECURE_LINK</Text>
+        <View style={{ backgroundColor: isDark ? '#1C1C1E' : '#F2F2F7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: tokens.shape.pillRadius, borderWidth: tokens.shape.border, borderColor: isDark ? '#2C2C2E' : '#E5E5EA' }}>
+          <Text style={{ color: '#34C759', fontSize: 9, fontFamily: tokens.font.mono, fontWeight: 'bold' }}>SECURE_LINK</Text>
         </View>
       </View>
 
@@ -55,8 +55,8 @@ export default function AgentView({ tokens, theme, username }) {
       >
         {conversation.length === 0 && (
           <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 80, opacity: 0.6 }}>
-            <Text style={{ color: tokens.MUTED, fontSize: 14, fontFamily: GLOBAL_STYLES.sans }}>
-              How can I help you today?
+            <Text style={{ color: tokens.MUTED, fontSize: 14, fontFamily: tokens.font.primary }}>
+              {t.agent?.helpText || 'How can I help you today?'}
             </Text>
           </View>
         )}
@@ -67,24 +67,24 @@ export default function AgentView({ tokens, theme, username }) {
             alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
             maxWidth: '85%'
           }}>
-            <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: GLOBAL_STYLES.sans, marginBottom: 6, paddingHorizontal: 4, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+            <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.primary, marginBottom: 6, paddingHorizontal: 4, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
               {msg.role === 'user' ? 'You' : (msg.role === 'agent' ? 'Agent' : 'System')}
             </Text>
             <View style={{
               backgroundColor: msg.role === 'user' ? (isDark ? '#1C1C1E' : '#F2F2F7') : 'transparent',
               paddingHorizontal: 16,
               paddingVertical: 14,
-              borderRadius: 20,
-              borderBottomRightRadius: msg.role === 'user' ? 4 : 20,
-              borderBottomLeftRadius: msg.role === 'agent' ? 4 : 20,
-              borderWidth: msg.role === 'agent' ? 1 : 0,
+              borderRadius: tokens.shape.cardRadius,
+              borderBottomRightRadius: msg.role === 'user' ? 4 : tokens.shape.cardRadius,
+              borderBottomLeftRadius: msg.role === 'agent' ? 4 : tokens.shape.cardRadius,
+              borderWidth: msg.role === 'agent' ? tokens.shape.border : 0,
               borderColor: isDark ? '#2C2C2E' : '#E5E5EA',
             }}>
               <Text style={{ 
                 color: msg.role === 'system' ? '#FF453A' : tokens.FG, 
                 fontSize: 14, 
                 lineHeight: 22, 
-                fontFamily: msg.role === 'system' ? GLOBAL_STYLES.monospace : GLOBAL_STYLES.sans,
+                fontFamily: msg.role === 'system' ? tokens.font.mono : tokens.font.primary,
                 letterSpacing: -0.2
               }}>
                 {msg.content}
@@ -95,9 +95,9 @@ export default function AgentView({ tokens, theme, username }) {
 
         {isTyping && (
           <View style={{ alignSelf: 'flex-start', marginBottom: 24, maxWidth: '85%' }}>
-            <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: GLOBAL_STYLES.sans, marginBottom: 6, paddingHorizontal: 4 }}>Agent</Text>
-            <View style={{ backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 20, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: isDark ? '#2C2C2E' : '#E5E5EA' }}>
-              <Text style={{ color: tokens.MUTED, fontSize: 14, fontFamily: GLOBAL_STYLES.sans }}>Thinking...</Text>
+            <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.primary, marginBottom: 6, paddingHorizontal: 4 }}>Agent</Text>
+            <View style={{ backgroundColor: 'transparent', paddingHorizontal: 16, paddingVertical: 14, borderRadius: tokens.shape.cardRadius, borderBottomLeftRadius: 4, borderWidth: tokens.shape.border, borderColor: isDark ? '#2C2C2E' : '#E5E5EA' }}>
+              <Text style={{ color: tokens.MUTED, fontSize: 14, fontFamily: tokens.font.primary }}>{t.agent?.thinking || 'Thinking...'}</Text>
             </View>
           </View>
         )}
@@ -110,18 +110,18 @@ export default function AgentView({ tokens, theme, username }) {
             flex: 1,
             backgroundColor: isDark ? '#09090B' : '#FFFFFF',
             color: tokens.FG,
-            fontFamily: GLOBAL_STYLES.sans,
+            fontFamily: tokens.font.primary,
             fontSize: 14,
             paddingHorizontal: 20,
             paddingTop: 14,
             paddingBottom: 14,
             maxHeight: 120,
-            borderRadius: 24,
-            borderWidth: 1,
+            borderRadius: tokens.shape.buttonRadius,
+            borderWidth: tokens.shape.border,
             borderColor: isDark ? '#2C2C2E' : '#E5E5EA',
             marginRight: 10
           }}
-          placeholder="Ask anything..."
+          placeholder={t.agent?.placeholder || "Ask anything..."}
           placeholderTextColor={tokens.MUTED}
           value={prompt}
           onChangeText={setPrompt}
@@ -134,16 +134,16 @@ export default function AgentView({ tokens, theme, username }) {
             backgroundColor: !prompt.trim() || isTyping ? (isDark ? '#1C1C1E' : '#F2F2F7') : tokens.NEON_PRIMARY,
             height: 48,
             width: 48,
-            borderRadius: 24,
+            borderRadius: tokens.shape.pillRadius,
             justifyContent: 'center',
             alignItems: 'center',
-            borderWidth: 1,
+            borderWidth: tokens.shape.border,
             borderColor: !prompt.trim() || isTyping ? (isDark ? '#2C2C2E' : '#E5E5EA') : 'transparent',
           }}
         >
           <Text style={{ 
             color: !prompt.trim() || isTyping ? tokens.MUTED : (isDark ? '#000' : '#FFF'), 
-            fontFamily: GLOBAL_STYLES.sans, 
+            fontFamily: tokens.font.primary, 
             fontWeight: '600', 
             fontSize: 16,
             marginTop: -2
