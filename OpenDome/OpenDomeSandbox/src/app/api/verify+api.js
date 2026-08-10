@@ -1,10 +1,13 @@
 import jwt from 'jsonwebtoken';
 
-// Secure list of UUIDv4 authorization tokens kept on the server
+// Per-mini-app docking tokens (see sdk/mini-app-credentials.json)
 const VALID_TOKENS = [
-  '8f46757b-7b08-4d5f-9dc1-2df88bc11425', 
-  '7c9e66ab-83c3-4d6b-871d-55737bc0ccbb',
-  'a98e8c11-9a70-4cc8-8d2a-c211b8b8098c'
+  'b448a20e-633f-4852-ab9c-664c04e1d38f', // Demo
+  '5679c842-c76f-4a65-8478-8f65ab38ff27', // Wallet
+  '5f099950-8b3c-4775-95b0-e5958cb11e82', // TokyoDome
+  '5c5071b1-d259-44f4-9728-1af67f84c431', // IMMTheater
+  'c4f9dbec-4d4e-4dea-8e0e-dce37e583ade', // KorakuenHall
+  'd54e84f5-8daa-4d11-9459-d08691083d69', // GalleryAaMo
 ];
 
 const ALLOWED_ORIGINS = [

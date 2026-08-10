@@ -37,7 +37,7 @@ export async function POST(request) {
     }
 
     console.log(`[x402 Custodial Backend] Received payment intent for ${serviceUrl} from user ${decoded.username}`);
-    console.log(`[x402 Custodial Backend] Retrieving Developer-Controlled Wallet from DynamoDB for user ID: ${decoded.userId}...`);
+    console.log(`[x402 Custodial Backend] Retrieving Developer-Controlled Wallet for user ID: ${decoded.userId}...`);
 
     const walletDoc = await Wallets.doc(decoded.userId).get();
     if (!walletDoc.exists) {

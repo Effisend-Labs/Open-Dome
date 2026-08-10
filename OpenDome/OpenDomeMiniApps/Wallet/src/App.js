@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Platform, Animated, ScrollView, Dimensions } from 'react-native';
+import Constants from 'expo-constants';
 import { useOpenDome } from 'opendome';
 import { MINI_APP_THEMES, GLOBAL_STYLES } from './theme';
 import { locales } from './core/locales';
@@ -24,7 +25,7 @@ const TAB_INDEX = { WALLET: 0, PASSES: 1, AGENT: 2, USER: 3 };
 export default function App() {
   const { isAuthorized, token, user, context, loading, register, login } = useOpenDome({
     appId: process.env.EXPO_PUBLIC_OD_APP_ID,
-    appToken: process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN,
+    appToken: Constants.expoConfig?.extra?.odAppToken || process.env.OD_APP_TOKEN,
     blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] }
   });
 

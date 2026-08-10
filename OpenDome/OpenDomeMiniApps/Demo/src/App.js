@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { useOpenDome } from 'opendome';
 import { MINI_APP_THEMES, GLOBAL_STYLES } from './theme';
 import { locales } from './core/locales';
@@ -26,7 +27,7 @@ const MINI_APPS = [
 export default function App() {
   const { isAuthorized, token, user, context, loading, proxiedLocation, register, login } = useOpenDome({
     appId: process.env.EXPO_PUBLIC_OD_APP_ID,
-    appToken: process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN,
+    appToken: Constants.expoConfig?.extra?.odAppToken || process.env.OD_APP_TOKEN,
     blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] }
   });
   

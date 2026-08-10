@@ -1,17 +1,14 @@
 import jwt from 'jsonwebtoken';
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { getUserById } from '../../utilsAPI/passkeyDb';
 
-const client = new DynamoDBClient({
-  region: process.env.AWS_REGION || "us-east-1"
-});
-const dynamo = DynamoDBDocumentClient.from(client);
-
-// Secure list of UUIDv4 authorization tokens kept on the server
+// Per-mini-app docking tokens (see sdk/mini-app-credentials.json)
 const VALID_TOKENS = [
-  '8f46757b-7b08-4d5f-9dc1-2df88bc11425', 
-  '7c9e66ab-83c3-4d6b-871d-55737bc0ccbb',
-  'a98e8c11-9a70-4cc8-8d2a-c211b8b8098c'
+  'b448a20e-633f-4852-ab9c-664c04e1d38f', // Demo
+  '5679c842-c76f-4a65-8478-8f65ab38ff27', // Wallet
+  '5f099950-8b3c-4775-95b0-e5958cb11e82', // TokyoDome
+  '5c5071b1-d259-44f4-9728-1af67f84c431', // IMMTheater
+  'c4f9dbec-4d4e-4dea-8e0e-dce37e583ade', // KorakuenHall
+  'd54e84f5-8daa-4d11-9459-d08691083d69', // GalleryAaMo
 ];
 
 const ALLOWED_ORIGINS = [
@@ -24,46 +21,49 @@ const ALLOWED_ORIGINS = [
 
 function getMatchedOrigin(origin) {
   if (!origin) return null;
-  // Allow any port on localhost / 127.0.0.1
   if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
     return origin;
   }
-  const matched = ALLOWED_ORIGINS.find(allowed => origin.startsWith(allowed));
+  if (origin.endsWith('.opendome.xyz') || origin === 'https://opendome.xyz') {
+    return origin;
+  }
+  const matched = ALLOWED_ORIGINS.find((allowed) => origin.startsWith(allowed));
   return matched ? origin : null;
 }
 
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin');
   const matchedOrigin = getMatchedOrigin(origin);
-  
+
   if (!matchedOrigin) {
     return new Response(null, { status: 403 });
   }
-  
+
   return new Response(null, {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': matchedOrigin,
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    }
+    },
   });
 }
 
 export async function POST(request) {
-  // CORS origin validation
   const origin = request.headers.get('origin');
   const matchedOrigin = getMatchedOrigin(origin);
-  
+
   if (origin && !matchedOrigin) {
     return Response.json({ error: 'CORS_BLOCKED' }, { status: 403 });
   }
 
-  const corsHeaders = matchedOrigin ? {
-    'Access-Control-Allow-Origin': matchedOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-  } : {};
+  const corsHeaders = matchedOrigin
+    ? {
+        'Access-Control-Allow-Origin': matchedOrigin,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      }
+    : {};
 
   try {
     let token;
@@ -73,14 +73,14 @@ export async function POST(request) {
     } catch (e) {
       // Allow empty payload for direct/manual sandbox triggers
     }
-    
-    // Check if request is from an allowed origin
-    const isAllowedOrigin = matchedOrigin && (
-      matchedOrigin.includes('localhost') || 
-      matchedOrigin.includes('opendome.expo.app') || 
-      matchedOrigin.includes('miniapp.expo.app') ||
-      matchedOrigin.includes('effisend')
-    );
+
+    const isAllowedOrigin =
+      matchedOrigin &&
+      (matchedOrigin.includes('localhost') ||
+        matchedOrigin.includes('opendome.expo.app') ||
+        matchedOrigin.includes('miniapp.expo.app') ||
+        matchedOrigin.includes('opendome.xyz') ||
+        matchedOrigin.includes('effisend'));
 
     let authenticated = false;
     let userId = null;
@@ -89,7 +89,9 @@ export async function POST(request) {
     let solanaAddress = null;
     let tokenToVerify = token;
 
-    const JWT_SECRET = process.env.JWT_SECRET || '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
+    const JWT_SECRET =
+      process.env.JWT_SECRET ||
+      '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
 
     if (tokenToVerify && tokenToVerify.split('.').length === 3) {
       try {
@@ -97,39 +99,41 @@ export async function POST(request) {
         userId = decoded.userId;
         username = decoded.username || null;
         authenticated = true;
-        console.log(`[Verify API] JWT decoded: userId="${userId}", username="${username}"`);
+        console.log(
+          `[Verify API] JWT decoded: userId="${userId}", username="${username}"`
+        );
 
-        // Look up wallets and canonical username from DynamoDB
         try {
-          console.log(`[Verify API] Querying DynamoDB for user_${userId}...`);
-          const userRecords = await dynamo.send(new QueryCommand({
-            TableName: 'Open-Dome-Users',
-            KeyConditionExpression: '#user = :user',
-            ExpressionAttributeNames: { '#user': 'user' },
-            ExpressionAttributeValues: { ':user': `user_${userId}` }
-          }));
-          console.log(`[Verify API] DynamoDB returned ${userRecords.Items?.length ?? 0} record(s)`);
-          const userItem = userRecords.Items?.[0];
+          console.log(`[Verify API] Querying Firestore for user ${userId}...`);
+          const userItem = await getUserById(userId);
           if (userItem) {
-            console.log(`[Verify API] Record username="${userItem.username}", evm="${userItem.evm?.address}", sol="${userItem.solana?.address}"`);
+            console.log(
+              `[Verify API] Record username="${userItem.username}", evm="${userItem.evmAddress}", sol="${userItem.solanaAddress}"`
+            );
             if (userItem.username) username = userItem.username;
-            if (userItem.evm?.address) evmAddress = userItem.evm.address;
-            if (userItem.solana?.address) solanaAddress = userItem.solana.address;
+            if (userItem.evmAddress) evmAddress = userItem.evmAddress;
+            if (userItem.solanaAddress) solanaAddress = userItem.solanaAddress;
+            if (decoded.evm && !evmAddress) evmAddress = decoded.evm;
+            if (decoded.solana && !solanaAddress) solanaAddress = decoded.solana;
           } else {
-            console.warn(`[Verify API] No DynamoDB record found for user_${userId}`);
+            console.warn(`[Verify API] No Firestore record found for ${userId}`);
+            if (decoded.evm) evmAddress = decoded.evm;
+            if (decoded.solana) solanaAddress = decoded.solana;
           }
         } catch (dbErr) {
-          console.error(`[Verify API] DynamoDB lookup failed:`, dbErr.message);
+          console.error(`[Verify API] Firestore lookup failed:`, dbErr.message);
+          if (decoded.evm) evmAddress = decoded.evm;
+          if (decoded.solana) solanaAddress = decoded.solana;
         }
-        console.log(`[Verify API] Final resolved: username="${username}", evmAddress="${evmAddress}"`);
+        console.log(
+          `[Verify API] Final resolved: username="${username}", evmAddress="${evmAddress}"`
+        );
       } catch (jwtErr) {
         console.error(`[Verify API] JWT verification failed:`, jwtErr.message);
       }
     }
 
-    // If not verified with a real token, let's check for fallback (only for allowed origins)
     if (!authenticated && isAllowedOrigin && tokenToVerify) {
-      // Allow valid hardcoded tokens array fallback for development/sandbox testing
       if (VALID_TOKENS.includes(tokenToVerify)) {
         authenticated = true;
         username = 'SandboxUser';
@@ -141,52 +145,51 @@ export async function POST(request) {
     let wsJwt = null;
     let hostJwt = null;
     try {
-      const SECRET = process.env.OPENDOME_SECRET || 'opendome_default_fallback_secret_key_512_bits';
-      
-      // 1. JWT for the Mini App
-      const payload = {
-        id: 'opendome_mini_apps',   
-        username: 'opendome_mini_apps',
-        role: 'mini_apps',         
-        iss: 'altaga'      
-      };
-      const options = {
-        expiresIn: '1d',
-        algorithm: 'HS512'
-      };
-      wsJwt = jwt.sign(payload, SECRET, options);
-      console.log(`🚀 SECURE JWT GENERATED FOR MINI APP (${options.expiresIn} expiry)`);
+      const SECRET =
+        process.env.OPENDOME_SECRET ||
+        'opendome_default_fallback_secret_key_512_bits';
 
-      // 2. JWT for the Host
+      const payload = {
+        id: 'opendome_mini_apps',
+        username: 'opendome_mini_apps',
+        role: 'mini_apps',
+        iss: 'altaga',
+      };
+      wsJwt = jwt.sign(payload, SECRET, {
+        expiresIn: '1d',
+        algorithm: 'HS512',
+      });
+
       const hostPayload = {
         id: 'opendome_host',
         username: 'opendome_host',
         role: 'host',
-        iss: 'altaga'
+        iss: 'altaga',
       };
-      const hostOptions = {
+      hostJwt = jwt.sign(hostPayload, SECRET, {
         expiresIn: '1d',
-        algorithm: 'HS512'
-      };
-      hostJwt = jwt.sign(hostPayload, SECRET, hostOptions);
-      console.log(`🚀 SECURE JWT GENERATED FOR HOST CONTAINER (${hostOptions.expiresIn} expiry)`);
+        algorithm: 'HS512',
+      });
     } catch (err) {
-      console.error("❌ Error generating JWTs:", err.message);
+      console.error('Error generating JWTs:', err.message);
     }
-    
-    return Response.json({
-      valid: true,
-      authenticated: authenticated,
-      token: authenticated ? tokenToVerify : null,
-      wsJwt: wsJwt,
-      hostJwt: hostJwt,
-      username: username,
-      evmAddress: evmAddress,
-      solanaAddress: solanaAddress,
-      timestamp: Date.now()
-    }, {
-      headers: corsHeaders
-    });
+
+    return Response.json(
+      {
+        valid: true,
+        authenticated: authenticated,
+        token: authenticated ? tokenToVerify : null,
+        wsJwt: wsJwt,
+        hostJwt: hostJwt,
+        username: username,
+        evmAddress: evmAddress,
+        solanaAddress: solanaAddress,
+        timestamp: Date.now(),
+      },
+      {
+        headers: corsHeaders,
+      }
+    );
   } catch (err) {
     return Response.json({ error: 'SERVER_ERROR' }, { status: 500 });
   }

@@ -5,7 +5,7 @@ Enterprise-grade SDK for secure module integration, multi-chain blockchain inter
 ## 🚀 Features & API Usage
 
 ### 1. Secure Handshake & Authentication
-The `useOpenDome` hook is the entry point for all Mini Apps. It handles the security handshake and provides the execution context. The Mini App sends its own `EXPO_PUBLIC_OD_DEBUG_TOKEN` — the Host verifies it server-side before injecting any context.
+The `useOpenDome` hook is the entry point for all Mini Apps. It handles the security handshake and provides the execution context. The Mini App sends its own `OD_APP_TOKEN` (server/build secret — not `EXPO_PUBLIC_*`) — the Host verifies it server-side before injecting any context.
 
 **API Reference:**
 ```javascript
@@ -34,7 +34,7 @@ sequenceDiagram
         SDK->>Host: postMessage(OPEN_DOME_SDK_INIT, { status: AUTHORIZED })
         SDK-->>MiniApp: isAuthorized = true
     else Session via postMessage handshake
-        SDK->>Host: postMessage(OPENDOME_READY, { token: EXPO_PUBLIC_OD_DEBUG_TOKEN })
+        SDK->>Host: postMessage(OPENDOME_READY, { token: OD_APP_TOKEN })
         Host->>API: POST /api/verify { token }
         API->>API: Crosscheck VALID_TOKENS[] → Sign HS512 JWTs
         API->>Host: { valid: true, wsJwt, hostJwt }

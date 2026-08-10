@@ -40,7 +40,7 @@ sequenceDiagram
 
     Sandbox->>MiniApp: Load iframe (Endpoint URL)
     MiniApp->>SDK: Initialize useOpenDome()
-    SDK->>Sandbox: postMessage(OPENDOME_READY, { token: EXPO_PUBLIC_OD_DEBUG_TOKEN })
+    SDK->>Sandbox: postMessage(OPENDOME_READY, { token: OD_APP_TOKEN })
     Note over Sandbox,API: Token travels from Mini App → Server for verification
     Sandbox->>API: POST /api/verify { token }
     API->>API: Crosscheck token vs VALID_TOKENS[]

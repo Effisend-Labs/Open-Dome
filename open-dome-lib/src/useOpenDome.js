@@ -185,7 +185,20 @@ export function useOpenDome(config = {}) {
     if (typeof window !== 'undefined' && window.parent !== window && !globalHandshakeInitiated) {
       globalHandshakeInitiated = true;
 
-      const appToken = config.appToken || config.token || (typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN : null);
+      const appToken =
+        config.appToken ||
+        config.token ||
+        (typeof process !== 'undefined' ? process.env.OD_APP_TOKEN : null) ||
+        (() => {
+          try {
+            // Optional Expo extra injected from OD_APP_TOKEN via app.config.js
+            // eslint-disable-next-line global-require
+            const Constants = require('expo-constants').default;
+            return Constants?.expoConfig?.extra?.odAppToken || null;
+          } catch {
+            return null;
+          }
+        })();
       const appId = config.appId || (typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_OD_APP_ID : null);
 
       const handleMessage = (event) => {

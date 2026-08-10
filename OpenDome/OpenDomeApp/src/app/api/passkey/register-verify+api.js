@@ -99,14 +99,14 @@ export const POST = async (request) => {
       await Wallets.doc(user.id).set(newWallet);
 
       // Clear the challenge
-      await Users.doc(user.id).update({ 
+      await Users.doc(user.id).update({
         currentChallenge: null,
-        evmAddress: generatedWallet.address // Store the public EVM address on the user
+        evmAddress: primaryAddress,
       });
 
-      return Response.json({ 
+      return Response.json({
         verified: true,
-        evmAddress: generatedWallet.address
+        evmAddress: primaryAddress,
       });
     }
 

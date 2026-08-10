@@ -1,16 +1,18 @@
 import { generateRegistrationOptions } from '@simplewebauthn/server';
+import { randomUUID } from 'crypto';
 import { Users, getUserByUsername } from '../../../utilsAPI/passkeyDb';
-import { v4 as uuidv4 } from 'uuid';
 
-// Set your RP metadata
-const rpName = 'Open-Dome Sandbox';
+const rpName = 'OpenDome';
 const getDynamicRpID = (req) => {
   try {
     const origin = req.headers.get('origin') || 'http://localhost';
-    let host = new URL(origin).hostname;
-    if (host.endsWith('.opendome.xyz') || host === 'opendome.xyz') return 'opendome.xyz';
+    const host = new URL(origin).hostname;
+    if (host === 'opendome.xyz' || host.endsWith('.opendome.xyz')) return 'opendome.xyz';
+    if (host.endsWith('.expo.app')) return host;
     return host;
-  } catch(e) { return 'localhost'; }
+  } catch {
+    return 'localhost';
+  }
 };
 
 export const POST = async (request) => {
@@ -24,15 +26,18 @@ export const POST = async (request) => {
       return Response.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    // 1. Find or create the user
     let user = await getUserByUsername(username);
     if (!user) {
-      const newId = uuidv4();
+      const newId = randomUUID();
       user = { id: newId, username };
       await Users.doc(newId).set(user);
+    } else if (user.currentChallenge == null && user.evmAddress) {
+      return Response.json(
+        { error: 'User already exists. Please sign in instead.' },
+        { status: 400 }
+      );
     }
 
-    // 2. Generate registration options
     const options = await generateRegistrationOptions({
       rpName,
       rpID,
@@ -43,17 +48,18 @@ export const POST = async (request) => {
         residentKey: 'required',
         userVerification: 'preferred',
       },
-      // You can also pass excludeCredentials if you fetch existing passkeys for the user
     });
 
-    // 3. Save the challenge to the user in Firestore so we can verify it in the next step
     await Users.doc(user.id).update({
-      currentChallenge: options.challenge
+      currentChallenge: options.challenge,
     });
 
     return Response.json({ options, userId: user.id });
   } catch (e) {
     console.error('[Passkey API] Error generating register options:', e);
-    return Response.json({ error: e.message }, { status: 500 });
+    return Response.json(
+      { error: e.message || 'Failed to generate registration options' },
+      { status: 500 }
+    );
   }
 };
