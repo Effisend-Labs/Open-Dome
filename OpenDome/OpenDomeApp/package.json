@@ -30,6 +30,7 @@
     "@react-navigation/elements": "2.9.17",
     "@react-navigation/native": "7.2.4",
     "@simplewebauthn/browser": "^13.0.0",
+    "@simplewebauthn/server": "^13.3.2",
     "@smithy/node-http-handler": "^4.7.4",
     "buffer": "6.0.3",
     "expo": "55.0.23",
