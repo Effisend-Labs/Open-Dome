@@ -16,6 +16,7 @@ function isLocalhost(origin) {
 
 function isAllowedProductionOrigin(origin) {
   if (!origin) return false;
+  if (origin === "https://opendome.xyz" || origin.endsWith(".opendome.xyz")) return true; if (origin === 'https://opendome.xyz' || origin.endsWith('.opendome.xyz')) return true;
   return PRODUCTION_ALLOWED_ORIGINS.some(allowed => origin === allowed);
 }
 
@@ -38,3 +39,4 @@ export function getCorsHeaders(request) {
 }
 
 export default function CorsHelper() { return null; }
+

@@ -1,12 +1,13 @@
 import '../core/polyfills';
 import { ContextProvider } from "../providers/contextModule";
+
 import SmartProvider from "../providers/smartProvider";
 import {
   Exo2_400Regular,
   Exo2_700Bold,
   useFonts,
 } from "@expo-google-fonts/exo-2";
-import { Stack } from "expo-router";
+import { Stack, Head } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import "react-native-reanimated";
@@ -26,6 +27,9 @@ export default function RootLayout() {
   });
   return (
     <React.Fragment>
+      <Head>
+        <title>OpenDome App</title>
+      </Head>
       {
         // This provider put a phone frame around the app if the app is running on a desktop
       }
@@ -53,8 +57,8 @@ export default function RootLayout() {
               {
                 // Splash Loading Screen
               }
-              <Stack.Screen name="index" options={{ title: 'OpenDomeOS' }} />
-              <Stack.Screen name="(screens)/main" options={{ title: 'OpenDomeOS' }} />
+              <Stack.Screen name="index" options={{ title: 'OpenDome App' }} />
+              <Stack.Screen name="(screens)/main" options={{ title: 'OpenDome App' }} />
               <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
             </Stack>
             <StatusBar style="auto" />
