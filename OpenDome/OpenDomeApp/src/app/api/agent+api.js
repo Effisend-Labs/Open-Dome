@@ -105,17 +105,11 @@ export async function POST(req) {
     });
 
   } catch (error) {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    return new Response(JSON.stringify({
+    console.error("AI Agent error:", error);
+    return NextResponse.json({
       status: "error",
       response: "AI Agent failed to execute.",
-      details: "An internal error occurred." // Masking details for enterprise security
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+      details: "An internal error occurred."
+    }, { status: 500 });
   }
 }
