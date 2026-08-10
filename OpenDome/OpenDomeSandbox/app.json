@@ -25,6 +25,14 @@
       "output": "server",
       "favicon": "./src/assets/logoopen.png"
     },
+    "server": {
+      "nodeModules": [
+        "tslib",
+        "@simplewebauthn/server",
+        "uuid",
+        "@google-cloud/firestore"
+      ]
+    },
     "plugins": [
       "expo-router",
       [

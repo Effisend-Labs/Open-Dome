@@ -1,6 +1,17 @@
 {
-  "cleanUrls": true,
+  "buildCommand": "npx expo export -p web",
+  "outputDirectory": "dist/client",
+  "functions": {
+    "api/index.js": {
+      "runtime": "@vercel/node@20.x",
+      "includeFiles": "dist/server/**"
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
     {
       "source": "/(.*)",
       "destination": "/$1"

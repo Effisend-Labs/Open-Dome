@@ -1,71 +1,119 @@
-import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime";
-import { NodeHttpHandler } from "@smithy/node-http-handler";
+import { NextResponse } from 'next/server';
+import { GoogleGenAI } from '@google/genai';
+import { createCircleAgentWallet, executeCircleNanoPayment } from './circle-tools';
 
-export async function OPTIONS(request) {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+/**
+ * OpenDome AI Agent API (Vertex AI Implementation)
+ * Uses the official @google/genai SDK for Gemini models.
+ */
+
+// Initialize GenAI Client for Vertex AI
+const ai = new GoogleGenAI({
+  vertexai: true,
+  project: 'project-cadf416c-23aa-4f9b-be6',
+  location: 'global'
+});
+
+// Define the exact Circle tool schema expected by the Gemini API
+const circleAgentTools = [{
+  functionDeclarations: [
+    {
+      name: 'create_agent_wallet',
+      description: 'Creates a new MPC developer-controlled wallet.',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          blockchains: {
+            type: 'ARRAY',
+            items: { type: 'STRING' },
+            description: 'List of blockchains to provision (e.g., ["ETH", "BASE", "MATIC"])'
+          }
+        },
+        required: ['blockchains']
+      }
+    },
+    {
+      name: 'execute_nanopayment',
+      description: 'Executes a USDC payment via Circle.',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          amount: { type: 'STRING' },
+          destination: { type: 'STRING' },
+          tokenId: { type: 'STRING' }
+        },
+        required: ['amount', 'destination', 'tokenId']
+      }
     }
-  });
-}
+  ]
+}];
 
 export async function POST(req) {
   try {
-    const { prompt } = await req.json();
-    const bearerToken = process.env.BEDROCK_TOKEN;
+    const body = await req.json();
+    const defaultPrompt = 'You are the OpenDome AI Agent. You manage MPC wallets using Circle. If asked, you can create a wallet or send nanopayments.';
+    const userPrompt = body.prompt || body.message || defaultPrompt;
 
-    if (!bearerToken) {
-      return new Response(JSON.stringify({ error: 'BEDROCK_TOKEN is missing in server environment.' }), {
-        status: 500,
+    const config = {
+      tools: circleAgentTools,
+      maxOutputTokens: 512,
+      temperature: 0.7,
+      systemInstruction: defaultPrompt
+    };
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: userPrompt,
+      config
+    });
+    
+    // Check if Gemini wants to call a Circle tool
+    if (response.functionCalls && response.functionCalls.length > 0) {
+      const call = response.functionCalls[0];
+      console.log(`Agent invoked tool: ${call.name}`, call.args);
+      
+      let toolResult = {};
+      if (call.name === 'create_agent_wallet') {
+        toolResult = await createCircleAgentWallet(call.args.blockchains);
+      } else if (call.name === 'execute_nanopayment') {
+        toolResult = await executeCircleNanoPayment(call.args);
+      } else {
+        toolResult = { error: 'Unknown tool requested' };
+      }
+
+      // Automatically synthesize the final response based on the tool result
+      const finalResponse = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: [
+          { role: 'user', parts: [{ text: userPrompt }] },
+          { role: 'model', parts: [{ functionCall: call }] },
+          { role: 'function', parts: [{ functionResponse: { name: call.name, response: toolResult } }] }
+        ],
+        config
+      });
+
+      return NextResponse.json({
+        response: finalResponse.text,
+        tool_executed: call.name,
+        tool_result: toolResult
+      });
+    }
+
+    // Standard text response
+    return NextResponse.json({
+      response: response.text
+    });
+
+  } catch (error) {
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Initialize the official AWS Bedrock client with dummy credentials
-    const config = {
-      region: process.env.AWS_REGION || "us-east-1",
-      credentials: {
-        accessKeyId: "dummy",
-        secretAccessKey: "dummy"
-      }
-    };
-
-    // Intercept the HTTP request to forcefully inject the Bearer token
-    const handler = new NodeHttpHandler();
-    const originalHandle = handler.handle.bind(handler);
-    handler.handle = async (request, options) => {
-        request.headers["Authorization"] = `Bearer ${bearerToken}`;
-        return originalHandle(request, options);
-    };
-
-    config.requestHandler = handler;
-    const client = new BedrockRuntimeClient(config);
-
-    // Use the uniform Converse API to avoid model-specific payload formats
-    const command = new ConverseCommand({
-      modelId: "us.meta.llama4-maverick-17b-instruct-v1:0",
-      messages: [
-        {
-          role: "user",
-          content: [{ text: prompt }]
-        }
-      ]
-    });
-
-    const response = await client.send(command);
-    const textReply = response.output?.message?.content?.[0]?.text || "No response generated.";
-
-    return new Response(JSON.stringify({ response: textReply }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('[Open-Dome Agent API]', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({
+      status: "error",
+      response: "AI Agent failed to execute.",
+      details: "An internal error occurred." // Masking details for enterprise security
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

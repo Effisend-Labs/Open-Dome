@@ -12,8 +12,8 @@ export default function HappeningNow({ count, accent = colors.neon.emerald, acce
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: false }),
+        Animated.timing(pulse, { toValue: 0, duration: 1200, useNativeDriver: false }),
       ])
     );
     loop.start();

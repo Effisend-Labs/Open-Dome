@@ -97,4 +97,109 @@ export class EVMAdapter {
     const contract = new ethers.Contract(tokenAddress, ERC20_ABI, this.provider);
     return contract.decimals();
   }
+
+  async getNFTs(userAddress, contractAddress) {
+    try {
+      // Step 1: Fetch user's ticket balances from the Server Bridge
+      const response = await fetch(`http://localhost:3000/api/tickets?address=${userAddress}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tickets: ${response.statusText}`);
+      }
+      
+      const tickets = await response.json(); // Array of { id, amount }
+      if (!tickets || tickets.length === 0) return [];
+
+      // Step 2: Fetch the static events database to map IDs to metadata
+      // (Since evm.js is in the SDK, we dynamically import the local JSON database)
+      const eventsData = require('../dbs/events.json');
+
+      const nftArray = tickets.map((ticket, index) => {
+        const eventMeta = eventsData.find(e => String(e.id) === String(ticket.id));
+        
+        // If we found the event in our database, format it like an NFT
+        if (eventMeta) {
+          return {
+            name: eventMeta.title,
+            image: eventMeta.thumbnail,
+            description: `${eventMeta.category} at ${eventMeta.placeName}`,
+            tokenId: ticket.id,
+            amount: ticket.amount,
+            attributes: [
+              { trait_type: "Category", value: eventMeta.category },
+              { trait_type: "Venue", value: eventMeta.placeName },
+              { trait_type: "Date", value: new Date(eventMeta.from).toLocaleDateString() }
+            ]
+          };
+        }
+        
+        // Fallback for unknown IDs
+        return {
+          name: `Pass #${ticket.id}`,
+          tokenId: ticket.id,
+          amount: ticket.amount,
+          description: '',
+          attributes: []
+        };
+      });
+
+      return nftArray;
+    } catch (error) {
+      console.error(`[EVMAdapter] Error fetching NFTs via Server Bridge:`, error);
+      return [];
+    }
+  }
+
+  async getTicketStatus(contractAddress, tokenId) {
+    return true; // Deprecated in ERC1155
+  }
+
+  async getRemainingAccesses(contractAddress, tokenId) {
+    return 1; // Deprecated in ERC1155, handled by amounts
+  }
+
+  async markTicketAsUsed(contractAddress, tokenId, authToken) {
+    const response = await fetch('http://localhost:3000/api/scanner', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        action: 'markUsed',
+        network: this.chain.network,
+        contractAddress,
+        tokenId
+      })
+    });
+    
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || 'Failed to mark ticket as used');
+    }
+    return response.json();
+  }
+
+  async consumePassAccess(contractAddress, tokenId, amount, authToken) {
+    const response = await fetch('http://localhost:3000/api/scanner', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        action: 'consumeAccess',
+        network: this.chain.network,
+        contractAddress,
+        tokenId,
+        amount
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || 'Failed to consume accesses');
+    }
+    return response.json();
+  }
 }
+

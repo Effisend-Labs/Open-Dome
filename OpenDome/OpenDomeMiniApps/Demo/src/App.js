@@ -18,7 +18,7 @@ const MINI_APPS = [
   { id: 'MAP', title: 'LOCATION' },
   { id: 'WALLET', title: 'WALLET' },
   { id: 'USER', title: 'USER' },
-  { id: 'COMMS', title: 'COMMS' },
+  { id: 'COMMS', title: 'TOPICS' },
   { id: 'AGENT', title: 'AGENT' },
   { id: 'EVENTS', title: 'EVENTS' },
 ];
@@ -26,7 +26,8 @@ const MINI_APPS = [
 export default function App() {
   const { isAuthorized, token, user, context, loading, proxiedLocation, register, login } = useOpenDome({
     appId: process.env.EXPO_PUBLIC_OD_APP_ID,
-    appToken: process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN
+    appToken: process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN,
+    blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] }
   });
   
   // Dynamic Context Resolution

@@ -8,7 +8,7 @@
     "build": "babel src --out-dir dist --extensions \".js,.jsx\" --copy-files",
     "fix:noble": "node scripts/fix-noble.js",
     "prepare": "npm run fix:noble && npm run build",
-    "postinstall": "npm run fix:noble"
+    "postinstall": "npm run fix:noble && node scripts/cleanup-peers.js"
   },
   "peerDependencies": {
     "react": ">=16.8.0",

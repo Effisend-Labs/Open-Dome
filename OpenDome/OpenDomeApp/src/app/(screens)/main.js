@@ -18,12 +18,12 @@ import QRApp from '../../components/QRApp';
 import VectorBackground from '../../components/VectorBackground';
 import { locales } from '../../core/locales';
 import ContextModule from '../../providers/contextModule';
-import { Events } from '../api/events';
+import { Events } from '../../core/events';
 import StoreApp from '../../components/StoreApp';
 import MapApp from '../../components/MapApp';
 
 
-const miniAppUrl = __DEV__ ? 'http://localhost:8082/' : 'https://miniapp.expo.app/';
+const miniAppUrl = __DEV__ ? 'http://localhost:8084/' : 'https://miniapp.expo.app/';
 
 const CORE_APPS = [
   { id: 'miniapp', name: 'MiniApp',  iconSource: require('../../assets/logoMA.png'), color: '#FFFFFF', url: miniAppUrl },
@@ -155,12 +155,12 @@ export default function Main() {
 
   // Initial fade-in & pulsing dot
   useEffect(() => {
-    Animated.timing(fadeIn, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    Animated.timing(fadeIn, { toValue: 1, duration: 800, useNativeDriver: false }).start();
     
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1500, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.3, duration: 1500, useNativeDriver: true })
+        Animated.timing(pulse, { toValue: 1, duration: 1500, useNativeDriver: false }),
+        Animated.timing(pulse, { toValue: 0.3, duration: 1500, useNativeDriver: false })
       ])
     ).start();
   }, [fadeIn, pulse]);
@@ -170,9 +170,9 @@ export default function Main() {
     if (isEditing) {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(jiggle, { toValue: 1, duration: 120, useNativeDriver: true }),
-          Animated.timing(jiggle, { toValue: -1, duration: 120, useNativeDriver: true }),
-          Animated.timing(jiggle, { toValue: 0, duration: 120, useNativeDriver: true })
+          Animated.timing(jiggle, { toValue: 1, duration: 120, useNativeDriver: false }),
+          Animated.timing(jiggle, { toValue: -1, duration: 120, useNativeDriver: false }),
+          Animated.timing(jiggle, { toValue: 0, duration: 120, useNativeDriver: false })
         ])
       ).start();
     } else {

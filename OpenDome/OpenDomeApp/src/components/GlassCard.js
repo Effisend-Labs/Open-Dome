@@ -20,15 +20,19 @@ export default function GlassCard(props) {
   const inner = (
     <>
       {/* Top inner rim — a 1px white-to-transparent gradient line */}
-      <View style={styles.rim} pointerEvents="none" />
+      <View 
+        pointerEvents={Platform.OS !== 'web' ? 'none' : undefined}
+        style={[styles.rim, Platform.OS === 'web' && { pointerEvents: 'none' }]} 
+      />
 
       {/* Outer halo — uses accent shadow when present */}
       <View
+        pointerEvents={Platform.OS !== 'web' ? 'none' : undefined}
         style={[
           styles.halo,
           { borderColor: accentColor, shadowColor: accentColor },
+          Platform.OS === 'web' && { pointerEvents: 'none' }
         ]}
-        pointerEvents="none"
       />
 
       {children}

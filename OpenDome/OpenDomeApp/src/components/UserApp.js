@@ -204,14 +204,6 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
       color: theme.status?.danger || '#FF3B30',
       fontFamily: theme.typography?.fontFamily || defaultFont,
     },
-    authContainer: {
-      backgroundColor: theme.bg.card,
-      borderRadius: theme.shape?.cardRadius ?? n(24),
-      padding: n(24),
-      borderWidth: theme.border?.width ?? 1,
-      borderColor: theme.border.default,
-      ...(theme.shadow?.card || {}),
-    }
   });
 
   return (
@@ -266,7 +258,7 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
             </Pressable>
           </View>
         ) : (
-          <View style={s.authContainer}>
+          <View>
             <PasskeyAuth 
               onAuthSuccess={onAuthSuccess} 
               addLog={(msg) => console.log(msg)} 

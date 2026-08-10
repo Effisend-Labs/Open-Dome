@@ -1,4 +1,4 @@
-import { Events } from './events';
+import { Events } from '../../core/events';
 
 export async function GET(request) {
   try {

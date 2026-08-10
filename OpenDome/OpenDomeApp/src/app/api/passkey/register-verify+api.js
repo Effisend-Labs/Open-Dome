@@ -1,44 +1,110 @@
+import { verifyRegistrationResponse } from '@simplewebauthn/server';
+import { Users, Passkeys, Wallets, getUserById } from '../../../utilsAPI/passkeyDb';
+import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
+import { randomUUID } from 'crypto';
+
+const expectedOrigin = 'http://localhost:8083'; // Will need to match the actual frontend origin
+const expectedRPID = 'localhost';
+
 export const POST = async (request) => {
-  console.log('[Passkey Proxy API] POST /api/passkey/register-verify initiated');
+  console.log('[Passkey API] POST /api/passkey/register-verify initiated');
   try {
     const { userId, credentialResponse } = await request.json();
-    console.log(`[Passkey Proxy API] register-verify userId: ${userId}`);
-    console.log(`[Passkey Proxy API] register-verify credentialResponse ID: ${credentialResponse?.id}`);
+    console.log(`[Passkey API] register-verify userId: ${userId}`);
 
     if (!userId || !credentialResponse) {
       return Response.json({ error: 'User ID and credentialResponse are required' }, { status: 400 });
     }
 
-    const origin = request.headers.get('origin') || '';
-    const targetUrl = 'https://4kduylrno45bs2v7cafljk54k40ojmge.lambda-url.us-east-1.on.aws/';
-    console.log(`[Passkey Proxy API] Forwarding to Lambda URL: ${targetUrl} with origin: ${origin}`);
-    const lambdaRes = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Origin': origin,
-      },
-      body: JSON.stringify({ userId, credentialResponse })
-    });
+    // 1. Fetch the user and their expected challenge
+    const user = await getUserById(userId);
+    if (!user || !user.currentChallenge) {
+      return Response.json({ error: 'User not found or no registration challenge found' }, { status: 400 });
+    }
 
-    const responseText = await lambdaRes.text();
-    console.log(`[Passkey Proxy API] Lambda response status: ${lambdaRes.status} ${lambdaRes.statusText}`);
-    console.log(`[Passkey Proxy API] Raw Lambda response: ${responseText}`);
+    // Dynamic Origin Check (Optional, but recommended for flexible dev environments)
+    // The exact origin the client is running on (e.g. http://localhost:8083 or exp://...)
+    const origin = request.headers.get('origin') || expectedOrigin;
 
-    let data;
+    // 2. Verify the response
+    let verification;
     try {
-      data = JSON.parse(responseText);
-    } catch {
-      data = { error: responseText || 'Empty or malformed JSON from Lambda' };
+      verification = await verifyRegistrationResponse({
+        response: credentialResponse,
+        expectedChallenge: user.currentChallenge,
+        expectedOrigin: origin,
+        expectedRPID: expectedRPID,
+      });
+    } catch (error) {
+      console.error('[Passkey API] Verification failed:', error);
+      return Response.json({ error: error.message }, { status: 400 });
     }
 
-    if (!lambdaRes.ok) {
-      return Response.json(data, { status: lambdaRes.status });
+    const { verified, registrationInfo } = verification;
+
+    if (verified && registrationInfo) {
+      const { credentialID, credentialPublicKey, counter } = registrationInfo;
+
+      // 3. Save the new passkey to Firestore
+      const newPasskey = {
+        userId: user.id,
+        // Convert Uint8Arrays to Base64 strings for Firestore storage
+        credentialID: Buffer.from(credentialID).toString('base64url'),
+        publicKey: Buffer.from(credentialPublicKey).toString('base64'),
+        counter,
+        transports: credentialResponse.response.transports || [],
+        createdAt: new Date().toISOString()
+      };
+
+      await Passkeys.doc(newPasskey.credentialID).set(newPasskey);
+
+      // 4. Generate an EVM wallet for the user automatically via Circle MPC
+      const circleClient = initiateDeveloperControlledWalletsClient({
+        apiKey: process.env.CIRCLE_API_KEY,
+        entitySecret: process.env.CIRCLE_ENTITY_SECRET,
+      });
+
+      console.log('[Passkey API] Generating Circle Developer-Controlled Wallets across ALL EVMs...');
+      const walletRes = await circleClient.createWallets({
+        blockchains: ['ARB', 'AVAX', 'BASE', 'ETH', 'MATIC', 'OP'], 
+        count: 1, // 1 wallet per blockchain
+        accountType: 'EOA', // EOA ensures the address is identical across all EVM chains
+        walletSetId: 'afd0591a-e99a-5883-89e7-a1c27316eee8',
+        idempotencyKey: randomUUID()
+      });
+
+      // Map the generated wallets so we know the specific walletId per blockchain
+      const walletIds = {};
+      let primaryAddress = '';
+      walletRes.data.wallets.forEach(w => {
+        walletIds[w.blockchain] = w.id;
+        primaryAddress = w.address; // Will be identical across all EOAs
+      });
+      
+      const newWallet = {
+        userId: user.id,
+        address: primaryAddress,
+        walletIds: walletIds, // Map of { "BASE": "id1", "ETH": "id2", ... }
+        createdAt: new Date().toISOString()
+      };
+
+      await Wallets.doc(user.id).set(newWallet);
+
+      // Clear the challenge
+      await Users.doc(user.id).update({ 
+        currentChallenge: null,
+        evmAddress: generatedWallet.address // Store the public EVM address on the user
+      });
+
+      return Response.json({ 
+        verified: true,
+        evmAddress: generatedWallet.address
+      });
     }
 
-    return Response.json(data);
+    return Response.json({ error: 'Verification failed for unknown reasons' }, { status: 400 });
   } catch (e) {
-    console.error('[Passkey Proxy API] Error proxying register verification:', e);
+    console.error('[Passkey API] Error during register verification:', e);
     return Response.json({ error: e.message }, { status: 500 });
   }
 };

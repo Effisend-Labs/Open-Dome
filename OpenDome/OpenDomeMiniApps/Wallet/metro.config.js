@@ -17,12 +17,17 @@ config.resolver.extraNodeModules = {
   'react-native-web': path.resolve(projectRoot, 'node_modules/react-native-web'),
 };
 
+// ONLY block the duplicate React packages from the SDK, do NOT block viem/mqtt/etc!
 config.resolver.blockList = [
-  new RegExp(`${sdkRoot}/node_modules/.*`),
+  new RegExp(".*[\\\\\\\\/]open-dome-lib[\\\\\\\\/]node_modules[\\\\\\\\/]react[\\\\\\\\/].*"),
+  new RegExp(".*[\\\\\\\\/]open-dome-lib[\\\\\\\\/]node_modules[\\\\\\\\/]react-dom[\\\\\\\\/].*"),
+  new RegExp(".*[\\\\\\\\/]open-dome-lib[\\\\\\\\/]node_modules[\\\\\\\\/]react-native[\\\\\\\\/].*"),
+  new RegExp(".*[\\\\\\\\/]open-dome-lib[\\\\\\\\/]node_modules[\\\\\\\\/]react-native-web[\\\\\\\\/].*")
 ];
 
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
+  path.resolve(sdkRoot, 'node_modules') // Allow resolving SDK's dependencies (viem, mqtt, etc)
 ];
 
 config.resolver.unstable_enablePackageExports = true;

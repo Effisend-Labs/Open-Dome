@@ -137,3 +137,6 @@ dist
 
 test/
 tester/
+# Sensitive credentials
+credential.json
+.vercel/

@@ -1,39 +1,51 @@
+import { generateRegistrationOptions } from '@simplewebauthn/server';
+import { Users, getUserByUsername } from '../../../utilsAPI/passkeyDb';
+import { v4 as uuidv4 } from 'uuid';
+
+// Set your RP metadata
+const rpName = 'Open-Dome Sandbox';
+const rpID = 'localhost'; // In production, this should be your real domain (e.g., 'example.com')
+
 export const POST = async (request) => {
-  console.log('[Passkey Proxy API] POST /api/passkey/register-options initiated');
+  console.log('[Passkey API] POST /api/passkey/register-options initiated');
   try {
     const { username } = await request.json();
-    console.log(`[Passkey Proxy API] register-options username: ${username}`);
+    console.log(`[Passkey API] register-options username: ${username}`);
 
-    const origin = request.headers.get('origin') || '';
-    const targetUrl = 'https://p3c4tepaysp5wfog4clme4tqv40qvqsl.lambda-url.us-east-1.on.aws/';
-    console.log(`[Passkey Proxy API] Forwarding to Lambda URL: ${targetUrl} with origin: ${origin}`);
-    const lambdaRes = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Origin': origin,
+    if (!username) {
+      return Response.json({ error: 'Username is required' }, { status: 400 });
+    }
+
+    // 1. Find or create the user
+    let user = await getUserByUsername(username);
+    if (!user) {
+      const newId = uuidv4();
+      user = { id: newId, username };
+      await Users.doc(newId).set(user);
+    }
+
+    // 2. Generate registration options
+    const options = await generateRegistrationOptions({
+      rpName,
+      rpID,
+      userID: new Uint8Array(Buffer.from(user.id)),
+      userName: user.username,
+      attestationType: 'none',
+      authenticatorSelection: {
+        residentKey: 'required',
+        userVerification: 'preferred',
       },
-      body: JSON.stringify({ username })
+      // You can also pass excludeCredentials if you fetch existing passkeys for the user
     });
 
-    const responseText = await lambdaRes.text();
-    console.log(`[Passkey Proxy API] Lambda response status: ${lambdaRes.status} ${lambdaRes.statusText}`);
-    console.log(`[Passkey Proxy API] Raw Lambda response: ${responseText}`);
+    // 3. Save the challenge to the user in Firestore so we can verify it in the next step
+    await Users.doc(user.id).update({
+      currentChallenge: options.challenge
+    });
 
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch {
-      data = { error: responseText || 'Empty or malformed JSON from Lambda' };
-    }
-
-    if (!lambdaRes.ok) {
-      return Response.json(data, { status: lambdaRes.status });
-    }
-
-    return Response.json(data);
+    return Response.json({ options, userId: user.id });
   } catch (e) {
-    console.error('[Passkey Proxy API] Error proxying register options:', e);
+    console.error('[Passkey API] Error generating register options:', e);
     return Response.json({ error: e.message }, { status: 500 });
   }
 };

@@ -137,7 +137,7 @@ export default function App() {
   const [url, setUrl] = useState(() => {
     try {
       if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-        return 'http://localhost:8082/';
+        return 'http://localhost:8085/';
       }
     } catch (e) {}
     return 'https://miniapp.expo.app';
@@ -432,43 +432,30 @@ export default function App() {
 
 
   // Intent Operations
-  const handleApproveIntent = async () => {
-    if (!pendingIntent) return;
-    addLog('Prompting biometric passkey to authorize transaction...');
+  const handleApproveIntent = async (directIntent = null) => {
+    const intent = directIntent || pendingIntent;
+    if (!intent) return;
+    addLog('Authorizing transaction...');
     try {
-      // Prompt passkey to prove biometric consent
-      const optRes = await fetch('/api/passkey/login-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (!optRes.ok) throw new Error(await optRes.text());
-      const { options, challengeId } = await optRes.json();
-
-      const assertion = await startAuthentication({ optionsJSON: options });
-      addLog('Verifying user authorization signature...');
-
-      const verifyRes = await fetch('/api/passkey/login-verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ challengeId, assertionResponse: assertion })
-      });
-      if (!verifyRes.ok) throw new Error(await verifyRes.text());
-      const verifyResult = await verifyRes.json();
-
-      if (verifyResult.verified) {
-        addLog('Passkey verified successfully. Sign authorization complete.');
-        const iframe = document.querySelector('iframe');
+      if (!verifiedTokenRef.current) {
+        throw new Error('Not authenticated. Please log in first.');
+      }
+      addLog('Session token verified. Sign authorization complete.');
+      const iframe = document.querySelector('iframe');
         
-        if (pendingIntent.type === 'payment') {
-          addLog(`[PAYMENT] Forwarding payment request to backend for ${pendingIntent.serviceUrl}...`);
+        if (intent.type === 'payment') {
+          addLog(`[PAYMENT] Forwarding payment request to backend for ${intent.serviceUrl}...`);
           try {
             const payRes = await fetch('/api/x402-pay', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${verifiedTokenRef.current}`
+              },
               body: JSON.stringify({
-                serviceUrl: pendingIntent.serviceUrl,
-                amount: pendingIntent.amount,
-                fetchOptions: pendingIntent.fetchOptions
+                serviceUrl: intent.serviceUrl,
+                amount: intent.amount,
+                fetchOptions: intent.fetchOptions
               })
             });
             const payData = await payRes.json();
@@ -478,7 +465,7 @@ export default function App() {
             if (iframe && iframe.contentWindow) {
               iframe.contentWindow.postMessage({
                 type: 'OPENDOME_PAYMENT_RESPONSE',
-                id: pendingIntent.id,
+                id: intent.id,
                 response: payData.data
               }, getMiniAppOrigin());
               addLog(`[PAYMENT] Success. Data returned to Mini App.`);
@@ -488,7 +475,7 @@ export default function App() {
             if (iframe && iframe.contentWindow) {
               iframe.contentWindow.postMessage({
                 type: 'OPENDOME_PAYMENT_RESPONSE',
-                id: pendingIntent.id,
+                id: intent.id,
                 error: payErr.message
               }, getMiniAppOrigin());
             }
@@ -501,18 +488,18 @@ export default function App() {
             status: 'SUCCESS',
             payload: {
               hash: txHash,
-              chain: pendingIntent.chain,
-              to: pendingIntent.to,
-              amount: pendingIntent.amount
+              chain: intent.chain,
+              to: intent.to,
+              amount: intent.amount
             }
           }, getMiniAppOrigin());
           addLog(`Sent SUCCESS response to Mini App: ${txHash.substring(0, 15)}...`);
         }
-        setPendingIntent(null);
-      } else {
-        throw new Error('Biometric signature rejected');
-      }
-    } catch (err) {
+        
+        if (!directIntent) {
+          setPendingIntent(null);
+        }
+      } catch (err) {
       addLog(`Intent authorization failed: ${err.message}`);
     }
   };
@@ -681,7 +668,23 @@ export default function App() {
         const { id, payload } = event.data;
         const { serviceUrl, amount, fetchOptions } = payload;
         addLog(`[PAYMENT] Incoming intent: Pay ${amount} USDC to ${serviceUrl}`);
-        setPendingIntent({ type: 'payment', id, serviceUrl, amount, fetchOptions });
+        handleApproveIntent({ type: 'payment', id, serviceUrl, amount, fetchOptions });
+      }
+
+      // Handle Debug Delete User from Mini App
+      if (event.data && event.data.type === 'OPENDOME_DEBUG_DELETE_USER') {
+        const { username } = event.data.payload;
+        addLog(`[DEBUG] Mini App requested to nuke user: "${username}"`);
+        fetch('/api/debug/delete-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        }).then(async (res) => {
+          const data = await res.json();
+          addLog(res.ok ? `[DEBUG OK] ${data.message}` : `[DEBUG ERROR] ${data.error}`);
+        }).catch(err => {
+          addLog(`[DEBUG ERROR] Failed to hit debug API: ${err.message}`);
+        });
       }
 
       // Handle Delegated Register from Mini App
@@ -720,7 +723,10 @@ export default function App() {
         
         fetch('/api/agent', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${verifiedTokenRef.current}`
+          },
           body: JSON.stringify({ prompt: promptText })
         })
         .then(async (res) => {
@@ -901,9 +907,19 @@ export default function App() {
               <View style={styles.intentBox}>
                 <Text style={styles.intentTitle}>🚨 ACTION INTENT REQUEST</Text>
                 <View style={styles.intentDetails}>
-                  <Text style={styles.intentField}>CHAIN: <Text style={styles.intentVal}>{pendingIntent.chain.toUpperCase()}</Text></Text>
-                  <Text style={styles.intentField}>AMOUNT: <Text style={styles.intentVal}>{pendingIntent.amount}</Text></Text>
-                  <Text style={styles.intentField}>TO: <Text style={styles.intentVal}>{pendingIntent.to}</Text></Text>
+                  {pendingIntent.type === 'transfer' ? (
+                    <>
+                      <Text style={styles.intentField}>CHAIN: <Text style={styles.intentVal}>{pendingIntent.chain.toUpperCase()}</Text></Text>
+                      <Text style={styles.intentField}>AMOUNT: <Text style={styles.intentVal}>{pendingIntent.amount}</Text></Text>
+                      <Text style={styles.intentField}>TO: <Text style={styles.intentVal}>{pendingIntent.to}</Text></Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.intentField}>TYPE: <Text style={styles.intentVal}>PAYMENT (HTTP 402)</Text></Text>
+                      <Text style={styles.intentField}>AMOUNT: <Text style={styles.intentVal}>{pendingIntent.amount} USDC</Text></Text>
+                      <Text style={styles.intentField}>TARGET: <Text style={styles.intentVal}>{pendingIntent.serviceUrl}</Text></Text>
+                    </>
+                  )}
                 </View>
                 <View style={styles.buttonRow}>
                   <TouchableOpacity style={styles.intentButtonApprove} onPress={handleApproveIntent} activeOpacity={0.6}>

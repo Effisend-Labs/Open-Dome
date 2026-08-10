@@ -1,41 +1,44 @@
-export const POST = async (request) => {
-  console.log('[Passkey Proxy API] POST /api/passkey/login-options initiated');
-  try {
-    let body = {};
-    try {
-      body = await request.json();
-    } catch {}
+import { generateAuthenticationOptions } from '@simplewebauthn/server';
+import { Users, getUserByUsername, getUserPasskeys } from '../../../utilsAPI/passkeyDb';
 
-    const origin = request.headers.get('origin') || '';
-    const targetUrl = 'https://gw2ajg6licxjrntcgkcsn77gye0yqgtn.lambda-url.us-east-1.on.aws/';
-    console.log(`[Passkey Proxy API] Forwarding to Lambda URL: ${targetUrl} with origin: ${origin}`);
-    const lambdaRes = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Origin': origin,
-      },
-      body: JSON.stringify(body)
+const rpID = 'localhost';
+
+export const POST = async (request) => {
+  console.log('[Passkey API] POST /api/passkey/login-options initiated');
+  try {
+    const { username } = await request.json();
+    console.log(`[Passkey API] login-options username: ${username}`);
+
+    if (!username) {
+      return Response.json({ error: 'Username is required' }, { status: 400 });
+    }
+
+    const user = await getUserByUsername(username);
+    if (!user) {
+      return Response.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const userPasskeys = await getUserPasskeys(user.id);
+    
+    // Generate auth options allowing any of the user's previously registered credentials
+    const options = await generateAuthenticationOptions({
+      rpID,
+      allowCredentials: userPasskeys.map(passkey => ({
+        id: Buffer.from(passkey.credentialID, 'base64url'),
+        type: 'public-key',
+        transports: passkey.transports,
+      })),
+      userVerification: 'preferred',
     });
 
-    const responseText = await lambdaRes.text();
-    console.log(`[Passkey Proxy API] Lambda response status: ${lambdaRes.status} ${lambdaRes.statusText}`);
-    console.log(`[Passkey Proxy API] Raw Lambda response: ${responseText}`);
+    // Save the auth challenge for verification
+    await Users.doc(user.id).update({
+      currentChallenge: options.challenge
+    });
 
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch {
-      data = { error: responseText || 'Empty or malformed JSON from Lambda' };
-    }
-
-    if (!lambdaRes.ok) {
-      return Response.json(data, { status: lambdaRes.status });
-    }
-
-    return Response.json(data);
+    return Response.json({ options, userId: user.id });
   } catch (e) {
-    console.error('[Passkey Proxy API] Error proxying login options:', e);
+    console.error('[Passkey API] Error generating login options:', e);
     return Response.json({ error: e.message }, { status: 500 });
   }
 };

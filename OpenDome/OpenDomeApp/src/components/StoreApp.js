@@ -112,7 +112,7 @@ export default function StoreApp({ installedAppIds, onInstallApp, onUninstallApp
       fontWeight: '600',
     },
     actionBtn: {
-      backgroundColor: theme.isDark ? '#FFFFFF' : theme.text.primary,
+      backgroundColor: theme.bg.nested,
       paddingHorizontal: n(16),
       paddingVertical: n(6),
       borderRadius: n(16),
@@ -123,17 +123,17 @@ export default function StoreApp({ installedAppIds, onInstallApp, onUninstallApp
     actionBtnInstalled: {
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: theme.isDark ? 'rgba(255,255,255,0.2)' : theme.border.subtle,
+      borderColor: theme.border.default,
     },
     actionText: {
       fontSize: n(14),
-      fontWeight: '800',
-      color: theme.isDark ? '#000000' : theme.bg.card,
+      fontWeight: '700',
+      color: theme.text.accent || theme.text.primary,
       fontFamily: theme.typography?.fontFamily || defaultFont,
       letterSpacing: -0.2,
     },
     actionTextInstalled: {
-      color: theme.isDark ? 'rgba(255,255,255,0.6)' : theme.text.secondary,
+      color: theme.text.secondary,
     },
     centerState: {
       paddingVertical: n(60),

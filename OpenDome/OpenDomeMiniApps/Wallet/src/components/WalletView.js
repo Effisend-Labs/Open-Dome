@@ -1,271 +1,635 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Linking, TextInput } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Linking, Animated } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useOpenDome } from 'opendome';
 import { GLOBAL_STYLES } from '../theme';
+import SendModal from './SendModal';
+import ReceiveModal from './ReceiveModal';
 
-// Image Assets
+// Chain logos
 import imgBase from '../assets/base.png';
 import imgMon from '../assets/mon.png';
 import imgSol from '../assets/sol.png';
+import imgEth from '../assets/eth.png';
+import imgUsdc from '../assets/usdc.png';
+import imgAvax from '../assets/avax.png';
+import imgPol from '../assets/pol.png';
+import imgOp from '../assets/op.png';
+import imgArb from '../assets/arb.png';
 
-const CHAIN_ASSETS = {
-  base: { key: "0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681", logo: imgBase, ticker: 'ETH', explorer: 'https://basescan.org/address/' },
-  monad: { key: "0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681", logo: imgMon, ticker: 'MON', explorer: 'https://explorer.monad.xyz/address/' },
-  solana: { key: "FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u", logo: imgSol, ticker: 'SOL', explorer: 'https://solscan.io/account/' }
+const TOKEN_ICONS = {
+  ETH: imgEth,
+  USDC: imgUsdc,
+  AVAX: imgAvax,
+  POL: imgPol,
+  SOL: imgSol,
+  MON: imgMon,
 };
 
+// ─── Chain Registry ────────────────────────────────────────────────────────────
+// Each entry defines display metadata per network. The `type` field controls
+// which address (evm / solana) is mapped. `color` is used for the fallback icon.
+const CHAINS = {
+  base:      { name: 'Base',      chain: 'Base',       ticker: 'ETH',  logo: imgBase, color: '#0052FF', type: 'evm',    explorer: 'https://basescan.org/address/' },
+  arbitrum:  { name: 'Arbitrum',  chain: 'Arbitrum',   ticker: 'ETH',  logo: imgArb,    color: '#28A0F0', type: 'evm',    explorer: 'https://arbiscan.io/address/' },
+  optimism:  { name: 'Optimism',  chain: 'Optimism',   ticker: 'ETH',  logo: imgOp,    color: '#FF0420', type: 'evm',    explorer: 'https://optimistic.etherscan.io/address/' },
+  mainnet:   { name: 'Ethereum',  chain: 'Ethereum',   ticker: 'ETH',  logo: imgEth,    color: '#627EEA', type: 'evm',    explorer: 'https://etherscan.io/address/' },
+  polygon:   { name: 'Polygon',   chain: 'Polygon',    ticker: 'POL',  logo: imgPol,    color: '#8247E5', type: 'evm',    explorer: 'https://polygonscan.com/address/' },
+  avalanche: { name: 'Avalanche', chain: 'Avalanche',  ticker: 'AVAX', logo: imgAvax,    color: '#E84142', type: 'evm',    explorer: 'https://snowtrace.io/address/' },
+  monad:     { name: 'Monad',     chain: 'Monad',      ticker: 'MON',  logo: imgMon,  color: '#836EF9', type: 'evm',    explorer: 'https://explorer.monad.xyz/address/' },
+  solana:    { name: 'Solana',    chain: 'Solana',     ticker: 'SOL',  logo: imgSol,  color: '#9945FF', type: 'solana', explorer: 'https://solscan.io/account/' },
+};
+
+// USDC is shown as a separate featured row
+const USDC_META = {
+  name: 'USD Coin',
+  ticker: 'USDC',
+  color: '#2775CA',
+};
+
+const USDC_ADDRESSES = {
+  base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  arbitrum: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+  optimism: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+  mainnet: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+  polygon: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
+  avalanche: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+  solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+};
+
+// ─── Mock Prices Oracle ────────────────────────────────────────────────────────
+// Sandbox environment: static mock fiat prices for USD conversion
+const MOCK_PRICES = {
+  ETH: 3200,
+  SOL: 145,
+  AVAX: 35,
+  POL: 0.50,
+  MON: 5,
+  USDC: 1,
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
 const formatBalance = (bal) => {
-  if (bal === 'error' || !bal) return '0.00';
+  if (bal === 'error' || bal === undefined || bal === null) return '0.00';
   const num = parseFloat(bal);
   if (isNaN(num)) return '0.00';
-  return parseFloat(num.toFixed(6)).toString();
+  if (num === 0) return '0.00';
+  if (num < 0.001) return '<0.001';
+  return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
 };
 
 const truncateAddress = (addr) => {
   if (!addr) return '';
-  if (addr.length < 15) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  if (addr.length < 12) return addr;
+  return `${addr.slice(0, 6)}···${addr.slice(-4)}`;
 };
 
-export default function WalletView({ theme, tokens, t }) {
-  const isDark = theme === 'dark';
-  const { blockchain, user, isAuthorized, Agent } = useOpenDome({ blockchain: { evm: ['base', 'monad'] } });
-  const [balances, setBalances] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [copiedChain, setCopiedChain] = useState(null);
-  
-  // Relayer State
-  const [activeTransferChain, setActiveTransferChain] = useState(null);
-  const [transferTo, setTransferTo] = useState('');
-  const [transferAmount, setTransferAmount] = useState('');
-  const [transferLoading, setTransferLoading] = useState(false);
-  const [transferResponse, setTransferResponse] = useState('');
+// ─── Fallback Chain Icon ───────────────────────────────────────────────────────
 
-  const handleRelayerTransfer = async (chain) => {
-    if (!transferTo || !transferAmount) return;
-    setTransferLoading(true);
-    setTransferResponse('');
-    try {
-      const res = await Agent.pay('http://localhost:3001/api/blockchain/transfer', '0.05', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chain, to: transferTo, amount: transferAmount })
-      });
-      setTransferResponse(JSON.stringify(res.data || res, null, 2));
-    } catch (e) {
-      setTransferResponse(`Error: ${e.message}`);
-    } finally {
-      setTransferLoading(false);
-    }
-  };
+const ChainIcon = ({ chain, size = 36 }) => {
+  const meta = CHAINS[chain];
+  if (!meta) return null;
 
-  const resolvedEvmAddress = user?.evmAddress || "";
-  const resolvedSolanaAddress = user?.solanaAddress || "";
-
-  const chainAddresses = {
-    base: resolvedEvmAddress,
-    monad: resolvedEvmAddress,
-    solana: resolvedSolanaAddress
-  };
-
-  useEffect(() => {
-    if (!isAuthorized) return;
-    const fetchBalances = async () => {
-      setLoading(true);
-      try {
-        const results = await blockchain.getBalances({
-          base: chainAddresses.base,
-          monad: chainAddresses.monad,
-          solana: chainAddresses.solana
-        });
-        setBalances(results);
-      } catch (err) {
-        console.error("Wallet Error", err);
-      }
-      setLoading(false);
-    };
-    fetchBalances();
-  }, [isAuthorized]);
-
-  if (!isAuthorized) {
+  if (meta.logo) {
     return (
-      <View style={{ flex: 1, backgroundColor: tokens.BG, padding: 20, justifyContent: 'center' }}>
-        <View style={{
-          borderWidth: 2,
-          borderColor: tokens.BORDER,
-          backgroundColor: tokens.SURFACE,
-          padding: 24,
-          borderRadius: tokens.shape.cardRadius,
-          ...tokens.shadow.card
-        }}>
-          <Text style={{
-            fontSize: 16,
-            fontWeight: GLOBAL_STYLES.heavy,
-            color: tokens.FG,
-            fontFamily: tokens.font.primary,
-            marginBottom: 10
-          }}>
-            {t.wallet?.authRequired || 'AUTHENTICATION REQUIRED'}
-          </Text>
-          <Text style={{
-            fontSize: 9,
-            color: tokens.MUTED,
-            fontFamily: tokens.font.mono,
-            marginBottom: 20,
-            lineHeight: 14
-          }}>
-            {t.wallet?.authDesc || 'PLEASE GO TO THE USER TAB AND CONNECT YOUR SECURE PASSPORT TO ACCESS WALLET BALANCES AND ADDRESSES.'}
-          </Text>
-        </View>
+      <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' }}>
+        <Image source={meta.logo} style={{ width: size * 0.9, height: size * 0.9 }} resizeMode="contain" />
       </View>
     );
   }
 
-  const handleCopy = async (chain, address) => {
-    await Clipboard.setStringAsync(address);
-    setCopiedChain(chain);
-    setTimeout(() => setCopiedChain(null), 2000);
-  };
-
-  const handleOpenExplorer = (explorerUrl, address) => {
-    Linking.openURL(`${explorerUrl}${address}`);
-  };
-
+  // Colored circle with first letter
   return (
-    <View style={{ flex: 1, backgroundColor: tokens.BG, padding: 20 }}>
-      
-      {/* Header Section */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Text style={{ color: tokens.FG, fontSize: 16, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: tokens.font.primary }}>{t.wallet?.portfolio || 'PORTFOLIO'}</Text>
-        <TouchableOpacity onPress={() => setBalances({})}>
-          <Text style={{ color: tokens.NEON_PRIMARY, fontSize: 11, fontWeight: 'bold', fontFamily: tokens.font.primary }}>{t.wallet?.refresh || 'REFRESH'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Main Data Feed */}
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <View style={{ alignItems: 'center', marginTop: 50 }}>
-            <Text style={{ color: tokens.MUTED, fontSize: 12, fontWeight: GLOBAL_STYLES.heavy, fontFamily: tokens.font.mono, letterSpacing: 1 }}>{t.wallet?.syncing || 'SYNCING...'}</Text>
-          </View>
-        ) : (
-          Object.entries(balances).map(([chain, bal]) => (
-            <View key={chain} style={{
-              padding: 24,
-              marginBottom: 16,
-              backgroundColor: tokens.SURFACE,
-              borderLeftWidth: 4,
-              borderLeftColor: isDark ? tokens.NEON_WARNING : tokens.NEON_PRIMARY,
-              borderRadius: tokens.shape.cardRadius,
-              ...tokens.shadow.card
-            }}>
-              
-              {/* Card Header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Image source={CHAIN_ASSETS[chain].logo} style={{ width: 16, height: 16, resizeMode: 'contain' }} />
-                  <Text style={{ color: tokens.FG, fontSize: 12, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, fontFamily: tokens.font.primary }}>
-                    {chain.toUpperCase()}
-                  </Text>
-                </View>
-                
-                {/* Clean Status Indicator */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <View style={{ 
-                    width: 6, height: 6, borderRadius: tokens.shape.pillRadius, backgroundColor: tokens.NEON_SUCCESS,
-                    shadowColor: isDark ? tokens.NEON_SUCCESS : 'transparent', shadowRadius: 4, shadowOpacity: 0.8
-                  }} />
-                  <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>{t.wallet?.active || 'ACTIVE'}</Text>
-                </View>
-              </View>
-
-              {/* Balance Readout (Clean, no boxes) */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 24 }}>
-                <Text style={{ color: tokens.FG, fontSize: 36, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: -1, fontFamily: tokens.font.mono }}>
-                  {formatBalance(bal)}
-                </Text>
-                <Text style={{ fontSize: 14, color: tokens.MUTED, fontFamily: tokens.font.mono, marginBottom: 6, fontWeight: 'bold' }}>
-                  {CHAIN_ASSETS[chain].ticker}
-                </Text>
-              </View>
-
-              {/* Minimal Address & Actions Footer */}
-              <View style={{ 
-                flexDirection: 'row', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: tokens.BORDER,
-                paddingTop: 16
-              }}>
-                <Text style={{ color: tokens.MUTED, fontSize: 11, fontFamily: tokens.font.mono }}>
-                  {truncateAddress(chainAddresses[chain])}
-                </Text>
-                
-                <View style={{ flexDirection: 'row', gap: 16 }}>
-                  <TouchableOpacity onPress={() => {
-                    setActiveTransferChain(activeTransferChain === chain ? null : chain);
-                    setTransferResponse('');
-                  }}>
-                    <Text style={{ color: activeTransferChain === chain ? tokens.NEON_PRIMARY : tokens.FG, fontSize: 10, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>
-                      SEND (PREMIUM RELAY)
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity onPress={() => handleCopy(chain, chainAddresses[chain])}>
-                    <Text style={{ color: copiedChain === chain ? tokens.NEON_SUCCESS : tokens.FG, fontSize: 10, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>
-                      {copiedChain === chain ? (t.wallet?.copied || 'COPIED') : (t.wallet?.copy || 'COPY')}
-                    </Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity onPress={() => handleOpenExplorer(CHAIN_ASSETS[chain].explorer, chainAddresses[chain])}>
-                    <Text style={{ color: tokens.FG, fontSize: 10, fontFamily: tokens.font.primary, fontWeight: 'bold' }}>{t.wallet?.explorer || 'EXPLORER'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Relayer Transfer Form */}
-              {activeTransferChain === chain && (
-                <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.BORDER }}>
-                  <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.primary, marginBottom: 8 }}>PREMIUM CROSS-CHAIN RELAY ($0.05 FEE)</Text>
-                  <TextInput
-                    style={{ backgroundColor: isDark ? '#000' : '#FFF', color: tokens.FG, borderWidth: 1, borderColor: tokens.BORDER, padding: 12, borderRadius: tokens.shape.buttonRadius, marginBottom: 8, fontSize: 12 }}
-                    placeholder="Destination Address"
-                    placeholderTextColor={tokens.MUTED}
-                    value={transferTo}
-                    onChangeText={setTransferTo}
-                  />
-                  <TextInput
-                    style={{ backgroundColor: isDark ? '#000' : '#FFF', color: tokens.FG, borderWidth: 1, borderColor: tokens.BORDER, padding: 12, borderRadius: tokens.shape.buttonRadius, marginBottom: 12, fontSize: 12 }}
-                    placeholder="Amount"
-                    placeholderTextColor={tokens.MUTED}
-                    value={transferAmount}
-                    onChangeText={setTransferAmount}
-                    keyboardType="numeric"
-                  />
-                  <TouchableOpacity 
-                    onPress={() => handleRelayerTransfer(chain)}
-                    disabled={transferLoading}
-                    style={{ backgroundColor: transferLoading ? tokens.BORDER : tokens.NEON_PRIMARY, padding: 12, borderRadius: tokens.shape.pillRadius, alignItems: 'center' }}
-                  >
-                    <Text style={{ color: transferLoading ? tokens.MUTED : (isDark ? '#000' : '#FFF'), fontSize: 10, fontWeight: 'bold', fontFamily: tokens.font.primary }}>
-                      {transferLoading ? 'PROCESSING...' : 'EXECUTE PREMIUM TRANSFER'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {transferResponse ? (
-                    <View style={{ marginTop: 12, backgroundColor: isDark ? '#000' : '#F2F2F7', padding: 10, borderRadius: tokens.shape.buttonRadius, borderWidth: 1, borderColor: tokens.BORDER }}>
-                      <Text style={{ color: tokens.FG, fontSize: 9, fontFamily: tokens.font.mono }}>{transferResponse}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              )}
-
-            </View>
-          ))
-        )}
-      </ScrollView>
+    <View style={{
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      backgroundColor: meta.color + '18',
+      justifyContent: 'center',
+      alignItems: 'center',
+    }}>
+      <Text style={{ color: meta.color, fontSize: size * 0.4, fontWeight: '700', fontFamily: GLOBAL_STYLES.sans }}>
+        {meta.chain[0]}
+      </Text>
     </View>
   );
+};
+
+// ─── Network Accordion Row ───────────────────────────────────────────────────────
+
+const NetworkRow = ({ chainKey, balanceData, address, tokens, isDark, onCopy, copiedKey, expanded, onToggle }) => {
+  const meta = CHAINS[chainKey];
+  if (!meta) return null;
+
+  const nativeBal = parseFloat(balanceData?.native) || 0;
+  const usdcBal = parseFloat(balanceData?.usdc) || 0;
+  const nativePrice = MOCK_PRICES[meta.ticker] || 0;
+  const combinedUsd = (nativeBal * nativePrice) + (usdcBal * MOCK_PRICES.USDC);
+
+  return (
+    <View style={{ borderBottomColor: tokens.BORDER, borderBottomWidth: StyleSheet.hairlineWidth }}>
+      {/* Network Header */}
+      <TouchableOpacity
+        activeOpacity={0.6}
+        onPress={onToggle}
+        style={[styles.tokenRow, { borderBottomWidth: 0, paddingVertical: 16 }]}
+      >
+        <ChainIcon chain={chainKey} size={36} />
+        
+        <View style={styles.tokenInfo}>
+          <Text style={[styles.tokenName, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+            {meta.chain}
+          </Text>
+          <Text style={[styles.tokenChain, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary, fontSize: 13 }]}>
+            {meta.name} Network
+          </Text>
+        </View>
+
+        <View style={styles.tokenBalance}>
+          <Text style={[styles.balanceValue, { color: tokens.FG, fontFamily: tokens.font.mono }]}>
+            ${combinedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+        </View>
+
+        <Text style={{ color: tokens.MUTED, fontSize: 18, marginLeft: 8, transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}>
+          ›
+        </Text>
+      </TouchableOpacity>
+
+      {/* Expanded Assets */}
+      {expanded && (
+        <View style={{ paddingLeft: 56, paddingRight: 24, paddingBottom: 16, gap: 14 }}>
+          {/* Native Asset */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {TOKEN_ICONS[meta.ticker] && (
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: tokens.SURFACE_ELEVATED, alignItems: 'center', justifyContent: 'center' }}>
+                  <Image source={TOKEN_ICONS[meta.ticker]} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                </View>
+              )}
+              <View>
+                <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary, fontSize: 15, fontWeight: '600' }}>{meta.ticker}</Text>
+                <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary, fontSize: 13 }}>${nativePrice.toLocaleString()}</Text>
+              </View>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ color: tokens.FG, fontFamily: tokens.font.mono, fontSize: 15 }}>{formatBalance(balanceData?.native)}</Text>
+              <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.mono, fontSize: 13 }}>
+                ${(nativeBal * nativePrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </View>
+          </View>
+
+          {/* USDC Asset */}
+          {USDC_ADDRESSES[chainKey] && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: tokens.SURFACE_ELEVATED, alignItems: 'center', justifyContent: 'center' }}>
+                  <Image source={imgUsdc} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                </View>
+                <View>
+                  <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary, fontSize: 15, fontWeight: '600' }}>USDC</Text>
+                  <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary, fontSize: 13 }}>$1.00</Text>
+                </View>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: tokens.FG, fontFamily: tokens.font.mono, fontSize: 15 }}>{formatBalance(balanceData?.usdc)}</Text>
+                <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.mono, fontSize: 13 }}>
+                  ${(usdcBal * MOCK_PRICES.USDC).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Explorer Link */}
+          <TouchableOpacity
+            activeOpacity={0.6}
+            onPress={() => Linking.openURL(meta.explorer + address)}
+            style={{
+              marginTop: 8,
+              paddingTop: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: tokens.BORDER,
+            }}
+          >
+            <Text style={{ color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary, fontSize: 13, fontWeight: '500' }}>
+              View on Explorer
+            </Text>
+            <Text style={{ color: tokens.MUTED, fontSize: 14 }}>↗</Text>
+          </TouchableOpacity>
+
+        </View>
+      )}
+    </View>
+  );
+};
+
+
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
+export default function WalletView({ theme, tokens, t, isDark }) {
+  const { blockchain, user, isAuthorized } = useOpenDome();
+  const [balances, setBalances] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [copiedKey, setCopiedKey] = useState(null);
+  const [lastSync, setLastSync] = useState(null);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [displayBalance, setDisplayBalance] = useState('0.00');
+  const [expandedChains, setExpandedChains] = useState({});
+  const balanceTarget = useRef(0);
+
+  const evmAddr = user?.evmAddress || '';
+  const solAddr = user?.solanaAddress || '';
+
+  // Build address map for all chains
+  const addressMap = {};
+  Object.keys(CHAINS).forEach(key => {
+    addressMap[key] = CHAINS[key].type === 'solana' ? solAddr : evmAddr;
+  });
+
+  const fetchBalances = useCallback(async () => {
+    if (!isAuthorized) return;
+    setLoading(true);
+    try {
+      const results = {};
+      const promises = Object.keys(CHAINS).map(async (chain) => {
+        try {
+          const addr = addressMap[chain];
+          const tokenAddr = USDC_ADDRESSES[chain];
+          let native = '0';
+          let usdc = '0';
+          
+          if (addr) {
+            native = await blockchain.getBalance(chain, addr);
+            if (tokenAddr) {
+              usdc = await blockchain.getBalanceToken(chain, addr, tokenAddr);
+            }
+          }
+          results[chain] = { native, usdc };
+        } catch (e) {
+          console.warn(`[Wallet] Error fetching balance for ${chain}:`, e.message);
+          results[chain] = { native: 'error', usdc: 'error' };
+        }
+      });
+      await Promise.all(promises);
+      setBalances(results);
+      setLastSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    } catch (err) {
+      console.error('[Wallet] Balance fetch error:', err);
+    }
+    setLoading(false);
+  }, [isAuthorized, evmAddr, solAddr]);
+
+  useEffect(() => {
+    fetchBalances();
+  }, [fetchBalances]);
+
+  const handleCopy = async (key, address) => {
+    if (!address) return;
+    try {
+      await Clipboard.setStringAsync(address);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    } catch (e) {
+      // silent
+    }
+  };
+
+  const handleReceive = () => {
+    setShowReceiveModal(true);
+  };
+
+  // ── Not Authenticated ──────────────────────────────────────────────────────
+
+  if (!isAuthorized) {
+    return (
+      <View style={[styles.emptyContainer, { backgroundColor: tokens.BG }]}>
+        <View style={[styles.lockIcon, { backgroundColor: tokens.SURFACE_ELEVATED, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.BORDER }]}>
+          {/* Geometric lock built from Views — no emojis */}
+          <View style={{ width: 14, height: 10, borderRadius: 7, borderWidth: 2, borderColor: tokens.MUTED, marginBottom: -2 }} />
+          <View style={{ width: 18, height: 12, borderRadius: 3, backgroundColor: tokens.MUTED }} />
+        </View>
+        <Text style={[styles.emptyTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+          Authentication required
+        </Text>
+        <Text style={[styles.emptyDesc, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+          Switch to the Account tab and authenticate with your passkey to access your multi-chain portfolio.
+        </Text>
+      </View>
+    );
+  }
+
+  // ── Authenticated ──────────────────────────────────────────────────────────
+
+  // Compute chain order: chains with non-zero balance first, then alphabetical
+  const chainKeys = Object.keys(CHAINS);
+  const sortedChains = [...chainKeys].sort((a, b) => {
+    const balA = (parseFloat(balances[a]?.native) || 0) + (parseFloat(balances[a]?.usdc) || 0);
+    const balB = (parseFloat(balances[b]?.native) || 0) + (parseFloat(balances[b]?.usdc) || 0);
+    if (balA > 0 && balB === 0) return -1;
+    if (balA === 0 && balB > 0) return 1;
+    return 0;
+  });
+
+  const activeChains = chainKeys.filter(k => (parseFloat(balances[k]?.native) || 0) + (parseFloat(balances[k]?.usdc) || 0) > 0).length;
+
+  const globalBalance = Object.entries(balances).reduce((sum, [chain, balObj]) => {
+    if (!balObj || typeof balObj !== 'object') return sum;
+    const meta = CHAINS[chain];
+    const nBal = parseFloat(balObj.native) || 0;
+    const uBal = parseFloat(balObj.usdc) || 0;
+    const price = meta ? (MOCK_PRICES[meta.ticker] || 0) : 0;
+    const combinedUsd = (nBal * price) + (uBal * MOCK_PRICES.USDC);
+    return sum + combinedUsd;
+  }, 0);
+
+  // Count-up animation (dopamine banking — making digital money feel tangible)
+  useEffect(() => {
+    if (loading) return;
+    const target = globalBalance;
+    const startVal = balanceTarget.current;
+    balanceTarget.current = target;
+    const duration = 600;
+    const startTime = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = startVal + (target - startVal) * eased;
+      setDisplayBalance(current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [loading, globalBalance]);
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: tokens.BG }}
+      contentContainerStyle={{ paddingBottom: 40 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* ── Portfolio Header ─────────────────────────────────────────────── */}
+      <View style={[styles.portfolioHeader, { backgroundColor: tokens.BG }]}>
+        <Text style={[styles.greeting, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+          {user?.username ? `gm, @${user.username}` : 'Portfolio'}
+        </Text>
+
+        <View style={styles.totalRow}>
+          <Text style={[styles.totalBalance, { color: tokens.FG, fontFamily: tokens.font.mono }]}>
+            {loading ? '···' : `$${displayBalance}`}
+          </Text>
+          <Text style={{ color: tokens.MUTED, fontSize: 16, fontFamily: tokens.font.primary, fontWeight: '600' }}>USD</Text>
+        </View>
+
+        <Text style={[styles.totalSub, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+          {loading ? 'Syncing Gateway...' : `Unified Balance across ${chainKeys.length} chains`}
+        </Text>
+
+        {/* Action Pills */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={[styles.actionPill, { backgroundColor: tokens.ACCENT }]}
+            onPress={() => setShowSendModal(true)}
+          >
+            <Text style={[styles.actionLabel, { color: '#FFFFFF', fontFamily: tokens.font.primary }]}>
+              Send
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={[styles.actionPill, { backgroundColor: tokens.SURFACE_ELEVATED, borderWidth: 1, borderColor: tokens.BORDER }]}
+            onPress={handleReceive}
+          >
+            <Text style={[styles.actionLabel, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+              {copiedKey === '_receive' ? 'Copied!' : 'Receive'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* ── Token List ───────────────────────────────────────────────────── */}
+      <View style={[styles.listSection, { backgroundColor: tokens.SURFACE }]}>
+        <View style={[styles.listHeader, { borderBottomColor: tokens.BORDER }]}>
+          <Text style={[styles.listTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+            Assets
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {!loading && (
+              <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.mono, letterSpacing: 0.3 }}>
+                {activeChains}/{chainKeys.length} active
+              </Text>
+            )}
+            <TouchableOpacity activeOpacity={0.6} onPress={fetchBalances}>
+              <Text style={[styles.refreshBtn, { color: tokens.ACCENT, fontFamily: tokens.font.primary }]}>
+                {loading ? 'Syncing...' : 'Refresh'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+
+
+        {/* Native tokens */}
+        {sortedChains.map((chainKey) => (
+          <NetworkRow
+            key={chainKey}
+            chainKey={chainKey}
+            balanceData={balances[chainKey]}
+            address={addressMap[chainKey]}
+            tokens={tokens}
+            isDark={isDark}
+            onCopy={handleCopy}
+            copiedKey={copiedKey}
+            expanded={!!expandedChains[chainKey]}
+            onToggle={() => setExpandedChains(prev => ({ ...prev, [chainKey]: !prev[chainKey] }))}
+          />
+        ))}
+      </View>
+
+      {/* ── Sync Footer ──────────────────────────────────────────────────── */}
+      {lastSync && (
+        <View style={styles.syncFooter}>
+          <Text style={[styles.syncText, { color: tokens.MUTED, fontFamily: tokens.font.mono }]}>
+            Last synced {lastSync}
+          </Text>
+        </View>
+      )}
+
+      <SendModal 
+        visible={showSendModal} 
+        onClose={() => setShowSendModal(false)} 
+        tokens={tokens} 
+        isDark={isDark} 
+      />
+
+      <ReceiveModal
+        visible={showReceiveModal}
+        onClose={() => setShowReceiveModal(false)}
+        tokens={tokens}
+        isDark={isDark}
+        evmAddress={evmAddr}
+        solanaAddress={solAddr}
+      />
+    </ScrollView>
+  );
 }
+
+// ─── Styles ────────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  // Empty / Not authenticated
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    gap: 16,
+  },
+  lockIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+  },
+  emptyDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+
+  // Portfolio Header
+  portfolioHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+  },
+  greeting: {
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+    marginBottom: 8,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  totalBalance: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -1,
+  },
+  totalSub: {
+    fontSize: 12,
+    marginTop: 4,
+    letterSpacing: -0.1,
+  },
+
+  // Action Pills
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+  actionPill: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+
+  // Token List
+  listSection: {
+    marginHorizontal: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  listTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  refreshBtn: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  // Token Row
+  tokenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  tokenInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  tokenName: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  tokenChain: {
+    fontSize: 12,
+    letterSpacing: -0.1,
+  },
+  tokenBalance: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  balanceValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  copyHint: {
+    fontSize: 10,
+    letterSpacing: 0.2,
+  },
+
+  // Sync Footer
+  syncFooter: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  syncText: {
+    fontSize: 10,
+    letterSpacing: 0.3,
+  },
+});

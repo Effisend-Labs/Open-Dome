@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, Platform } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
+import { useNFTScanner } from '../hooks/useNFTScanner';
 
 const parseJwt = (t) => {
   if (!t) return null;
@@ -33,6 +35,7 @@ const formatAddress = (address) => {
 export default function WalletApp({ verifiedToken }) {
   const { normalize: n } = useSmartSize();
   const { colors: theme } = useTheme();
+  const [activeTab, setActiveTab] = useState('wallets'); // 'wallets' or 'passes'
 
   const userProfile = useMemo(() => {
     if (verifiedToken) {
@@ -40,6 +43,9 @@ export default function WalletApp({ verifiedToken }) {
     }
     return null;
   }, [verifiedToken]);
+
+  // Only scan NFTs if userProfile.evm is available
+  const { nfts, isScanning } = useNFTScanner(userProfile?.evm);
 
   const defaultFont = Platform.select({
     ios: 'System',
@@ -58,7 +64,7 @@ export default function WalletApp({ verifiedToken }) {
       paddingBottom: n(120),
     },
     header: {
-      marginBottom: n(32),
+      marginBottom: n(24),
     },
     title: {
       fontSize: n(32),
@@ -72,6 +78,36 @@ export default function WalletApp({ verifiedToken }) {
       color: theme.text.secondary,
       fontFamily: theme.typography?.fontFamily || defaultFont,
       marginTop: n(4),
+    },
+    tabSwitcher: {
+      flexDirection: 'row',
+      backgroundColor: theme.bg.nested,
+      borderRadius: n(12),
+      padding: n(4),
+      marginBottom: n(24),
+      borderWidth: 1,
+      borderColor: theme.border.default,
+    },
+    tabButton: {
+      flex: 1,
+      paddingVertical: n(8),
+      alignItems: 'center',
+      borderRadius: n(8),
+    },
+    tabButtonActive: {
+      backgroundColor: theme.bg.card,
+      ...(theme.shadow?.sm || {
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 1
+      }),
+    },
+    tabText: {
+      fontSize: n(14),
+      fontWeight: '600',
+      color: theme.text.secondary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+    },
+    tabTextActive: {
+      color: theme.text.primary,
     },
     walletCard: {
       backgroundColor: theme.bg.card,
@@ -104,9 +140,9 @@ export default function WalletApp({ verifiedToken }) {
     },
     walletAddress: {
       fontSize: n(13),
-      color: theme.text.primary,
+      color: theme.text.secondary,
       fontFamily: theme.typography?.fontFamilyCode || 'monospace',
-      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+      backgroundColor: theme.bg.nested,
       paddingHorizontal: n(8),
       paddingVertical: n(4),
       borderRadius: n(6),
@@ -126,6 +162,53 @@ export default function WalletApp({ verifiedToken }) {
       color: theme.text.secondary,
       fontFamily: theme.typography?.fontFamily || defaultFont,
       marginTop: n(16),
+      textAlign: 'center',
+    },
+    nftGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+    },
+    nftCard: {
+      width: '48%',
+      backgroundColor: theme.bg.card,
+      borderRadius: theme.shape?.cardRadius ?? n(16),
+      borderWidth: theme.border?.width ?? 1,
+      borderColor: theme.border.default,
+      marginBottom: n(16),
+      overflow: 'hidden',
+      ...(theme.shadow?.card || {}),
+    },
+    nftImage: {
+      width: '100%',
+      aspectRatio: 1,
+      backgroundColor: theme.bg.elevated,
+    },
+    nftInfo: {
+      padding: n(12),
+    },
+    nftName: {
+      fontSize: n(14),
+      fontWeight: '600',
+      color: theme.text.primary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+      marginBottom: n(4),
+    },
+    nftNetwork: {
+      fontSize: n(12),
+      color: theme.text.secondary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+    },
+    loadingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: n(16),
+    },
+    loadingText: {
+      marginLeft: n(8),
+      color: theme.text.secondary,
+      fontSize: n(14),
     }
   });
 
@@ -133,11 +216,31 @@ export default function WalletApp({ verifiedToken }) {
     <View style={s.container}>
       <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={s.header}>
-          <Text style={s.title}>Wallets</Text>
-          <Text style={s.subtitle}>Your connected web3 accounts</Text>
+          <Text style={s.title}>Wallet</Text>
+          <Text style={s.subtitle}>Manage your assets & passes</Text>
         </View>
 
-        {userProfile ? (
+        <View style={s.tabSwitcher}>
+          <TouchableOpacity 
+            style={[s.tabButton, activeTab === 'wallets' && s.tabButtonActive]}
+            onPress={() => setActiveTab('wallets')}
+          >
+            <Text style={[s.tabText, activeTab === 'wallets' && s.tabTextActive]}>Wallets</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[s.tabButton, activeTab === 'passes' && s.tabButtonActive]}
+            onPress={() => setActiveTab('passes')}
+          >
+            <Text style={[s.tabText, activeTab === 'passes' && s.tabTextActive]}>Passes</Text>
+          </TouchableOpacity>
+        </View>
+
+        {!userProfile ? (
+          <View style={s.emptyState}>
+            <Ionicons name="wallet-outline" size={n(48)} color={theme.text.secondary} />
+            <Text style={s.infoText}>Please sign in to view your {activeTab}.</Text>
+          </View>
+        ) : activeTab === 'wallets' ? (
           <View style={s.walletCard}>
             <View style={s.walletRow}>
               <View>
@@ -156,9 +259,73 @@ export default function WalletApp({ verifiedToken }) {
             </View>
           </View>
         ) : (
-          <View style={s.emptyState}>
-            <Ionicons name="wallet-outline" size={n(48)} color={theme.text.secondary} />
-            <Text style={s.infoText}>Please sign in to view your wallets.</Text>
+          <View>
+            {isScanning && nfts.length === 0 && (
+              <View style={s.loadingContainer}>
+                <ActivityIndicator size="small" color={theme.text.secondary} />
+                <Text style={s.loadingText}>Scanning networks for passes...</Text>
+              </View>
+            )}
+            
+            {!isScanning && nfts.length === 0 && (
+              <View style={s.emptyState}>
+                <Ionicons name="ticket-outline" size={n(48)} color={theme.text.secondary} />
+                <Text style={s.infoText}>No passes found on configured networks.</Text>
+              </View>
+            )}
+            
+            {nfts.length > 0 && (
+              <View style={s.nftGrid}>
+                {nfts.map((nft, idx) => (
+                  <View key={`${nft.contractAddress}-${nft.tokenId}-${idx}`} style={s.nftCard}>
+                    {nft.image ? (
+                      <View style={{ position: 'relative' }}>
+                        <Image 
+                          source={{ uri: nft.image }} 
+                          style={s.nftImage} 
+                          contentFit="cover"
+                          transition={200}
+                        />
+                        {nft.amount > 1 && (
+                          <View style={{
+                            position: 'absolute',
+                            top: n(8),
+                            right: n(8),
+                            backgroundColor: 'rgba(0,0,0,0.7)',
+                            paddingHorizontal: n(8),
+                            paddingVertical: n(4),
+                            borderRadius: n(12)
+                          }}>
+                            <Text style={{ color: '#fff', fontSize: n(12), fontWeight: 'bold' }}>x{nft.amount}</Text>
+                          </View>
+                        )}
+                      </View>
+                    ) : (
+                      <View style={[s.nftImage, { alignItems: 'center', justifyContent: 'center', position: 'relative' }]}>
+                        <Ionicons name="image-outline" size={n(24)} color={theme.text.secondary} />
+                        {nft.amount > 1 && (
+                          <View style={{
+                            position: 'absolute',
+                            top: n(8),
+                            right: n(8),
+                            backgroundColor: 'rgba(0,0,0,0.7)',
+                            paddingHorizontal: n(8),
+                            paddingVertical: n(4),
+                            borderRadius: n(12)
+                          }}>
+                            <Text style={{ color: '#fff', fontSize: n(12), fontWeight: 'bold' }}>x{nft.amount}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    <View style={s.nftInfo}>
+                      <Text style={s.nftName} numberOfLines={1}>{nft.name || 'Unnamed Pass'}</Text>
+                      <Text style={s.nftNetwork}>{nft.network}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>

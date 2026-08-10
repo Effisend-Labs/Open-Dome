@@ -17,7 +17,6 @@ import { GLOBAL_STYLES } from '../theme';
 export default function LocationView({ proxiedLocation, theme, tokens }) {
   const isDark = theme === 'dark';
   const { Agent } = useOpenDome();
-  const [buyingLocation, setBuyingLocation] = React.useState(false);
 
   const mapElement = useRef(null);
   const mapRef = useRef(null);
@@ -165,27 +164,7 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
             <Text style={{ color: isFine ? '#000' : tokens.FG, fontSize: 8, fontWeight: '900', fontFamily: tokens.font.primary }}>{isFine ? 'HIGH ACC' : 'LOW ACC'}</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          onPress={async () => {
-            setBuyingLocation(true);
-            try {
-              const res = await Agent.pay('http://localhost:3001/api/location', '0.01', { method: 'GET' });
-              if (res && res.data) {
-                setCoords(res.data);
-                setError(null);
-              }
-            } catch (e) {
-              setError(`ORACLE ERROR: ${e.message}`);
-            } finally {
-              setBuyingLocation(false);
-            }
-          }}
-          style={{ backgroundColor: buyingLocation ? tokens.BORDER : tokens.NEON_PRIMARY, paddingHorizontal: 12, paddingVertical: 8, borderRadius: tokens.shape.pillRadius, marginBottom: 10, alignItems: 'center' }}
-        >
-          <Text style={{ color: buyingLocation ? tokens.MUTED : (isDark ? '#000' : '#FFF'), fontSize: 10, fontWeight: '900', fontFamily: tokens.font.primary }}>
-            {buyingLocation ? 'PROCESSING...' : 'PURCHASE SECURE ORACLE LOCATION ($0.01)'}
-          </Text>
-        </TouchableOpacity>
+
         {coords ? (
           <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: tokens.font.mono, marginTop: 4 }}>
             COORD: [{coords.latitude?.toFixed(4)}, {coords.longitude?.toFixed(4)}] | ACC: {(coords.accuracy || 0).toFixed(1)}m

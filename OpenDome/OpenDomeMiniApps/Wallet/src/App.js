@@ -1,250 +1,263 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Platform } from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Platform, Animated, ScrollView, Dimensions } from 'react-native';
 import { useOpenDome } from 'opendome';
 import { MINI_APP_THEMES, GLOBAL_STYLES } from './theme';
 import { locales } from './core/locales';
 
-// Sub-App Imports
 import WalletView from './components/WalletView';
-import UserView from './components/UserView';
+import PassesView from './components/PassesView';
 import AgentView from './components/AgentView';
+import UserView from './components/UserView';
+import { LogBox } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+LogBox.ignoreLogs(['"shadow*" style props are deprecated']);
 
-const MINI_APPS = [
-  { id: 'WALLET', title: 'WALLET' },
-  { id: 'AGENT', title: 'AGENT' },
-  { id: 'USER', title: 'USER' },
+const TABS = [
+  { id: 'WALLET', label: 'Portfolio', icon: 'pie-chart-outline' },
+  { id: 'PASSES', label: 'Passes', icon: 'ticket-outline' },
+  { id: 'AGENT', label: 'Agent', icon: 'sparkles-outline' },
+  { id: 'USER', label: 'Account', icon: 'person-outline' },
 ];
 
+const TAB_INDEX = { WALLET: 0, PASSES: 1, AGENT: 2, USER: 3 };
+
 export default function App() {
-  const { isAuthorized, token, user, context, loading, proxiedLocation, register, login } = useOpenDome({
+  const { isAuthorized, token, user, context, loading, register, login } = useOpenDome({
     appId: process.env.EXPO_PUBLIC_OD_APP_ID,
-    appToken: process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN
+    appToken: process.env.EXPO_PUBLIC_OD_DEBUG_TOKEN,
+    blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] }
   });
-  
-  // Dynamic Context Resolution
+
   const lang = context?.lang || 'en';
   const t = locales[lang] || locales.en;
-  
-  const themeType = (context?.theme || 'light').toLowerCase();
-  const isDark = ['dark', 'synthwave', 'deep_space'].includes(themeType);
+
+  const themeType = (context?.theme || 'dark').toLowerCase();
+  const isDark = !['light', 'pastel', 'alpine'].includes(themeType);
   const tokens = MINI_APP_THEMES[themeType] || MINI_APP_THEMES.dark;
 
-  const [activeApp, setActiveApp] = useState('GAME');
-  const [scores, setScores] = useState({ P1: 0, AI: 0 });
-  const scrollRef = useRef(null);
+  const [activeTab, setActiveTab] = useState('WALLET');
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const underlineX = useRef(new Animated.Value(0)).current;
+  const underlineWidth = useRef(new Animated.Value(48)).current;
+  const tabWidths = useRef({});
+  const tabPositions = useRef({});
 
-  useEffect(() => {
-    if (loading) return;
-    if (Platform.OS !== 'web') return;
+  const switchTab = useCallback((tabId) => {
+    const currentIdx = TAB_INDEX[activeTab];
+    const nextIdx = TAB_INDEX[tabId];
+    const direction = nextIdx > currentIdx ? -1 : 1;
 
-    const handleWheel = (e) => {
-      if (scrollRef.current) {
-        const node = scrollRef.current.getScrollableNode ? scrollRef.current.getScrollableNode() : scrollRef.current;
-        if (node) {
-          // Horizontal scrolling for the tab selector
-          node.scrollLeft += e.deltaY;
-        }
-      }
-    };
+    // Slide out current content
+    Animated.timing(slideAnim, {
+      toValue: direction * 40,
+      duration: 120,
+      useNativeDriver: true,
+    }).start(() => {
+      setActiveTab(tabId);
+      // Reset to opposite side and slide in
+      slideAnim.setValue(-direction * 40);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+    });
 
-    const node = scrollRef.current && (scrollRef.current.getScrollableNode ? scrollRef.current.getScrollableNode() : scrollRef.current);
-    if (node && typeof node.addEventListener === 'function') {
-      node.addEventListener('wheel', handleWheel, { passive: true });
-      return () => {
-        node.removeEventListener('wheel', handleWheel);
-      };
+    // Animate underline to new tab position
+    const targetX = tabPositions.current[tabId] || 0;
+    const targetWidth = tabWidths.current[tabId] || 48;
+    
+    Animated.parallel([
+      Animated.spring(underlineX, {
+        toValue: targetX,
+        friction: 20,
+        tension: 300,
+        useNativeDriver: false,
+      }),
+      Animated.spring(underlineWidth, {
+        toValue: targetWidth,
+        friction: 20,
+        tension: 300,
+        useNativeDriver: false,
+      })
+    ]).start();
+  }, [activeTab, slideAnim, underlineX, underlineWidth]);
+
+  const handleTabLayout = useCallback((tabId, event) => {
+    const { x, width } = event.nativeEvent.layout;
+    tabPositions.current[tabId] = x;
+    tabWidths.current[tabId] = width;
+    // Initialize underline on first layout of the active tab
+    if (tabId === activeTab) {
+      underlineX.setValue(x);
+      underlineWidth.setValue(width);
     }
-  }, [loading]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      const activeIndex = MINI_APPS.findIndex(app => app.id === activeApp);
-      if (activeIndex !== -1) {
-        const tabWidth = 96; // Matches the minWidth of the tab
-        // Center the active tab in the visible viewport (assuming screen width is ~380px)
-        const targetX = Math.max(0, (activeIndex * tabWidth) - 120);
-        scrollRef.current.scrollTo({ x: targetX, animated: true });
-      }
-    }
-  }, [activeApp]);
-
-  const navigateApp = (direction) => {
-    const currentIndex = MINI_APPS.findIndex(app => app.id === activeApp);
-    let nextIndex;
-    if (direction === 'next') {
-      nextIndex = (currentIndex + 1) % MINI_APPS.length;
-    } else {
-      nextIndex = (currentIndex - 1 + MINI_APPS.length) % MINI_APPS.length;
-    }
-    setActiveApp(MINI_APPS[nextIndex].id);
-  };
+  }, [activeTab, underlineX, underlineWidth]);
 
   if (loading) return (
     <View style={[styles.loadingContainer, { backgroundColor: tokens.BG }]}>
-      <Text style={[styles.loadingText, { color: tokens.NEON_PRIMARY, textShadowColor: isDark ? tokens.NEON_PRIMARY : 'transparent', textShadowRadius: 10 }]}>
-        {t.init}
+      <View style={styles.loadingDot}>
+        <View style={[styles.pulseCore, { backgroundColor: tokens.ACCENT }]} />
+      </View>
+      <Text style={[styles.loadingText, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+        Connecting
       </Text>
-      <Text style={[styles.loadingSubText, { color: tokens.MUTED }]}>{t.connecting}</Text>
     </View>
   );
 
-  const renderActiveApp = () => {
-    const props = {
-      isAuthorized,
-      username: user?.username || t.game?.guest || 'Guest',
-      theme: themeType,
-      tokens,
-      scores,
-      setScores,
-      t // Inject translation dictionary
-    };
-    switch (activeApp) {
+  const renderContent = () => {
+    const props = { isAuthorized, theme: themeType, tokens, t, isDark, user, register, login, username: user?.username || 'Guest' };
+    switch (activeTab) {
       case 'WALLET': return <WalletView {...props} />;
+      case 'PASSES': return <PassesView {...props} />;
       case 'AGENT': return <AgentView {...props} />;
       case 'USER': return <UserView {...props} />;
-      default: return <UserView {...props} />;
+      default: return <WalletView {...props} />;
     }
   };
 
+  const userInitial = user?.username ? user.username[0].toUpperCase() : '?';
+  const activeTabWidth = tabWidths.current[activeTab] || 48;
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.BG }]}>
-      {/* Cyberpunk Header Selector */}
-      <View style={[styles.header, { backgroundColor: tokens.SURFACE, borderBottomColor: tokens.BORDER }]}>
-        <View style={styles.brandRow}>
-          <View style={styles.brand}>
-            <Text style={[styles.brandTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>{t.brand}</Text>
-            <Text style={[styles.brandSubtitle, { color: tokens.NEON_PRIMARY, fontFamily: tokens.font.mono }]}>{t.demo}</Text>
-          </View>
-
-          <View style={styles.navArrows}>
-            <TouchableOpacity onPress={() => navigateApp('prev')} style={[styles.arrowButton, { borderColor: tokens.BORDER, backgroundColor: tokens.BG, borderRadius: tokens.shape.buttonRadius, borderWidth: tokens.shape.border }]}>
-              <Text style={[styles.arrowText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>←</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigateApp('next')} style={[styles.arrowButton, { borderColor: tokens.BORDER, backgroundColor: tokens.BG, borderRadius: tokens.shape.buttonRadius, borderWidth: tokens.shape.border }]}>
-              <Text style={[styles.arrowText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>→</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.selectorContainer}>
-          <ScrollView
-            ref={scrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.navGrid}
-          >
-            {MINI_APPS.map((app) => {
-              const isActive = activeApp === app.id;
-              
-              // Only apply the glow directly to the text, NOT the container
-              const textGlow = isActive && isDark ? {
-                textShadowColor: tokens.NEON_PRIMARY,
-                textShadowRadius: 12,
-                textShadowOffset: { width: 0, height: 0 }
-              } : {};
-
-              return (
-                <TouchableOpacity
-                  key={app.id}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.tab,
-                    {
-                      borderColor: tokens.BORDER,
-                      backgroundColor: tokens.BG,
-                      borderBottomWidth: isActive ? 3 : tokens.shape.border,
-                      borderBottomColor: isActive ? tokens.NEON_PRIMARY : tokens.BORDER,
-                      borderTopLeftRadius: tokens.shape.cardRadius > 0 ? tokens.shape.cardRadius / 2 : 0,
-                      borderTopRightRadius: tokens.shape.cardRadius > 0 ? tokens.shape.cardRadius / 2 : 0,
-                      shadowOpacity: 0,
-                      elevation: 0, 
-                    }
-                  ]}
-                  onPress={() => setActiveApp(app.id)}
-                >
-                  <Text 
-                    style={[
-                      styles.tabText, 
-                      { color: isActive ? tokens.NEON_PRIMARY : tokens.MUTED, fontFamily: tokens.font.primary },
-                      textGlow 
-                    ]}
-                  >
-                    {t.apps[app.id] || app.title}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </View>
-
-      {/* Main Stage */}
-      <View style={styles.stage}>
-        {renderActiveApp()}
-      </View>
-
-      {/* Footer Status */}
-      <View style={[styles.footer, { backgroundColor: tokens.SURFACE, borderTopColor: tokens.BORDER }]}>
-        <View style={styles.statusGroup}>
-          <View style={[
-            styles.dot,
-            { backgroundColor: isAuthorized ? tokens.NEON_SUCCESS : tokens.NEON_PRIMARY, borderRadius: tokens.shape.pillRadius },
-            isDark && { shadowColor: isAuthorized ? tokens.NEON_SUCCESS : tokens.NEON_PRIMARY, shadowOpacity: 0.8, shadowRadius: 8 }
-          ]} />
-          <Text style={[styles.statusText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-            {isAuthorized ? t.secure : t.disconnected}
+      {/* Minimal Top Bar */}
+      <View style={[styles.topBar, { borderBottomColor: tokens.BORDER }]}>
+        <Text style={[styles.appName, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+          Wallet
+        </Text>
+        <View style={[styles.avatar, { backgroundColor: tokens.ACCENT_SOFT }]}>
+          <Text style={[styles.avatarText, { color: tokens.ACCENT, fontFamily: tokens.font.primary }]}>
+            {isAuthorized ? userInitial : '·'}
           </Text>
         </View>
-        <Text style={[styles.tokenText, { color: tokens.MUTED, fontFamily: tokens.font.mono }]}>ID_{token?.substring(0, 12).toUpperCase()}</Text>
       </View>
+
+      {/* Tab Bar with Animated Underline */}
+      <View style={[styles.tabBar, { backgroundColor: tokens.BG }]}>
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              activeOpacity={0.7}
+              style={styles.tab}
+              onPress={() => switchTab(tab.id)}
+              onLayout={(e) => handleTabLayout(tab.id, e)}
+            >
+              <Ionicons 
+                name={tab.icon} 
+                size={22} 
+                color={isActive ? tokens.FG : tokens.MUTED} 
+                style={{ marginBottom: 4 }}
+              />
+              <Text style={[
+                styles.tabLabel,
+                { color: isActive ? tokens.FG : tokens.MUTED, fontFamily: tokens.font.primary }
+              ]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+        {/* Animated Underline */}
+        <Animated.View
+          style={[
+            styles.tabUnderline,
+            {
+              backgroundColor: tokens.FG,
+              width: underlineWidth,
+              transform: [{ translateX: underlineX }],
+            }
+          ]}
+        />
+      </View>
+
+      {/* Content with Directional Slide */}
+      <Animated.View style={[styles.content, { transform: [{ translateX: slideAnim }], opacity: slideAnim.interpolate({ inputRange: [-40, 0, 40], outputRange: [0.6, 1, 0.6] }) }]}>
+        {renderContent()}
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { fontSize: 10, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, marginBottom: 8, fontFamily: GLOBAL_STYLES.monospace },
-  loadingSubText: { fontSize: 8, fontWeight: 'bold', letterSpacing: 1, fontFamily: GLOBAL_STYLES.monospace },
 
-  header: {
-    paddingTop: 12,
-    borderBottomWidth: 2,
-  },
-  brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
-  brandTitle: { fontSize: 18, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: -1 },
-  brandSubtitle: { fontSize: 8, fontWeight: 'bold', letterSpacing: 2 },
-
-  navArrows: { flexDirection: 'row', gap: 4 },
-  arrowButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  arrowText: { fontSize: 14, fontWeight: 'bold' },
-
-  selectorContainer: { paddingHorizontal: 20, paddingBottom: 0 },
-  navGrid: { flexDirection: 'row' },
-  tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    minWidth: 96,
-    alignItems: 'center',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
-    borderWidth: 1, // Will be overridden
-    marginBottom: -1, 
-    marginRight: -1,
+    alignItems: 'center',
+    gap: 16,
   },
-  tabText: { fontSize: 10, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1 },
+  loadingDot: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pulseCore: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  loadingText: {
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
 
-  stage: { flex: 1 },
-
-  footer: {
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderTopWidth: 2,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'web' ? 16 : 52,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  statusGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 6, height: 6 },
-  statusText: { fontSize: 8, fontWeight: 'bold' },
-  tokenText: { fontSize: 8 }
+  appName: {
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  tabBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    position: 'relative',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    paddingBottom: 12,
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  tabUnderline: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0, 
+    height: 2,
+    borderRadius: 1,
+  },
+
+  content: { flex: 1 },
 });

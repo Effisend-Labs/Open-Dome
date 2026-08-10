@@ -16,7 +16,7 @@ const VALID_TOKENS = [
 
 const ALLOWED_ORIGINS = [
   'http://localhost:8081',
-  'http://localhost:8082',
+  'http://localhost:8084',
   'https://opendome.expo.app',
   'https://opendomeos.expo.app',
   'https://miniapp.expo.app',

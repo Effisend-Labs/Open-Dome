@@ -1,0 +1,12 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "address": "0xYourServerBridgeAddressHere",
+      "name": "@altaga",
+      "password": "godmode",
+      "role": "ADMIN",
+      "tickets": []
+    }
+  ]
+}

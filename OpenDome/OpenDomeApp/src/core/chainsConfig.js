@@ -1,0 +1,45 @@
+export const passesBlockchains = [
+  {
+    enabled: true,
+    network: "Base",
+    type: "evm",
+    rpcs: [
+      "https://base-rpc.publicnode.com",
+      "https://mainnet.base.org"
+    ],
+    // Placeholders for NFT passes on Base
+    passesContracts: [
+      // "0xYourNFTContractOnBase"
+    ]
+  },
+  {
+    enabled: true,
+    network: "Arbitrum One",
+    type: "evm",
+    rpcs: [
+      "https://arbitrum-one-rpc.publicnode.com",
+      "https://arb1.arbitrum.io/rpc"
+    ],
+    passesContracts: []
+  },
+  {
+    enabled: true,
+    network: "Optimism",
+    type: "evm",
+    rpcs: [
+      "https://mainnet.optimism.io",
+      "https://optimism.publicnode.com"
+    ],
+    passesContracts: []
+  },
+  {
+    enabled: true,
+    network: "Polygon",
+    type: "evm",
+    rpcs: [
+      "https://polygon-rpc.com",
+      "https://polygon-bor-rpc.publicnode.com"
+    ],
+    passesContracts: []
+  }
+];

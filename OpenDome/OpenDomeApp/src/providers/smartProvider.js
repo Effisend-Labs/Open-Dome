@@ -148,12 +148,12 @@ export default function SmartProvider({ children }) {
                 }}
               />
             </View>
-             <Image
+          <Image
             source={frame}
             onLayout={handleLayout}
             contentFit="contain"
-            pointerEvents="none"
-            style={{
+            pointerEvents={Platform.OS !== 'web' ? 'none' : undefined}
+            style={[{
               position: "absolute",
               top: 0,
               left: 0,
@@ -161,7 +161,7 @@ export default function SmartProvider({ children }) {
               height: "100%",
               zIndex: 10,
               backgroundColor: "transparent",
-            }}
+            }, Platform.OS === 'web' && { pointerEvents: "none" }]}
           />
           </View>
         </View>

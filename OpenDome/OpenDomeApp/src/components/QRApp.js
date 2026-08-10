@@ -106,10 +106,12 @@ export default function QRApp({ verifiedToken }) {
     },
     selectorContainer: {
       flexDirection: 'row',
-      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+      backgroundColor: theme.bg.nested,
       borderRadius: n(12),
       padding: n(4),
       marginBottom: n(24),
+      borderWidth: 1,
+      borderColor: theme.border.default,
       width: '100%',
     },
     selectorTab: {
@@ -119,9 +121,9 @@ export default function QRApp({ verifiedToken }) {
       borderRadius: n(8),
     },
     selectorTabActive: {
-      backgroundColor: theme.bg.panel,
-      ...(theme.shadow?.card || {
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2
+      backgroundColor: theme.bg.card,
+      ...(theme.shadow?.sm || {
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 1
       }),
     },
     selectorText: {

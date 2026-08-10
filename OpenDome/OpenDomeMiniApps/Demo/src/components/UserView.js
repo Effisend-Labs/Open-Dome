@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, TextInput,
   TouchableOpacity, ScrollView, ActivityIndicator
@@ -8,33 +8,49 @@ import { GLOBAL_STYLES } from '../theme';
 
 export default function UserView({ tokens, theme, t }) {
   const isDark = theme === 'dark';
-  const { isAuthorized, user, register, login, logout } = useOpenDome();
+  const { isAuthorized, user, register, login, logout, authError, authPending } = useOpenDome();
 
   const [username, setUsername] = useState('');
-  const [pending, setPending] = useState(false); // waiting for sandbox to respond
-  const [error, setError] = useState(null);
+  const [localError, setLocalError] = useState(null);
+
+  // Derive the active error to display (SDK error takes precedence over local form errors)
+  const displayError = authError || localError;
 
   const handleRegister = () => {
     if (!username.trim()) {
-      setError(t.userProfile?.usernameRequired || 'USERNAME_REQUIRED — enter a handle to register.');
+      setLocalError(t.userProfile?.usernameRequired || 'USERNAME_REQUIRED — enter a handle to register.');
       return;
     }
-    setError(null);
-    setPending(true);
+    setLocalError(null);
     register(username.trim().toLowerCase());
   };
 
   const handleLogin = () => {
-    setError(null);
-    setPending(true);
+    setLocalError(null);
     login();
   };
 
   const handleLogout = () => {
     setUsername('');
-    setPending(false);
-    setError(null);
+    setLocalError(null);
     logout();
+  };
+
+  const handleDebugDelete = async () => {
+    if (!username.trim()) {
+      setLocalError('DEBUG: Enter username above to nuke first');
+      return;
+    }
+    setLocalError('Nuking via Sandbox...');
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'OPENDOME_DEBUG_DELETE_USER',
+        payload: { username: username.trim().toLowerCase() }
+      }, '*'); // Wildcard because it's a debug command
+      
+      // Simulate success since we just send the message
+      setTimeout(() => setLocalError(`[DEBUG] Nuke signal sent for ${username}`), 500);
+    }
   };
 
   return (
@@ -110,16 +126,16 @@ export default function UserView({ tokens, theme, t }) {
               placeholderTextColor={tokens.MUTED}
               autoCapitalize="none"
               autoCorrect={false}
-              editable={!pending}
+              editable={!authPending}
             />
 
             <TouchableOpacity
               style={[styles.button, { backgroundColor: tokens.NEON_PRIMARY, borderColor: tokens.NEON_PRIMARY, borderRadius: tokens.shape.buttonRadius }]}
               onPress={handleRegister}
               activeOpacity={0.7}
-              disabled={pending}
+              disabled={authPending}
             >
-              {pending
+              {authPending
                 ? <ActivityIndicator color={isDark ? '#000' : '#fff'} size="small" />
                 : <Text style={[styles.buttonText, { color: isDark ? '#000' : '#fff', fontFamily: tokens.font.primary }]}>
                     {t.userProfile?.registerBtn || 'REGISTER WITH PASSKEY'}
@@ -140,9 +156,9 @@ export default function UserView({ tokens, theme, t }) {
             style={[styles.button, styles.loginButton, { borderColor: tokens.BORDER, borderRadius: tokens.shape.buttonRadius }]}
             onPress={handleLogin}
             activeOpacity={0.7}
-            disabled={pending}
+            disabled={authPending}
           >
-            {pending
+            {authPending
               ? <ActivityIndicator color={tokens.FG} size="small" />
               : <Text style={[styles.buttonText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
                   {t.userProfile?.signInBtn || 'SIGN IN WITH PASSKEY'}
@@ -151,16 +167,28 @@ export default function UserView({ tokens, theme, t }) {
           </TouchableOpacity>
 
           {/* Error */}
-          {error && (
+          {displayError && (
             <View style={[styles.errorBox, { borderColor: tokens.NEON_DANGER, borderRadius: tokens.shape.cardRadius / 2 }]}>
-              <Text style={[styles.errorText, { color: tokens.NEON_DANGER, fontFamily: tokens.font.mono }]}>{error}</Text>
+              <Text style={[styles.errorText, { color: tokens.NEON_DANGER, fontFamily: tokens.font.mono }]}>{displayError}</Text>
             </View>
           )}
 
-          {pending && (
+          {authPending && (
             <Text style={[styles.hint, { color: tokens.MUTED, marginTop: 20, textAlign: 'center', fontFamily: tokens.font.mono }]}>
               {t.userProfile?.awaitingBio || 'AWAITING BIOMETRIC VERIFICATION IN SANDBOX...'}
             </Text>
+          )}
+
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: 'transparent', marginTop: 20, borderColor: tokens.NEON_DANGER, borderRadius: tokens.shape.buttonRadius }]}
+              onPress={handleDebugDelete}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.buttonText, { color: tokens.NEON_DANGER, fontFamily: tokens.font.primary }]}>
+                [DEBUG] NUKE USER "{username || '?'}"
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       )}

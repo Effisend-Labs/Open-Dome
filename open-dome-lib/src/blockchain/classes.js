@@ -75,6 +75,61 @@ export class Blockchain {
     return this.getAdapter(chain).getBalanceTokens(address, tokenAddresses);
   }
 
+  async getNFTs(chain, address, contractAddress) {
+    const adapter = this.getAdapter(chain);
+    if (typeof adapter.getNFTs === 'function') {
+      return adapter.getNFTs(address, contractAddress);
+    }
+    return [];
+  }
+
+  async markTicketAsUsed(chain, contractAddress, tokenId, authToken) {
+    const adapter = this.getAdapter(chain);
+    if (typeof adapter.markTicketAsUsed === 'function') {
+      return adapter.markTicketAsUsed(contractAddress, tokenId, authToken);
+    }
+    throw new Error(`markTicketAsUsed not supported on chain: ${chain}`);
+  }
+
+  async consumePassAccess(chain, contractAddress, tokenId, amount, authToken) {
+    const adapter = this.getAdapter(chain);
+    if (typeof adapter.consumePassAccess === 'function') {
+      return adapter.consumePassAccess(contractAddress, tokenId, amount, authToken);
+    }
+    throw new Error(`consumePassAccess not supported on chain: ${chain}`);
+  }
+
+  /**
+   * Fetch NFTs across multiple chains using a configuration map
+   * @param {string} address - The EVM address to scan
+   * @param {Object} contractsMap - Map of chain to contract array { base: ["0x..."], arbitrum: ["0x..."] }
+   * @returns {Promise<Array>} - Flat array of all discovered NFTs injected with network metadata
+   */
+  async getAllNFTs(address, contractsMap) {
+    if (!address || !contractsMap) return [];
+    const allNfts = [];
+    const chains = Object.keys(contractsMap);
+
+    await Promise.allSettled(chains.map(async (chain) => {
+      const contracts = contractsMap[chain];
+      if (!Array.isArray(contracts) || contracts.length === 0) return;
+
+      await Promise.allSettled(contracts.map(async (contractAddress) => {
+        try {
+          const fetched = await this.getNFTs(chain, address, contractAddress);
+          if (fetched && fetched.length > 0) {
+            fetched.forEach(nft => {
+              allNfts.push({ ...nft, network: chain });
+            });
+          }
+        } catch (e) {
+          console.warn(`[Blockchain] Error scanning ${chain} for ${contractAddress}:`, e.message);
+        }
+      }));
+    }));
+    return allNfts;
+  }
+
   /**
    * Batch fetch balances across all supported chains
    * @param {Object} addresses - Map of chain to address { evm: "0x...", solana: "..." }

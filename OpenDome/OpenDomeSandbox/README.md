@@ -89,4 +89,22 @@ The **Event Board** at the bottom monitors all MQTT traffic. When your Mini App 
 
 ---
 
+## 🤖 AI Agent Configuration (Vertex AI)
+
+If you are modifying or deploying the OpenDome Sandbox's internal AI Agent (`src/app/api/agent+api.js`) to Google Vertex AI using the `@google/genai` SDK, please note the following environment requirements:
+
+1. **Service Account Credentials:** Ensure your `.env` contains valid `GCP_PROJECT_ID`, `GCP_CLIENT_EMAIL`, and `GCP_PRIVATE_KEY` values.
+2. **Global Region Requirement:** The model (e.g. `gemini-3.6-flash`, `gemini-3.1-pro`) **MUST** be accessed using the `global` location parameter. If you attempt to use standard regions like `us-central1`, the backend will return a `404 Publisher model not found` error because these specific custom models are provisioned globally.
+
+**Correct Initialization:**
+```javascript
+const ai = new GoogleGenAI({
+  vertexai: true,
+  project: process.env.GCP_PROJECT_ID,
+  location: 'global' // CRITICAL: Must be 'global'
+});
+```
+
+---
+
 MIT © Effisend Labs

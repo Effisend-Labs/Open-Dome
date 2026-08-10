@@ -112,11 +112,26 @@ export const type = {
 };
 
 export const shadow = {
-  none: { shadowOpacity: 0, elevation: 0 },
-  sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
-  md: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 }, // Default depth
-  lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 5 },
-  massive: { shadowColor: '#000', shadowOffset: { width: 0, height: 32 }, shadowOpacity: 0.15, shadowRadius: 64, elevation: 20 },
+  none: Platform.select({
+    web: { boxShadow: 'none' },
+    default: { shadowOpacity: 0, elevation: 0 }
+  }),
+  sm: Platform.select({
+    web: { boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.03)' },
+    default: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 }
+  }),
+  md: Platform.select({
+    web: { boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.05)' },
+    default: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 }
+  }),
+  lg: Platform.select({
+    web: { boxShadow: '0px 8px 20px rgba(0, 0, 0, 0.08)' },
+    default: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 5 }
+  }),
+  massive: Platform.select({
+    web: { boxShadow: '0px 32px 64px rgba(0, 0, 0, 0.15)' },
+    default: { shadowColor: '#000', shadowOffset: { width: 0, height: 32 }, shadowOpacity: 0.15, shadowRadius: 64, elevation: 20 }
+  }),
 };
 
 export const springboardApps = [
@@ -127,7 +142,7 @@ export const springboardApps = [
     meta: "12 EVENTS · 4 VENUES",
     accent: colors.brand.primary,
     happening: 3,
-    url: typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1') ? 'http://localhost:8082/' : 'https://miniapp.expo.app/',
+    url: typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1') ? 'http://localhost:8084/' : 'https://miniapp.expo.app/',
   },
   {
     id: "sandbox_app",

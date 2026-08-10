@@ -13,6 +13,11 @@ import "react-native-reanimated";
 import "../core/error";
 import ContextLoader from "../providers/contextLoader";
 import { ThemeProvider } from "../providers/ThemeProvider";
+import { LogBox } from 'react-native';
+LogBox.ignoreLogs([
+  '"shadow*" style props are deprecated',
+]);
+
 
 export default function RootLayout() {
   useFonts({

@@ -1,0 +1,73 @@
+name: Auto Update and Publish Template
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Configure Git User
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Install Original Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Update Script
+        run: node scripts/update-packages.js
+
+      - name: Commit, Version Bump, and Push
+        run: |
+          # Bump version in files only
+          npm version patch --no-git-tag-version
+          
+          # Stage the updated files
+          git add package.json package-lock.json
+          
+          # Manually commit and tag with the new version
+          VERSION=$(node -p "require('./package.json').version")
+          git commit -m "chore(release): $VERSION [skip ci]"
+          git tag "v$VERSION"
+          
+          git push origin HEAD
+          git push origin --tags
+
+      - name: Publish to NPM
+        run: |
+          # 1. Nuke any local .npmrc file that is sabotaging the auth
+          rm -f .npmrc 
+          echo "🧹 Deleted local .npmrc to prevent conflicts."
+          
+          # 2. Hard diagnostic check on the token
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "❌ CRITICAL ERROR: NODE_AUTH_TOKEN is completely empty!"
+            echo "Please check your GitHub Repository Secrets."
+            exit 1
+          else
+            echo "✅ Token is present (Length: ${#NODE_AUTH_TOKEN} characters)"
+          fi
+          
+          # 3. Publish using the environment variable mapped by setup-node
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -23,8 +23,8 @@ export default function EventBoard({ config = {} }) {
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 0.3, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: false }),
+        Animated.timing(pulseAnim, { toValue: 0.3, duration: 1000, useNativeDriver: false }),
       ])
     ).start();
   }, []);
@@ -69,12 +69,20 @@ export default function EventBoard({ config = {} }) {
     clientRef.current = client;
 
     client.on('connect', () => {
+      if (client.disconnecting || client.disconnected) return;
+      
       setStatus('CONNECTED');
       const initialTopics = appId 
         ? [`opendome/${appId}/events`]
         : ['opendome/#'];
         
-      initialTopics.forEach(t => client.subscribe(t));
+      initialTopics.forEach(t => {
+        try {
+          client.subscribe(t);
+        } catch (e) {
+          console.warn('Skipping subscribe, client state:', e.message);
+        }
+      });
       setSubscribedTopics(initialTopics);
     });
 

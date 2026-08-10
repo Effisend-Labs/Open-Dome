@@ -31,7 +31,7 @@ export const locales = {
     },
     agent: {
       workspace: "Agent Workspace",
-      poweredBy: "Powered by Bedrock",
+      poweredBy: "Powered by Gemini",
       helpText: "How can I help you today?",
       placeholder: "Ask anything...",
       thinking: "Thinking..."
@@ -109,7 +109,7 @@ export const locales = {
     },
     agent: {
       workspace: "Consola del Agente",
-      poweredBy: "Potenciado por Bedrock",
+      poweredBy: "Potenciado por Gemini",
       helpText: "¿En qué te puedo ayudar hoy?",
       placeholder: "Pregúntame lo que sea...",
       thinking: "Pensando..."
@@ -187,7 +187,7 @@ export const locales = {
     },
     agent: {
       workspace: "エージェント ワークスペース",
-      poweredBy: "Powered by Bedrock",
+      poweredBy: "Powered by Gemini",
       helpText: "今日はどのようなご用件でしょうか？",
       placeholder: "何でも聞いてください...",
       thinking: "考え中..."
@@ -265,7 +265,7 @@ export const locales = {
     },
     agent: {
       workspace: "Espace Agent",
-      poweredBy: "Propulsé par Bedrock",
+      poweredBy: "Propulsé par Gemini",
       helpText: "Comment puis-je vous aider aujourd'hui ?",
       placeholder: "Demandez n'importe quoi...",
       thinking: "Réflexion..."
@@ -343,7 +343,7 @@ export const locales = {
     },
     agent: {
       workspace: "特工工作区",
-      poweredBy: "由 Bedrock 提供支持",
+      poweredBy: "由 Gemini 提供支持",
       helpText: "今天我能怎么帮助你？",
       placeholder: "随便问点什么...",
       thinking: "思考中..."

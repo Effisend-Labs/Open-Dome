@@ -4,3 +4,4 @@ export * from './location';
 export * from './events';
 export * from './communication';
 export * from './agent';
+export * from './x402';

@@ -32,6 +32,8 @@ let globalLoading = true;
 let globalProxiedLocation = null;
 let globalHandshakeInitiated = false;
 let globalParentOrigin = null;
+let globalAuthError = null;
+let globalAuthPending = false;
 
 const subscribers = new Set();
 
@@ -44,7 +46,9 @@ const updateSubscribers = () => {
         context: globalContext,
         isAuthorized: globalIsAuthorized,
         loading: globalLoading,
-        proxiedLocation: globalProxiedLocation
+        proxiedLocation: globalProxiedLocation,
+        authError: globalAuthError,
+        authPending: globalAuthPending
       });
     } catch (e) {
       // safe ignore
@@ -70,7 +74,9 @@ export function useOpenDome(config = {}) {
     context: globalContext,
     isAuthorized: globalIsAuthorized,
     loading: globalLoading,
-    proxiedLocation: globalProxiedLocation
+    proxiedLocation: globalProxiedLocation,
+    authError: globalAuthError,
+    authPending: globalAuthPending
   });
 
   // Initialize blockchain with provided config — stable reference, never re-created
@@ -108,6 +114,9 @@ export function useOpenDome(config = {}) {
   };
 
   const register = (username) => {
+    globalAuthError = null;
+    globalAuthPending = true;
+    updateSubscribers();
     if (window.parent !== window) {
       window.parent.postMessage({
         type: 'OPENDOME_REGISTER_REQUEST',
@@ -119,6 +128,9 @@ export function useOpenDome(config = {}) {
   };
 
   const login = () => {
+    globalAuthError = null;
+    globalAuthPending = true;
+    updateSubscribers();
     if (window.parent !== window) {
       window.parent.postMessage({
         type: 'OPENDOME_LOGIN_REQUEST'
@@ -139,6 +151,8 @@ export function useOpenDome(config = {}) {
     }
     globalIsAuthorized = false;
     globalLoading = false;
+    globalAuthError = null;
+    globalAuthPending = false;
     updateSubscribers();
 
     if (window.parent !== window) {
@@ -235,6 +249,8 @@ export function useOpenDome(config = {}) {
             globalContext = { ...(globalContext || {}), ...(incomingContext || {}) };
             globalIsAuthorized = true;
             globalLoading = false;
+            globalAuthError = null;
+            globalAuthPending = false;
             updateSubscribers();
             window.parent.postMessage({
               type: 'OPEN_DOME_SDK_INIT',
@@ -246,6 +262,16 @@ export function useOpenDome(config = {}) {
             console.error(`[Open-Dome SDK] Auth response failed (${type}):`, error);
             globalIsAuthorized = false;
             globalLoading = false;
+            
+            // Try parsing JSON error from Sandbox
+            let parsedError = error || 'Authentication failed';
+            try {
+              const errObj = JSON.parse(error);
+              if (errObj && errObj.error) parsedError = errObj.error;
+            } catch (e) {}
+            
+            globalAuthError = parsedError;
+            globalAuthPending = false;
             updateSubscribers();
           }
         }
@@ -330,6 +356,8 @@ export function useOpenDome(config = {}) {
     user: enrichedUser,
     context: state.context,
     loading: state.loading,
+    authError: state.authError,
+    authPending: state.authPending,
     proxiedLocation: state.proxiedLocation,
     blockchain,
     register,

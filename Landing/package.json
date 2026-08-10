@@ -34,11 +34,11 @@
     "typescript": "~7.0.2"
   },
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --port 8081",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
+    "android": "expo start --android --port 8081",
+    "ios": "expo start --ios --port 8081",
+    "web": "set BROWSER=none&& expo start --web --port 8081",
     "build": "npx expo export -p web",
     "webbuild": "npx expo export -p web",
     "webdeploy": "npx expo export -p web && eas deploy",
@@ -47,7 +47,15 @@
     "lint": "expo lint"
   },
   "overrides": {
-    "uuid": "^11.0.0"
+    "uuid": "^11.0.0",
+    "expo-modules-core": {
+      "react-native-worklets": "$react-native-worklets"
+    },
+    "react": "$react",
+    "react-dom": "$react-dom",
+    "react-native-worklets": "$react-native-worklets",
+    "typescript": "$typescript",
+    "eslint": "$eslint"
   },
   "private": true
 }

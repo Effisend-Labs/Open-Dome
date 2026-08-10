@@ -18,7 +18,7 @@ export default function SettingsApp() {
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 400,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, [fadeAnim]);
 
@@ -120,15 +120,13 @@ const defaultFont = Platform.select({
 const useStyles = (n, theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.bg.canvas,
+    backgroundColor: 'transparent',
   },
   header: {
     paddingTop: n(60),
     paddingHorizontal: n(24),
     paddingBottom: n(24),
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.border.subtle,
-    backgroundColor: theme.bg.panel,
+    backgroundColor: 'transparent',
   },
   headerTitle: {
     color: theme.text.primary,

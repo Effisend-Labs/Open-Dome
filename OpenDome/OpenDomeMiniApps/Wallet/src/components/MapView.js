@@ -180,7 +180,11 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
       {/* Permission prompt - Only blocking if isFine is requested and not granted */}
       {permissionStatus !== 'granted' && isFine && (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, position: 'absolute', top: 100, left: 0, right: 0, bottom: 0, zIndex: 10, backgroundColor: tokens.BG }}>
-          <Text style={{ fontSize: 48, marginBottom: 20 }}>📡</Text>
+          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: tokens.SURFACE_ELEVATED, justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.BORDER }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tokens.MUTED, marginBottom: 4 }} />
+            <View style={{ width: 16, height: 2, backgroundColor: tokens.MUTED, borderRadius: 1 }} />
+            <View style={{ width: 10, height: 2, backgroundColor: tokens.MUTED, borderRadius: 1, marginTop: 3 }} />
+          </View>
           <Text style={{ color: tokens.FG, fontSize: 13, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, marginBottom: 10, fontFamily: tokens.font.primary }}>LOCATION REQUIRED</Text>
           <Text style={{ color: tokens.MUTED, fontSize: 11, textAlign: 'center', lineHeight: 18, marginBottom: 30, fontFamily: tokens.font.mono }}>
             This app needs geolocation access to display your position on the map.

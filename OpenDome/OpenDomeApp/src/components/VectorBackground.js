@@ -13,12 +13,12 @@ export default function VectorBackground({ themeId, theme }) {
         Animated.timing(floatAnim, {
           toValue: 1,
           duration: 10000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(floatAnim, {
           toValue: 0,
           duration: 10000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     ).start();
