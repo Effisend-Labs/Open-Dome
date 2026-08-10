@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+
 import { GoogleGenAI } from '@google/genai';
 import { createCircleAgentWallet, executeCircleNanoPayment } from './circle-tools';
 
@@ -92,7 +92,7 @@ export async function POST(req) {
         config
       });
 
-      return NextResponse.json({
+      return Response.json({
         response: finalResponse.text,
         tool_executed: call.name,
         tool_result: toolResult
@@ -100,13 +100,13 @@ export async function POST(req) {
     }
 
     // Standard text response
-    return NextResponse.json({
+    return Response.json({
       response: response.text
     });
 
   } catch (error) {
     console.error("AI Agent error:", error);
-    return NextResponse.json({
+    return Response.json({
       status: "error",
       response: "AI Agent failed to execute.",
       details: "An internal error occurred."
