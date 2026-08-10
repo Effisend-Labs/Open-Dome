@@ -64,7 +64,8 @@
     "react-native-screens": "4.24.0",
     "react-native-sonner": "0.2.0",
     "react-native-web": "0.21.2",
-    "react-native-worklets": "0.8.3"
+    "react-native-worklets": "0.8.3",
+    "uuid": "^11.0.0"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
