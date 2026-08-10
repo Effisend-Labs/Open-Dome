@@ -2,7 +2,7 @@
   "buildCommand": "npx expo export -p web",
   "outputDirectory": "dist/client",
   "functions": {
-    "api/index.js": {
+    "api/**/*.js": {
       "includeFiles": "dist/server/**"
     }
   },
