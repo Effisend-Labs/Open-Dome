@@ -1,9 +1,17 @@
 import { generateAuthenticationOptions } from '@simplewebauthn/server';
 import { Users, getUserByUsername, getUserPasskeys } from '../../../utilsAPI/passkeyDb';
 
-const rpID = 'localhost';
+const getDynamicRpID = (req) => {
+  try {
+    const origin = req.headers.get('origin') || 'http://localhost';
+    let host = new URL(origin).hostname;
+    if (host.endsWith('.opendome.xyz') || host === 'opendome.xyz') return 'opendome.xyz';
+    return host;
+  } catch(e) { return 'localhost'; }
+};
 
 export const POST = async (request) => {
+  const rpID = getDynamicRpID(request);
   console.log('[Passkey API] POST /api/passkey/login-options initiated');
   try {
     const { username } = await request.json();

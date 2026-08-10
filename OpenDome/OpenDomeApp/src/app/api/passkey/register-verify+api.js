@@ -3,10 +3,18 @@ import { Users, Passkeys, Wallets, getUserById } from '../../../utilsAPI/passkey
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import { randomUUID } from 'crypto';
 
-const expectedOrigin = 'http://localhost:8083'; // Will need to match the actual frontend origin
-const expectedRPID = 'localhost';
+const getDynamicRpID = (req) => {
+  try {
+    const origin = req.headers.get('origin') || 'http://localhost';
+    let host = new URL(origin).hostname;
+    if (host.endsWith('.opendome.xyz') || host === 'opendome.xyz') return 'opendome.xyz';
+    return host;
+  } catch(e) { return 'localhost'; }
+};
 
 export const POST = async (request) => {
+  const expectedRPID = getDynamicRpID(request);
+  const expectedOrigin = request.headers.get("origin") || "http://localhost:8082";
   console.log('[Passkey API] POST /api/passkey/register-verify initiated');
   try {
     const { userId, credentialResponse } = await request.json();
@@ -24,7 +32,7 @@ export const POST = async (request) => {
 
     // Dynamic Origin Check (Optional, but recommended for flexible dev environments)
     // The exact origin the client is running on (e.g. http://localhost:8083 or exp://...)
-    const origin = request.headers.get('origin') || expectedOrigin;
+    
 
     // 2. Verify the response
     let verification;
@@ -32,7 +40,7 @@ export const POST = async (request) => {
       verification = await verifyRegistrationResponse({
         response: credentialResponse,
         expectedChallenge: user.currentChallenge,
-        expectedOrigin: origin,
+        expectedOrigin: expectedOrigin,
         expectedRPID: expectedRPID,
       });
     } catch (error) {

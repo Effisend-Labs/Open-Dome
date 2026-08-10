@@ -2,11 +2,19 @@ import { verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { Users, Passkeys, getUserById, getPasskeyById } from '../../../utilsAPI/passkeyDb';
 import jwt from 'jsonwebtoken';
 
-const expectedOrigin = 'http://localhost:8083'; 
-const expectedRPID = 'localhost';
+const getDynamicRpID = (req) => {
+  try {
+    const origin = req.headers.get('origin') || 'http://localhost';
+    let host = new URL(origin).hostname;
+    if (host.endsWith('.opendome.xyz') || host === 'opendome.xyz') return 'opendome.xyz';
+    return host;
+  } catch(e) { return 'localhost'; }
+};
 const JWT_SECRET = 'opendome-sandbox-mock-secret';
 
 export const POST = async (request) => {
+  const expectedRPID = getDynamicRpID(request);
+  const expectedOrigin = request.headers.get("origin") || "http://localhost:8082";
   console.log('[Passkey API] POST /api/passkey/login-verify initiated');
   try {
     const { userId, credentialResponse } = await request.json();
@@ -27,14 +35,14 @@ export const POST = async (request) => {
       return Response.json({ error: 'Passkey not found or does not belong to this user' }, { status: 404 });
     }
 
-    const origin = request.headers.get('origin') || expectedOrigin;
+    
 
     let verification;
     try {
       verification = await verifyAuthenticationResponse({
         response: credentialResponse,
         expectedChallenge: user.currentChallenge,
-        expectedOrigin: origin,
+        expectedOrigin: expectedOrigin,
         expectedRPID: expectedRPID,
         authenticator: {
           credentialID: Buffer.from(passkey.credentialID, 'base64url'),

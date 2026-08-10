@@ -4,9 +4,17 @@ import { v4 as uuidv4 } from 'uuid';
 
 // Set your RP metadata
 const rpName = 'Open-Dome Sandbox';
-const rpID = 'localhost'; // In production, this should be your real domain (e.g., 'example.com')
+const getDynamicRpID = (req) => {
+  try {
+    const origin = req.headers.get('origin') || 'http://localhost';
+    let host = new URL(origin).hostname;
+    if (host.endsWith('.opendome.xyz') || host === 'opendome.xyz') return 'opendome.xyz';
+    return host;
+  } catch(e) { return 'localhost'; }
+};
 
 export const POST = async (request) => {
+  const rpID = getDynamicRpID(request);
   console.log('[Passkey API] POST /api/passkey/register-options initiated');
   try {
     const { username } = await request.json();

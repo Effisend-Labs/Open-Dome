@@ -33,6 +33,7 @@
     "@smithy/node-http-handler": "^4.9.13",
     "@x402/core": "^2.19.0",
     "@x402/evm": "^2.19.0",
+    "ethers": "^6.17.0",
     "expo": "~57.0.8",
     "expo-constants": "~57.0.7",
     "expo-font": "~57.0.1",
