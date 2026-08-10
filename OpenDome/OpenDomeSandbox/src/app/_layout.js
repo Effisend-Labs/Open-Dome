@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
-import { Head } from 'expo-router';
+import Head from 'expo-router/head';
 LogBox.ignoreLogs([
   '"shadow*" style props are deprecated',
 ]);

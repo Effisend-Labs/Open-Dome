@@ -7,7 +7,8 @@ import {
   Exo2_700Bold,
   useFonts,
 } from "@expo-google-fonts/exo-2";
-import { Stack, Head } from "expo-router";
+import { Stack } from "expo-router";
+import Head from "expo-router/head";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import "react-native-reanimated";
