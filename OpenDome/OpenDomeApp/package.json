@@ -21,6 +21,7 @@
     "@aws-sdk/lib-dynamodb": "^3.1048.0",
     "@circle-fin/developer-controlled-wallets": "^10.8.0",
     "@expo-google-fonts/exo-2": "0.4.2",
+    "@expo/server": "^0.7.5",
     "@expo/vector-icons": "15.1.1",
     "@google-cloud/firestore": "^8.7.0",
     "@react-native-async-storage/async-storage": "3.0.2",
