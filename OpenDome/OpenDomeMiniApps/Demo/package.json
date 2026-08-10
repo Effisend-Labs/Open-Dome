@@ -19,6 +19,7 @@
     "expo-clipboard": "57.0.1",
     "expo-status-bar": "57.0.1",
     "ol": "^10.9.0",
+    "mqtt": "^5.15.1",
     "opendome": "file:../../../open-dome-lib",
     "react": "19.2.3",
     "react-dom": "19.2.3",

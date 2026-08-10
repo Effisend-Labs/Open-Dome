@@ -1,4 +1,5 @@
 {
+  "installCommand": "npm install --legacy-peer-deps && cd ../../../open-dome-lib && npm install --legacy-peer-deps",
   "buildCommand": "npx expo export -p web",
   "outputDirectory": "dist/client",
   "rewrites": [
