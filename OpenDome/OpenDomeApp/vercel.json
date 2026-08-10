@@ -1,4 +1,5 @@
 {
+  "installCommand": "npm install && cd ../../open-dome-lib && npm install",
   "buildCommand": "npx expo export -p web",
   "outputDirectory": "dist/client",
   "rewrites": [
