@@ -3,7 +3,6 @@
   "outputDirectory": "dist/client",
   "functions": {
     "api/index.js": {
-      "runtime": "@vercel/node@20.x",
       "includeFiles": "dist/server/**"
     }
   },
