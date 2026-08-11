@@ -101,7 +101,7 @@ export class EVMAdapter {
   async getNFTs(userAddress, contractAddress) {
     try {
       // Step 1: Fetch user's ticket balances from the Server Bridge
-      const response = await fetch(`http://localhost:3000/api/tickets?address=${userAddress}`);
+      const response = await fetch(`http://localhost:8090/api/tickets?address=${userAddress}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch tickets: ${response.statusText}`);
       }
@@ -158,7 +158,7 @@ export class EVMAdapter {
   }
 
   async markTicketAsUsed(contractAddress, tokenId, authToken) {
-    const response = await fetch('http://localhost:3000/api/scanner', {
+    const response = await fetch('http://localhost:8090/api/scanner', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -180,7 +180,7 @@ export class EVMAdapter {
   }
 
   async consumePassAccess(contractAddress, tokenId, amount, authToken) {
-    const response = await fetch('http://localhost:3000/api/scanner', {
+    const response = await fetch('http://localhost:8090/api/scanner', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

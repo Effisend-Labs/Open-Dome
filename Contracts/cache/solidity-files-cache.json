@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\VAI\\Github\\Open-Dome\\Contracts\\contracts\\OpenDomeERC1155Pass.sol": {
-      "lastModificationDate": 1786316156773,
-      "contentHash": "85b342964a007bcd70c6f7a851dc4644",
+      "lastModificationDate": 1786471630490,
+      "contentHash": "e5427e0ca80a9e527d3e4c9a375e3be3",
       "sourceName": "contracts/OpenDomeERC1155Pass.sol",
       "solcConfig": {
         "version": "0.8.24",

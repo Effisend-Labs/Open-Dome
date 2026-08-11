@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Platform } from 'react-native';
-import { useOpenDome } from 'opendome';
+import { useOpenDome, OpenDomeLockScreen } from 'opendome';
 import { MINI_APP_THEMES, GLOBAL_STYLES } from './theme';
 import { locales } from './core/locales';
 
@@ -24,7 +24,7 @@ const MINI_APPS = [
 ];
 
 export default function App({ appId, appToken }) {
-  const { isAuthorized, token, user, context, loading, proxiedLocation, register, login } = useOpenDome({
+  const { isAuthorized, isLocked, token, user, context, loading, proxiedLocation, register, login } = useOpenDome({
     appId: appId || process.env.EXPO_PUBLIC_OD_APP_ID,
     appToken,
     blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] }
@@ -96,6 +96,10 @@ export default function App({ appId, appToken }) {
       <Text style={[styles.loadingSubText, { color: tokens.MUTED }]}>{t.connecting}</Text>
     </View>
   );
+
+  if (isLocked) {
+    return <OpenDomeLockScreen />;
+  }
 
   const renderActiveApp = () => {
     const props = {

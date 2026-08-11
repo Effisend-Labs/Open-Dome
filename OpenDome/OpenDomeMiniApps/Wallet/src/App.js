@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Platform, Animated, ScrollView, Dimensions } from 'react-native';
-import { useOpenDome } from 'opendome';
+import { useOpenDome, OpenDomeLockScreen } from 'opendome';
 import { MINI_APP_THEMES, GLOBAL_STYLES } from './theme';
 import { locales } from './core/locales';
 
@@ -22,7 +22,7 @@ const TABS = [
 const TAB_INDEX = { WALLET: 0, PASSES: 1, AGENT: 2, USER: 3 };
 
 export default function App({ appId, appToken }) {
-  const { isAuthorized, token, user, context, loading, register, login } = useOpenDome({
+  const { isAuthorized, isLocked, token, user, context, loading, register, login } = useOpenDome({
     appId: appId || process.env.EXPO_PUBLIC_OD_APP_ID,
     appToken,
     blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] }
@@ -104,6 +104,10 @@ export default function App({ appId, appToken }) {
       </Text>
     </View>
   );
+
+  if (isLocked) {
+    return <OpenDomeLockScreen />;
+  }
 
   const renderContent = () => {
     const props = { isAuthorized, theme: themeType, tokens, t, isDark, user, register, login, username: user?.username || 'Guest' };

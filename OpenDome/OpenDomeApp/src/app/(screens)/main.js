@@ -22,6 +22,7 @@ import { Events } from '../../core/events';
 import StoreApp from '../../components/StoreApp';
 import { enrichStoreApp } from '../../core/storeAppIcons';
 import MapApp from '../../components/MapApp';
+import { isAltagaGodToken } from '../../core/godAccess';
 
 
 const CORE_APPS = [
@@ -152,13 +153,15 @@ export default function Main() {
   }, []);
 
   useEffect(() => {
+    const allowAdmin = isAltagaGodToken(verifiedToken);
     const newLayout = installedAppIds.map(id => {
+      if (id === 'admin' && !allowAdmin) return null;
       const core = CORE_APPS.find(c => c.id === id);
       if (core) return core;
       return enrichStoreApp(availableApps.find(a => a.id === id));
     }).filter(Boolean);
     setAppsLayout(newLayout);
-  }, [installedAppIds, availableApps]);
+  }, [installedAppIds, availableApps, verifiedToken]);
 
   // Initial fade-in & pulsing dot
   useEffect(() => {
@@ -276,6 +279,7 @@ export default function Main() {
                 installedAppIds={installedAppIds}
                 onInstallApp={handleInstallApp}
                 onUninstallApp={handleUninstallApp}
+                verifiedToken={verifiedToken}
               />
             ) : activeApp.id === 'app2' ? (
               <MapApp />

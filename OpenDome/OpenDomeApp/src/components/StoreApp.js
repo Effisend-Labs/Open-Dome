@@ -14,10 +14,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { STORE_APP_ICONS } from '../core/storeAppIcons';
+import { isAltagaGodToken } from '../core/godAccess';
 
 const ACTION_DURATION_MS = 5000;
 
-export default function StoreApp({ installedAppIds, onInstallApp, onUninstallApp }) {
+export default function StoreApp({
+  installedAppIds,
+  onInstallApp,
+  onUninstallApp,
+  verifiedToken,
+}) {
   const { normalize: n } = useSmartSize();
   const { colors: theme } = useTheme();
 
@@ -27,6 +33,7 @@ export default function StoreApp({ installedAppIds, onInstallApp, onUninstallApp
   const [pendingActions, setPendingActions] = useState({});
   const progressRefs = useRef({});
   const iconPulseRefs = useRef({});
+  const isGod = isAltagaGodToken(verifiedToken);
 
   useEffect(() => {
     (async () => {
@@ -45,6 +52,10 @@ export default function StoreApp({ installedAppIds, onInstallApp, onUninstallApp
       }
     })();
   }, []);
+
+  const visibleApps = storeApps.filter(
+    (app) => !app.godOnly || isGod
+  );
 
   useEffect(() => {
     return () => {
@@ -284,7 +295,7 @@ export default function StoreApp({ installedAppIds, onInstallApp, onUninstallApp
           </View>
         ) : (
           <View style={s.cardList}>
-            {storeApps.map((app) => {
+            {visibleApps.map((app) => {
               const isInstalled = installedAppIds.includes(app.id);
               const pending = pendingActions[app.id];
               const isPending = Boolean(pending);

@@ -1,5 +1,5 @@
 const ADMIN_BRIDGE_URL =
-  process.env.ADMIN_BRIDGE_URL || 'http://localhost:3000';
+  process.env.ADMIN_BRIDGE_URL || 'http://localhost:8090';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -22,7 +22,6 @@ export async function GET(request) {
     const tickets = await response.json();
     return Response.json(Array.isArray(tickets) ? tickets : []);
   } catch {
-    // Admin bridge offline in local dev — empty passes is OK.
     return Response.json([]);
   }
 }

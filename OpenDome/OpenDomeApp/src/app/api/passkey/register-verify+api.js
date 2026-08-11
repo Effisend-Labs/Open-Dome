@@ -135,17 +135,26 @@ export const POST = async (request) => {
         createdAt: new Date().toISOString(),
       });
 
+      const role =
+        user.role === 'god' ||
+        String(user.usernameLower || user.username || '')
+          .toLowerCase()
+          .replace(/^@/, '') === 'altaga'
+          ? 'god'
+          : 'user';
+
       await Users.doc(user.id).update({
         currentChallenge: null,
         evmAddress,
         solanaAddress,
+        role,
       });
 
       const token = jwt.sign(
         {
           userId: user.id,
           username: user.username,
-          role: 'user',
+          role,
           evm: evmAddress,
           solana: solanaAddress,
         },

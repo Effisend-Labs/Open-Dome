@@ -51,6 +51,8 @@ let globalHandshakeInitiated = false;
 let globalParentOrigin = null;
 let globalAuthError = null;
 let globalAuthPending = false;
+/** True when opened outside OpenDome host (no iframe) or dock rejected. */
+let globalIsLocked = false;
 
 const subscribers = new Set();
 
@@ -65,13 +67,25 @@ const updateSubscribers = () => {
         loading: globalLoading,
         proxiedLocation: globalProxiedLocation,
         authError: globalAuthError,
-        authPending: globalAuthPending
+        authPending: globalAuthPending,
+        isLocked: globalIsLocked,
       });
     } catch (e) {
       // safe ignore
     }
   });
 };
+
+function allowStandaloneDebug(config) {
+  return (
+    config.allowStandalone === true ||
+    process.env.EXPO_PUBLIC_OD_ALLOW_STANDALONE === 'true'
+  );
+}
+
+function skipAuthEnabled() {
+  return process.env.EXPO_PUBLIC_OD_SKIP_AUTH === 'true';
+}
 
 /**
  * useOpenDome SDK Hook
@@ -93,7 +107,8 @@ export function useOpenDome(config = {}) {
     loading: globalLoading,
     proxiedLocation: globalProxiedLocation,
     authError: globalAuthError,
-    authPending: globalAuthPending
+    authPending: globalAuthPending,
+    isLocked: globalIsLocked,
   });
 
   // Initialize blockchain with provided config — stable reference, never re-created
@@ -182,10 +197,9 @@ export function useOpenDome(config = {}) {
   useEffect(() => {
     subscribers.add(setState);
 
-    // Initial load: If standalone (not in iframe), resolve loading instantly
+    // Standalone URL (not in OpenDome iframe) → locked unless explicit debug escape
     if (typeof window !== 'undefined' && window.parent === window) {
-      globalLoading = false;
-      if (process.env.EXPO_PUBLIC_OD_SKIP_AUTH === 'true' && !globalToken) {
+      if (allowStandaloneDebug(config) && skipAuthEnabled() && !globalToken) {
         globalToken = 'DEBUG_TOKEN';
         globalUser = {
           username: 'DebugUser',
@@ -194,6 +208,12 @@ export function useOpenDome(config = {}) {
         };
         globalContext = { theme: 'light', lang: 'en' };
         globalIsAuthorized = true;
+        globalIsLocked = false;
+        globalLoading = false;
+      } else {
+        globalIsLocked = true;
+        globalIsAuthorized = false;
+        globalLoading = false;
       }
       updateSubscribers();
     }
@@ -201,6 +221,7 @@ export function useOpenDome(config = {}) {
     // Only initiate handshake on the very first hook mount in an iframe
     if (typeof window !== 'undefined' && window.parent !== window && !globalHandshakeInitiated) {
       globalHandshakeInitiated = true;
+      globalIsLocked = false;
 
       const appToken =
         config.appToken ||
@@ -234,6 +255,7 @@ export function useOpenDome(config = {}) {
           if (status === 'UNAUTHORIZED' || error) {
             console.error('[Open-Dome SDK] Handshake unauthorized:', error);
             globalIsAuthorized = false;
+            globalIsLocked = true;
             globalLoading = false;
             updateSubscribers();
             window.parent.postMessage({
@@ -245,6 +267,7 @@ export function useOpenDome(config = {}) {
             globalUser = null;
             globalContext = incomingContext || {};
             globalIsAuthorized = false;
+            globalIsLocked = false;
             globalLoading = false;
             updateSubscribers();
             window.parent.postMessage({
@@ -258,6 +281,7 @@ export function useOpenDome(config = {}) {
             globalUser = incomingUser || null;
             globalContext = incomingContext || {};
             globalIsAuthorized = true;
+            globalIsLocked = false;
             globalLoading = false;
             updateSubscribers();
             window.parent.postMessage({
@@ -278,6 +302,7 @@ export function useOpenDome(config = {}) {
             // so Sandbox-injected display variables survive the session upgrade.
             globalContext = { ...(globalContext || {}), ...(incomingContext || {}) };
             globalIsAuthorized = true;
+            globalIsLocked = false;
             globalLoading = false;
             globalAuthError = null;
             globalAuthPending = false;
@@ -321,20 +346,28 @@ export function useOpenDome(config = {}) {
         appId: appId || null
       }, getTargetOrigin());
 
+      // No host handshake → lock (do not unlock via SKIP_AUTH in production)
       const timeout = setTimeout(() => {
-        if (!globalIsAuthorized && process.env.EXPO_PUBLIC_OD_SKIP_AUTH === 'true') {
-          globalToken = 'DEBUG_TOKEN';
-          globalUser = {
-            username: 'DebugUser',
-            evmAddress: '0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681',
-            solanaAddress: 'FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u'
-          };
-          globalContext = { theme: 'light', lang: 'en' };
-          globalIsAuthorized = true;
-          globalLoading = false;
+        if (globalLoading && !globalIsAuthorized) {
+          if (allowStandaloneDebug(config) && skipAuthEnabled()) {
+            globalToken = 'DEBUG_TOKEN';
+            globalUser = {
+              username: 'DebugUser',
+              evmAddress: '0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681',
+              solanaAddress: 'FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u'
+            };
+            globalContext = { theme: 'light', lang: 'en' };
+            globalIsAuthorized = true;
+            globalIsLocked = false;
+            globalLoading = false;
+          } else {
+            globalIsLocked = true;
+            globalIsAuthorized = false;
+            globalLoading = false;
+          }
           updateSubscribers();
         }
-      }, 2000);
+      }, 5000);
 
       return () => {
         window.removeEventListener('message', handleMessage);
@@ -382,6 +415,7 @@ export function useOpenDome(config = {}) {
 
   return {
     isAuthorized: state.isAuthorized,
+    isLocked: state.isLocked,
     token: state.token,
     user: enrichedUser,
     context: state.context,

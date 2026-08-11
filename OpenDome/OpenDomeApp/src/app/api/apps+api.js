@@ -41,6 +41,19 @@ export async function GET(request) {
         'https://wallet.opendome.xyz/'
       ),
     },
+    {
+      id: 'admin',
+      name: 'Admin',
+      description: 'Server Bridge — GOD only (@altaga).',
+      publisher: 'Open Dome',
+      godOnly: true,
+      url: resolveMiniAppUrl(
+        request,
+        8090,
+        'ADMIN_MINIAPP_URL',
+        'https://admin.opendome.xyz/'
+      ),
+    },
   ];
 
   return Response.json({ success: true, data: storeApps });

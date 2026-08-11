@@ -143,11 +143,23 @@ export const POST = async (request) => {
         user.solanaAddress = solanaAddress;
       }
 
+      const role =
+        user.role === 'god' ||
+        String(user.usernameLower || user.username || '')
+          .toLowerCase()
+          .replace(/^@/, '') === 'altaga'
+          ? 'god'
+          : 'user';
+
+      if (role === 'god' && user.role !== 'god') {
+        await Users.doc(user.id).update({ role: 'god' });
+      }
+
       const token = jwt.sign(
         {
           userId: user.id,
           username: user.username,
-          role: 'user',
+          role,
           evm: user.evmAddress || undefined,
           solana: solanaAddress || undefined,
         },

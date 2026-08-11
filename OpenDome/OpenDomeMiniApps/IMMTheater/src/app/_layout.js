@@ -12,6 +12,7 @@ import React from "react";
 import "react-native-reanimated";
 import "../core/error";
 import ContextLoader from "../providers/contextLoader";
+import { OpenDomeHostGate } from "opendome";
 
 export default function RootLayout() {
   useFonts({
@@ -27,6 +28,7 @@ export default function RootLayout() {
         {
           // This provider provides the context to the app
         }
+        <OpenDomeHostGate>
         <ContextProvider>
           {
             // This provider provides metamask connectivity
@@ -52,6 +54,7 @@ export default function RootLayout() {
           </Stack>
           <StatusBar style="auto" />
         </ContextProvider>
+        </OpenDomeHostGate>
       </SmartProvider>
     </React.Fragment>
   );

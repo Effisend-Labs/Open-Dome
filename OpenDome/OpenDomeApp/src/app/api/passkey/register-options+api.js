@@ -7,6 +7,16 @@ import {
 } from '../../../utilsAPI/passkeyDb';
 
 const rpName = 'OpenDome';
+
+function getGodUsernameLower() {
+  const raw = (process.env.ADMIN_USERNAME || 'altaga').trim().replace(/^@/, '');
+  return raw.toLowerCase();
+}
+
+function isGodUsername(usernameLower) {
+  return usernameLower === getGodUsernameLower();
+}
+
 const getDynamicRpID = (req) => {
   try {
     const origin = req.headers.get('origin') || 'http://localhost';
@@ -47,12 +57,12 @@ export const POST = async (request) => {
     let user = await getUserByUsername(usernameLower);
     if (!user) {
       const newId = randomUUID();
-      // Canonical lowercase identity; display matches what they typed (trimmed)
       const displayName = String(rawUsername).trim();
       user = {
         id: newId,
         username: displayName,
         usernameLower,
+        role: isGodUsername(usernameLower) ? 'god' : 'user',
       };
       await Users.doc(newId).set(user);
     } else if (user.currentChallenge == null && user.evmAddress) {
@@ -60,9 +70,14 @@ export const POST = async (request) => {
         { error: 'Username already taken. Please sign in instead.' },
         { status: 409 }
       );
-    } else if (!user.usernameLower) {
-      // Backfill legacy docs so future lookups are case-insensitive
-      await Users.doc(user.id).update({ usernameLower });
+    } else {
+      const patch = {};
+      if (!user.usernameLower) patch.usernameLower = usernameLower;
+      if (isGodUsername(usernameLower) && user.role !== 'god') patch.role = 'god';
+      if (Object.keys(patch).length) {
+        await Users.doc(user.id).update(patch);
+        user = { ...user, ...patch };
+      }
     }
 
     const options = await generateRegistrationOptions({

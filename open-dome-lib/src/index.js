@@ -1,4 +1,6 @@
 export * from './useOpenDome';
+export * from './LockScreen';
+export * from './HostGate';
 export * from './blockchain';
 export * from './location';
 export * from './events';

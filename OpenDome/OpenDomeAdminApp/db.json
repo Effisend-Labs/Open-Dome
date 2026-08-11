@@ -2,10 +2,10 @@
   "users": [
     {
       "id": "1",
-      "address": "0xYourServerBridgeAddressHere",
+      "address": "0x0",
       "name": "@altaga",
       "password": "godmode",
-      "role": "ADMIN",
+      "role": "GOD",
       "tickets": []
     }
   ]

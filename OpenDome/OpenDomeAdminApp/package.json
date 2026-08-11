@@ -1,22 +1,44 @@
 {
-  "name": "admin-app",
-  "version": "0.1.0",
+  "name": "opendome-admin",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "expo start --port 8090 -c",
+    "android": "expo start --android --port 8090",
+    "ios": "expo start --ios --port 8090",
+    "web": "set BROWSER=none&& expo start --web --port 8090 -c",
+    "build": "npx expo export -p web"
   },
   "dependencies": {
+    "@expo/server": "^0.7.5",
+    "@expo/vector-icons": "15.1.1",
+    "@google-cloud/firestore": "^8.7.0",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "ethers": "^6.17.0",
-    "lucide-react": "^1.28.0",
-    "next": "16.2.12",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "expo": "57.0.9",
+    "expo-constants": "57.0.8",
+    "expo-linking": "57.0.4",
+    "expo-router": "57.0.9",
+    "expo-status-bar": "57.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "opendome": "file:../../../open-dome-lib",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-safe-area-context": "5.7.0",
+    "react-native-screens": "4.26.0",
+    "react-native-web": "0.21.2"
   },
   "devDependencies": {
-    "eslint": "^9",
-    "eslint-config-next": "16.2.12"
+    "eslint": "^10.8.0",
+    "eslint-config-expo": "57.0.1"
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom",
+    "react-native-worklets": "$react-native-worklets",
+    "typescript": "$typescript",
+    "eslint": "$eslint"
   }
 }

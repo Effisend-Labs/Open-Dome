@@ -62,17 +62,49 @@ let walletsCol;
 let transactionsCol;
 let locationLogsCol;
 let challengesCol;
+let firestoreEnvLogged = false;
+
+/**
+ * Two cloud Firestore namespaces (same GCP project):
+ *   - Dev*   → when running localhost (`npm run web`)
+ *   - (none) → when deployed on Vercel webpage
+ * Optional override: FIRESTORE_ENV=dev|production
+ */
+export function getFirestoreEnv() {
+  const explicit = stripQuotes(process.env.FIRESTORE_ENV).toLowerCase();
+  if (explicit === 'production' || explicit === 'prod') return 'production';
+  if (explicit === 'local' || explicit === 'dev') return 'dev';
+
+  // Deployed webpage on Vercel → production cloud collections
+  if (process.env.VERCEL === '1' || process.env.VERCEL === 'true' || process.env.VERCEL_ENV) {
+    return 'production';
+  }
+
+  // Localhost → separate Dev* cloud collections
+  return 'dev';
+}
+
+function collectionName(base) {
+  return getFirestoreEnv() === 'dev' ? `Dev${base}` : base;
+}
 
 function collections() {
   if (!db) {
     const Firestore = getFirestore();
     db = new Firestore(buildFirestoreOptions());
-    usersCol = db.collection('Users');
-    passkeysCol = db.collection('Passkeys');
-    walletsCol = db.collection('Wallets');
-    transactionsCol = db.collection('Transactions');
-    locationLogsCol = db.collection('LocationLogs');
-    challengesCol = db.collection('Challenges');
+    const env = getFirestoreEnv();
+    usersCol = db.collection(collectionName('Users'));
+    passkeysCol = db.collection(collectionName('Passkeys'));
+    walletsCol = db.collection(collectionName('Wallets'));
+    transactionsCol = db.collection(collectionName('Transactions'));
+    locationLogsCol = db.collection(collectionName('LocationLogs'));
+    challengesCol = db.collection(collectionName('Challenges'));
+    if (!firestoreEnvLogged) {
+      firestoreEnvLogged = true;
+      console.log(
+        `[Passkey DB] FIRESTORE_ENV=${env} → collections ${collectionName('Users')}, ${collectionName('Passkeys')}, …`
+      );
+    }
   }
   return {
     Users: usersCol,
