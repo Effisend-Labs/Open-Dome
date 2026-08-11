@@ -1,16 +1,15 @@
-import { nodeRequire } from './nodeRequire';
+/**
+ * Ask OpenDomeApp to validate the host passkey JWT (no JWT_SECRET on Admin).
+ * Same trust path as every mini-app dock — OpenDome owns user sessions.
+ */
 
-/** Same signing key OpenDomeApp uses for passkey session JWTs. */
-const FALLBACK_JWT_SECRET =
-  '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
-
-function resolveJwtSecret() {
-  const fromEnv = (process.env.JWT_SECRET || '').trim();
-  // Ignore placeholders like "<same as OpenDomeApp>"
-  if (fromEnv && !fromEnv.includes('<') && fromEnv.length >= 32) {
-    return fromEnv;
+function getOpenDomeAppUrl() {
+  const fromEnv = (process.env.OPENDOME_APP_URL || '').trim().replace(/\/$/, '');
+  if (fromEnv) return fromEnv;
+  if (process.env.VERCEL || process.env.VERCEL_ENV) {
+    return 'https://app.opendome.xyz';
   }
-  return FALLBACK_JWT_SECRET;
+  return 'http://localhost:8081';
 }
 
 export function getGodUsernameLower() {
@@ -18,29 +17,68 @@ export function getGodUsernameLower() {
   return raw.toLowerCase();
 }
 
-export function isAltagaGodClaims(claims) {
-  if (!claims) return false;
-  const username = String(claims.username || '')
+function normalizeUsername(name) {
+  return String(name || '')
     .toLowerCase()
     .replace(/^@/, '');
-  const role = String(claims.role || '').toLowerCase();
-  return username === getGodUsernameLower() && role === 'god';
+}
+
+function peekJwtClaims(token) {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const json = Buffer.from(
+      part.replace(/-/g, '+').replace(/_/g, '/'),
+      'base64'
+    ).toString('utf8');
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+export function isAltagaGodProfile(username, role) {
+  return (
+    normalizeUsername(username) === getGodUsernameLower() &&
+    String(role || '').toLowerCase() === 'god'
+  );
 }
 
 /**
- * Verify OpenDome host user JWT (passkey session) from Authorization: Bearer.
- * Only @altaga with role god — same credential every mini-app receives from the host.
+ * Authorization: Bearer <OpenDome host user JWT>
+ * Confirmed via OpenDomeApp POST /api/verify — only @altaga / god.
  */
-export function verifyGodJwt(request) {
+export async function verifyGodJwt(request) {
   const auth = request.headers.get('Authorization') || '';
   const match = auth.match(/^Bearer\s+(.+)$/i);
   if (!match) return null;
+  const token = match[1].trim();
+  if (!token || token.split('.').length !== 3) return null;
 
   try {
-    const jwt = nodeRequire('jsonwebtoken');
-    const claims = jwt.verify(match[1], resolveJwtSecret());
-    if (!isAltagaGodClaims(claims)) return null;
-    return claims;
+    const res = await fetch(`${getOpenDomeAppUrl()}/api/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!res.ok) return null;
+    const body = await res.json();
+    if (!body.authenticated || !body.username) return null;
+
+    const claims = peekJwtClaims(token) || {};
+    const username = body.username;
+    const role = claims.role || (normalizeUsername(username) === getGodUsernameLower() ? 'god' : 'user');
+
+    if (!isAltagaGodProfile(username, role)) return null;
+
+    return {
+      userId: claims.userId || null,
+      username,
+      role: 'god',
+      evm: body.evmAddress || claims.evm || null,
+      solana: body.solanaAddress || claims.solana || null,
+    };
   } catch {
     return null;
   }

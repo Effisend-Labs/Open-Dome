@@ -307,7 +307,7 @@ export async function requireAdminAccess(sessionId) {
  */
 export async function requireBridgeActor(request) {
   const { verifyGodJwt } = await import('./godJwt.js');
-  const claims = verifyGodJwt(request);
+  const claims = await verifyGodJwt(request);
   if (!claims) return null;
   return { type: 'god-jwt', claims, role: 'GOD', username: claims.username };
 }

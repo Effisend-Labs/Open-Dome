@@ -4,7 +4,7 @@ import { seedGodUser } from '../../../utilsAPI/adminDb';
 /** Session check — OpenDome host JWT for @altaga / god only */
 export async function GET(request) {
   await seedGodUser();
-  const claims = verifyGodJwt(request);
+  const claims = await verifyGodJwt(request);
   if (!claims) {
     return Response.json({ authenticated: false }, { status: 401 });
   }

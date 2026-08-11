@@ -17,7 +17,7 @@
     },
     "owner": "altaga",
     "server": {
-      "nodeModules": ["@google-cloud/firestore", "ethers", "jsonwebtoken"]
+      "nodeModules": ["@google-cloud/firestore", "ethers"]
     }
   }
 }

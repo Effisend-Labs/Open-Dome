@@ -1,23 +1,19 @@
 # OpenDome Admin (Server Bridge) — GOD mini-app (@altaga only)
 
-Separate Expo mini-app for issuing ERC-1155 passes. Visible in OpenStore **only** when the host user is `@altaga` with JWT `role: god`. APIs accept that same OpenDome host JWT (localhost + production).
-
-## Stack
-
-- Expo 57 + expo-router + `opendome` SDK handshake
-- Firestore (`AdminUsers`, `AdminTickets`) — same GCP credentials
-- Real blockchain mints via `MERCHANT_PRIVATE_KEY`
+Separate Expo mini-app for issuing ERC-1155 passes. Visible in OpenStore **only** when the host user is `@altaga` with JWT `role: god`.
 
 ## Auth
 
-Same as every mini-app: dock → host passkey JWT. Only `@altaga` with `role: god` can open Admin or call mint/staff APIs. Password login is disabled.
+Same as other mini-apps: dock via OpenDome SDK → host passkey JWT.
+
+Admin APIs send that Bearer token to **OpenDomeApp** `POST /api/verify` (no `JWT_SECRET` on Admin). If verified user is `@altaga` / god → mint/staff allowed.
 
 ## Local env
 
 ```
 EXPO_PUBLIC_OD_APP_ID=…   # Admin from sdk/mini-app-credentials.json
 OD_APP_TOKEN=…            # Admin docking token (server-only)
-JWT_SECRET=…              # same as OpenDomeApp (passkey user JWTs)
+OPENDOME_APP_URL=…        # optional; default localhost:8081 / https://app.opendome.xyz
 MERCHANT_PRIVATE_KEY=
 MERCHANT_ADDRESS=
 CONTRACT_ADDRESS=
@@ -40,29 +36,16 @@ Runs on **port 8090**. Open from OpenDome host while signed in as `@altaga`.
 | Route | Auth | Purpose |
 |---|---|---|
 | `GET /api/docking-token` | none (server env) | Mini-app docking secret |
-| `GET /api/auth/me` | Bearer OpenDome JWT (altaga/god) | Session check |
+| `GET /api/auth/me` | Bearer host JWT → OpenDome `/api/verify` | Session check |
 | `POST /api/auth/login` | disabled (410) | — |
-| `GET/POST/PUT/DELETE /api/users` | Bearer OpenDome JWT (altaga/god) | Staff wallets |
-| `POST /api/assign` | Bearer OpenDome JWT (altaga/god) | Batch mint |
+| `GET/POST/PUT/DELETE /api/users` | Bearer host JWT → verify | Staff wallets |
+| `POST /api/assign` | Bearer host JWT → verify | Batch mint |
 | `GET /api/tickets?address=` | open (host proxy) | Passes for OpenDomeApp |
 | `POST /api/scanner` | `ADMIN_SCANNER_TOKEN` | On-chain scan |
 
 ## Deploy (`admin.opendome.xyz`)
 
-1. Vercel project → Root Directory: `OpenDome/OpenDomeAdminApp` (monorepo).
-2. Domain: `admin.opendome.xyz`.
-3. Env vars (Production):
-
-| Var | Notes |
-|---|---|
-| `EXPO_PUBLIC_OD_APP_ID` | Admin appId |
-| `OD_APP_TOKEN` | Admin docking token |
-| `JWT_SECRET` | **same as OpenDomeApp** |
-| `GCP_PROJECT_ID` / `GCP_CLIENT_EMAIL` / `GCP_PRIVATE_KEY` | Firestore |
-| `MERCHANT_PRIVATE_KEY` / `MERCHANT_ADDRESS` | mint wallet |
-| `CONTRACT_ADDRESS` / `RPC_URL` | Base pass contract |
-| `ADMIN_SCANNER_TOKEN` | scanner API |
-
-4. On **OpenDomeApp** Vercel: set `ADMIN_BRIDGE_URL=https://admin.opendome.xyz` (no trailing slash needed; tickets proxy).
-
-Host catalog already resolves Admin to `https://admin.opendome.xyz/` in production. Deploy on git push.
+1. Vercel → Root: `OpenDome/OpenDomeAdminApp`
+2. Domain: `admin.opendome.xyz`
+3. Env: `EXPO_PUBLIC_OD_APP_ID`, `OD_APP_TOKEN`, `OPENDOME_APP_URL=https://app.opendome.xyz`, GCP, merchant, `CONTRACT_ADDRESS`, `RPC_URL`, `ADMIN_SCANNER_TOKEN`
+4. OpenDomeApp: `ADMIN_BRIDGE_URL=https://admin.opendome.xyz`
