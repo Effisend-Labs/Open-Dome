@@ -3,10 +3,16 @@
   "buildCommand": "npx expo export -p web",
   "outputDirectory": "dist/client",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ./ ../../open-dome-lib 2>/dev/null || exit 1",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "dist/server/**",
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api/index.js"
+      "destination": "/api/index"
     }
   ]
 }
