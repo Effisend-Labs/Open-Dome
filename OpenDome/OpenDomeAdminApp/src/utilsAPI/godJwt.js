@@ -37,16 +37,13 @@ function peekJwtClaims(token) {
   }
 }
 
-export function isAltagaGodProfile(username, role) {
-  return (
-    normalizeUsername(username) === getGodUsernameLower() &&
-    String(role || '').toLowerCase() === 'god'
-  );
+export function isAltagaGodProfile(username) {
+  return normalizeUsername(username) === getGodUsernameLower();
 }
 
 /**
  * Authorization: Bearer <OpenDome host user JWT>
- * Confirmed via OpenDomeApp POST /api/verify — only @altaga / god.
+ * Confirmed via OpenDomeApp POST /api/verify — only @altaga.
  */
 export async function verifyGodJwt(request) {
   const auth = request.headers.get('Authorization') || '';
@@ -68,9 +65,8 @@ export async function verifyGodJwt(request) {
 
     const claims = peekJwtClaims(token) || {};
     const username = body.username;
-    const role = claims.role || (normalizeUsername(username) === getGodUsernameLower() ? 'god' : 'user');
 
-    if (!isAltagaGodProfile(username, role)) return null;
+    if (!isAltagaGodProfile(username)) return null;
 
     return {
       userId: claims.userId || null,

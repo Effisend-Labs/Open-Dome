@@ -17,11 +17,8 @@ function normalizeUsername(name) {
     .replace(/^@/, '');
 }
 
-function isAltagaGod(user, tokenPayloadRole) {
-  const username = normalizeUsername(user?.username);
-  if (username !== 'altaga') return false;
-  const role = String(tokenPayloadRole || user?.role || '').toLowerCase();
-  return !role || role === 'god';
+function isAltaga(user) {
+  return normalizeUsername(user?.username) === 'altaga';
 }
 
 function AdminGate({ appId, appToken }) {
@@ -59,17 +56,8 @@ function AdminGate({ appId, appToken }) {
     );
   }
 
-  let role = 'user';
-  try {
-    const payload = JSON.parse(
-      atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
-    );
-    role = payload.role || 'user';
-  } catch {
-    // ignore
-  }
-
-  if (!isAltagaGod(user, role)) {
+  // Same rule as OpenStore: @altaga only (role claim may be missing/legacy "user")
+  if (!isAltaga(user)) {
     return (
       <View style={s.center}>
         <Text style={s.title}>Access denied</Text>
