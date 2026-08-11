@@ -53,9 +53,8 @@ export default function StoreApp({
     })();
   }, []);
 
-  const visibleApps = storeApps.filter(
-    (app) => !app.godOnly || isGod
-  );
+  // Re-filter when auth token arrives (token often loads after first paint)
+  const visibleApps = storeApps.filter((app) => !app.godOnly || isGod);
 
   useEffect(() => {
     return () => {

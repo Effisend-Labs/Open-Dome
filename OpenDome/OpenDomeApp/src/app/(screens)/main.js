@@ -113,6 +113,14 @@ export default function Main() {
   // Load saved layout + store catalog together to avoid race condition
   useEffect(() => {
     (async () => {
+      // Auth first so god-only store apps (Admin) can filter correctly
+      try {
+        const savedToken = await AsyncStorage.getItem('opendome_auth_token');
+        if (savedToken) {
+          setVerifiedToken(savedToken);
+        }
+      } catch (e) {}
+
       let fetchedApps = [];
       try {
         const res = await fetch('/api/apps');
@@ -142,13 +150,6 @@ export default function Main() {
       // Set both at once so the layout effect has the full catalog
       setAvailableApps(fetchedApps);
       setInstalledAppIds(ids);
-
-      try {
-        const savedToken = await AsyncStorage.getItem('opendome_auth_token');
-        if (savedToken) {
-          setVerifiedToken(savedToken);
-        }
-      } catch (e) {}
     })();
   }, []);
 
