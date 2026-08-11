@@ -11,6 +11,7 @@
     "build": "npx expo export -p web"
   },
   "dependencies": {
+    "@expo/metro-runtime": "^57.0.8",
     "@expo/server": "^0.7.5",
     "@expo/vector-icons": "15.1.1",
     "@google-cloud/firestore": "^8.7.0",

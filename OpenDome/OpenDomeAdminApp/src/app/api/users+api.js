@@ -1,10 +1,10 @@
-import { requireBridgeActor, isGodRole, canAssignRole } from '../../../utilsAPI/adminDb';
+import { requireBridgeActor, isGodRole, canAssignRole } from '../../utilsAPI/adminDb';
 import {
   getAllAdminUsers,
   createAdminUser,
   updateAdminUserRole,
   deleteAdminUser,
-} from '../../../utilsAPI/adminDb';
+} from '../../utilsAPI/adminDb';
 
 async function requireGodJwt(request) {
   const actor = await requireBridgeActor(request);
