@@ -5,15 +5,16 @@ export const getNFTsForNetwork = async (networkConfig, userAddress) => {
 
 export const scanAllNetworksForNFTs = async (userAddress) => {
   if (!userAddress) return [];
-  
+
   try {
-    const response = await fetch(`http://localhost:3000/api/tickets?address=${userAddress}`);
-    if (!response.ok) throw new Error('Failed to fetch from Server Bridge');
-    
+    const response = await fetch(
+      `/api/tickets?address=${encodeURIComponent(userAddress)}`
+    );
+    if (!response.ok) return [];
+
     const nfts = await response.json();
-    return nfts || [];
-  } catch (error) {
-    console.error("[nftScanner] Error fetching tickets:", error);
+    return Array.isArray(nfts) ? nfts : [];
+  } catch {
     return [];
   }
 };

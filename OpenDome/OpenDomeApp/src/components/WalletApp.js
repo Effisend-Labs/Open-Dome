@@ -44,8 +44,10 @@ export default function WalletApp({ verifiedToken }) {
     return null;
   }, [verifiedToken]);
 
-  // Only scan NFTs if userProfile.evm is available
-  const { nfts, isScanning } = useNFTScanner(userProfile?.evm);
+  // Only fetch passes when the user opens the Passes tab (never on Wallets).
+  const { nfts, isScanning } = useNFTScanner(
+    activeTab === 'passes' ? userProfile?.evm : null
+  );
 
   const defaultFont = Platform.select({
     ios: 'System',

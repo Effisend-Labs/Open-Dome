@@ -1,6 +1,6 @@
-import { Firestore } from '@google-cloud/firestore';
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
+import { nodeRequire } from './nodeRequire';
 
 function stripQuotes(value) {
   if (value == null) return '';
@@ -17,6 +17,12 @@ function stripQuotes(value) {
 /** Vercel/dotenv often store PEM with literal \n and optional wrapping quotes. */
 export function normalizePrivateKey(raw) {
   return stripQuotes(raw).replace(/\\n/g, '\n').trim();
+}
+
+function getFirestore() {
+  // Split string so Metro cannot statically bundle the Admin SDK into API routes.
+  const pkg = '@google-cloud/' + 'firestore';
+  return nodeRequire(pkg).Firestore;
 }
 
 function buildFirestoreOptions() {
@@ -59,6 +65,7 @@ let challengesCol;
 
 function collections() {
   if (!db) {
+    const Firestore = getFirestore();
     db = new Firestore(buildFirestoreOptions());
     usersCol = db.collection('Users');
     passkeysCol = db.collection('Passkeys');
@@ -90,7 +97,6 @@ function lazyCollection(name) {
   );
 }
 
-// Lazy proxies so missing env fails on request with a JSON 500, not at cold-start hang.
 export const Users = lazyCollection('Users');
 export const Passkeys = lazyCollection('Passkeys');
 export const Wallets = lazyCollection('Wallets');

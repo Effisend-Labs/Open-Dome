@@ -7,8 +7,11 @@ import {
   getUserById,
   getPasskeyById,
 } from '../../../utilsAPI/passkeyDb';
-import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
-import { randomUUID } from 'crypto';
+import {
+  getCircleWalletsClient,
+  CIRCLE_WALLET_SET_ID,
+} from '../../../utilsAPI/circleTools';
+import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
 const getDynamicRpID = (req) => {
@@ -100,14 +103,11 @@ export const POST = async (request) => {
         console.log(
           '[Passkey API] Legacy user missing Solana wallet — provisioning via Circle...'
         );
-        const circleClient = initiateDeveloperControlledWalletsClient({
-          apiKey: process.env.CIRCLE_API_KEY,
-          entitySecret: process.env.CIRCLE_ENTITY_SECRET,
-        });
+        const circleClient = getCircleWalletsClient();
         const solWalletRes = await circleClient.createWallets({
           blockchains: ['SOL'],
           count: 1,
-          walletSetId: 'afd0591a-e99a-5883-89e7-a1c27316eee8',
+          walletSetId: CIRCLE_WALLET_SET_ID,
           idempotencyKey: randomUUID(),
         });
         solanaAddress = solWalletRes.data?.wallets?.[0]?.address || '';

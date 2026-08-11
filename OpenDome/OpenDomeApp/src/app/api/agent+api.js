@@ -1,6 +1,6 @@
 
 import { GoogleGenAI } from '@google/genai';
-import { createCircleAgentWallet, executeCircleNanoPayment } from './circle-tools';
+import { createCircleAgentWallet, executeCircleNanoPayment } from '../../utilsAPI/circleTools';
 
 /**
  * OpenDome AI Agent API (Vertex AI Implementation)
