@@ -14,6 +14,7 @@
     "android": "expo start --android --port 8089",
     "ios": "expo start --ios --port 8089",
     "web": "set BROWSER=none&& expo start --web --port 8089 -c",
+    "build": "npx expo export -p web",
     "lint": "eslint ."
   },
   "dependencies": {

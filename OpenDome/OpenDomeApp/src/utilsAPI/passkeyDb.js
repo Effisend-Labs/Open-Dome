@@ -50,70 +50,49 @@ function buildFirestoreOptions() {
 }
 
 let db;
-let Users;
-let Passkeys;
-let Wallets;
-let Transactions;
-let LocationLogs;
-
-function getDb() {
-  if (!db) {
-    db = new Firestore(buildFirestoreOptions());
-    Users = db.collection('Users');
-    Passkeys = db.collection('Passkeys');
-    Wallets = db.collection('Wallets');
-    Transactions = db.collection('Transactions');
-    LocationLogs = db.collection('LocationLogs');
-  }
-  return db;
-}
+let usersCol;
+let passkeysCol;
+let walletsCol;
+let transactionsCol;
+let locationLogsCol;
 
 function collections() {
-  getDb();
-  return { Users, Passkeys, Wallets, Transactions, LocationLogs };
+  if (!db) {
+    db = new Firestore(buildFirestoreOptions());
+    usersCol = db.collection('Users');
+    passkeysCol = db.collection('Passkeys');
+    walletsCol = db.collection('Wallets');
+    transactionsCol = db.collection('Transactions');
+    locationLogsCol = db.collection('LocationLogs');
+  }
+  return {
+    Users: usersCol,
+    Passkeys: passkeysCol,
+    Wallets: walletsCol,
+    Transactions: transactionsCol,
+    LocationLogs: locationLogsCol,
+  };
+}
+
+function lazyCollection(name) {
+  return new Proxy(
+    {},
+    {
+      get(_t, prop) {
+        const col = collections()[name];
+        const value = col[prop];
+        return typeof value === 'function' ? value.bind(col) : value;
+      },
+    }
+  );
 }
 
 // Lazy proxies so missing env fails on request with a JSON 500, not at cold-start hang.
-export const Users = new Proxy(
-  {},
-  {
-    get(_t, prop) {
-      return collections().Users[prop];
-    },
-  }
-);
-export const Passkeys = new Proxy(
-  {},
-  {
-    get(_t, prop) {
-      return collections().Passkeys[prop];
-    },
-  }
-);
-export const Wallets = new Proxy(
-  {},
-  {
-    get(_t, prop) {
-      return collections().Wallets[prop];
-    },
-  }
-);
-export const Transactions = new Proxy(
-  {},
-  {
-    get(_t, prop) {
-      return collections().Transactions[prop];
-    },
-  }
-);
-export const LocationLogs = new Proxy(
-  {},
-  {
-    get(_t, prop) {
-      return collections().LocationLogs[prop];
-    },
-  }
-);
+export const Users = lazyCollection('Users');
+export const Passkeys = lazyCollection('Passkeys');
+export const Wallets = lazyCollection('Wallets');
+export const Transactions = lazyCollection('Transactions');
+export const LocationLogs = lazyCollection('LocationLogs');
 
 export async function getUserById(userId) {
   const doc = await collections().Users.doc(userId).get();

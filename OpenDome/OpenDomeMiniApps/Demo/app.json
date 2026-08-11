@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/logoMA.png",
+    "scheme": "opendome-demo",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -23,8 +24,17 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
+      "output": "server",
       "favicon": "./src/assets/logoMA.png"
     },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "unstable_useServerMiddleware": true
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "ddf8d4a7-546f-47b8-8741-127b79cf6388"
