@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, Text, View, ScrollView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSmartSize } from '../providers/smartProvider';
@@ -24,18 +24,9 @@ const parseJwt = (t) => {
   }
 };
 
-const formatAddress = (address) => {
-  if (!address) return 'Not Available';
-  if (address.length > 20) {
-    return `${address.slice(0, 6)}...${address.slice(-6)}`;
-  }
-  return address;
-};
-
 export default function WalletApp({ verifiedToken }) {
   const { normalize: n } = useSmartSize();
   const { colors: theme } = useTheme();
-  const [activeTab, setActiveTab] = useState('wallets'); // 'wallets' or 'passes'
 
   const userProfile = useMemo(() => {
     if (verifiedToken) {
@@ -44,10 +35,7 @@ export default function WalletApp({ verifiedToken }) {
     return null;
   }, [verifiedToken]);
 
-  // Only fetch passes when the user opens the Passes tab (never on Wallets).
-  const { nfts, isScanning } = useNFTScanner(
-    activeTab === 'passes' ? userProfile?.evm : null
-  );
+  const { nfts, isScanning } = useNFTScanner(userProfile?.evm);
 
   const defaultFont = Platform.select({
     ios: 'System',
@@ -80,75 +68,6 @@ export default function WalletApp({ verifiedToken }) {
       color: theme.text.secondary,
       fontFamily: theme.typography?.fontFamily || defaultFont,
       marginTop: n(4),
-    },
-    tabSwitcher: {
-      flexDirection: 'row',
-      backgroundColor: theme.bg.nested,
-      borderRadius: n(12),
-      padding: n(4),
-      marginBottom: n(24),
-      borderWidth: 1,
-      borderColor: theme.border.default,
-    },
-    tabButton: {
-      flex: 1,
-      paddingVertical: n(8),
-      alignItems: 'center',
-      borderRadius: n(8),
-    },
-    tabButtonActive: {
-      backgroundColor: theme.bg.card,
-      ...(theme.shadow?.sm || {
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 1
-      }),
-    },
-    tabText: {
-      fontSize: n(14),
-      fontWeight: '600',
-      color: theme.text.secondary,
-      fontFamily: theme.typography?.fontFamily || defaultFont,
-    },
-    tabTextActive: {
-      color: theme.text.primary,
-    },
-    walletCard: {
-      backgroundColor: theme.bg.card,
-      borderRadius: theme.shape?.cardRadius ?? n(24),
-      padding: n(24),
-      borderWidth: theme.border?.width ?? 1,
-      borderColor: theme.border.default,
-      marginBottom: n(24),
-      ...(theme.shadow?.card || {}),
-    },
-    walletRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: n(16),
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border.subtle,
-    },
-    walletLabel: {
-      fontSize: n(16),
-      fontWeight: '600',
-      color: theme.text.primary,
-      fontFamily: theme.typography?.fontFamily || defaultFont,
-      marginBottom: n(4),
-    },
-    walletSubtitle: {
-      fontSize: n(12),
-      color: theme.text.secondary,
-      fontFamily: theme.typography?.fontFamily || defaultFont,
-    },
-    walletAddress: {
-      fontSize: n(13),
-      color: theme.text.secondary,
-      fontFamily: theme.typography?.fontFamilyCode || 'monospace',
-      backgroundColor: theme.bg.nested,
-      paddingHorizontal: n(8),
-      paddingVertical: n(4),
-      borderRadius: n(6),
-      overflow: 'hidden',
     },
     emptyState: {
       alignItems: 'center',
@@ -218,47 +137,14 @@ export default function WalletApp({ verifiedToken }) {
     <View style={s.container}>
       <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={s.header}>
-          <Text style={s.title}>Wallet</Text>
-          <Text style={s.subtitle}>Manage your assets & passes</Text>
-        </View>
-
-        <View style={s.tabSwitcher}>
-          <TouchableOpacity 
-            style={[s.tabButton, activeTab === 'wallets' && s.tabButtonActive]}
-            onPress={() => setActiveTab('wallets')}
-          >
-            <Text style={[s.tabText, activeTab === 'wallets' && s.tabTextActive]}>Wallets</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[s.tabButton, activeTab === 'passes' && s.tabButtonActive]}
-            onPress={() => setActiveTab('passes')}
-          >
-            <Text style={[s.tabText, activeTab === 'passes' && s.tabTextActive]}>Passes</Text>
-          </TouchableOpacity>
+          <Text style={s.title}>Passes</Text>
+          <Text style={s.subtitle}>Your event passes & tickets</Text>
         </View>
 
         {!userProfile ? (
           <View style={s.emptyState}>
-            <Ionicons name="wallet-outline" size={n(48)} color={theme.text.secondary} />
-            <Text style={s.infoText}>Please sign in to view your {activeTab}.</Text>
-          </View>
-        ) : activeTab === 'wallets' ? (
-          <View style={s.walletCard}>
-            <View style={s.walletRow}>
-              <View>
-                <Text style={s.walletLabel}>Ethereum</Text>
-                <Text style={s.walletSubtitle}>EVM Network</Text>
-              </View>
-              <Text style={s.walletAddress}>{formatAddress(userProfile.evm)}</Text>
-            </View>
-            
-            <View style={[s.walletRow, { borderBottomWidth: 0 }]}>
-              <View>
-                <Text style={s.walletLabel}>Solana</Text>
-                <Text style={s.walletSubtitle}>Solana Network</Text>
-              </View>
-              <Text style={s.walletAddress}>{formatAddress(userProfile.solana)}</Text>
-            </View>
+            <Ionicons name="ticket-outline" size={n(48)} color={theme.text.secondary} />
+            <Text style={s.infoText}>Please sign in to view your passes.</Text>
           </View>
         ) : (
           <View>

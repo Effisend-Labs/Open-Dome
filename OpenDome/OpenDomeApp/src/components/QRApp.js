@@ -2,12 +2,64 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, Platform, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
+import QRCode from 'qrcode';
 import { Ionicons } from '@expo/vector-icons';
 import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
 
 const ethLogo = require('../assets/ether.png');
 const solLogo = require('../assets/solana.png');
+
+const QR_TABS = ['opendome', 'evm', 'solana'];
+
+const TAB_LABELS = {
+  opendome: 'OpenDome',
+  evm: 'EVM',
+  solana: 'Solana',
+};
+
+const TAB_DESCRIPTIONS = {
+  opendome: 'Scan for OpenDome profile',
+  evm: 'Scan for EVM address',
+  solana: 'Scan for Solana address',
+};
+
+const buildQrPayloads = (userProfile) => {
+  if (!userProfile) return {};
+
+  const payloads = {};
+  if (userProfile.username) {
+    payloads.opendome = `opendome:user:${userProfile.username}`;
+  }
+  if (userProfile.evm) payloads.evm = userProfile.evm;
+  if (userProfile.solana) payloads.solana = userProfile.solana;
+  return payloads;
+};
+
+const generateQrImages = async (payloads, qrFg, qrBg) => {
+  const images = {};
+  await Promise.all(
+    QR_TABS.map(async (tab) => {
+      const data = payloads[tab];
+      if (!data) {
+        images[tab] = null;
+        return;
+      }
+      images[tab] = await QRCode.toDataURL(data, {
+        errorCorrectionLevel: 'H',
+        margin: 2,
+        width: 400,
+        color: { dark: `#${qrFg}`, light: `#${qrBg}` },
+      });
+    })
+  );
+  return images;
+};
+
+const formatAddress = (address) => {
+  if (!address || address.length <= 16) return address;
+  return `${address.slice(0, 8)}...${address.slice(-8)}`;
+};
 
 const parseJwt = (t) => {
   if (!t) return null;
@@ -32,8 +84,9 @@ export default function QRApp({ verifiedToken }) {
   const { normalize: n } = useSmartSize();
   const { colors: theme } = useTheme();
 
-  const [selectedWallet, setSelectedWallet] = useState('all');
+  const [selectedWallet, setSelectedWallet] = useState('opendome');
   const [copied, setCopied] = useState(false);
+  const [qrImages, setQrImages] = useState({ opendome: null, evm: null, solana: null });
 
   const userProfile = useMemo(() => {
     if (verifiedToken) {
@@ -42,24 +95,37 @@ export default function QRApp({ verifiedToken }) {
     return null;
   }, [verifiedToken]);
 
-  const qrData = useMemo(() => {
-    if (userProfile) {
-      if (selectedWallet === 'all' && (userProfile.evm || userProfile.solana)) {
-        return JSON.stringify({
-          evm: userProfile.evm || '',
-          solana: userProfile.solana || '',
-        });
-      } else if (selectedWallet === 'evm' && userProfile.evm) {
-        return userProfile.evm;
-      } else if (selectedWallet === 'solana' && userProfile.solana) {
-        return userProfile.solana;
+  const qrFg = theme.isDark ? 'FFFFFF' : '000000';
+  const qrBg = theme.isDark ? '000000' : 'FFFFFF';
+
+  const qrPayloads = useMemo(
+    () => buildQrPayloads(userProfile),
+    [userProfile]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const preload = async () => {
+      if (!Object.keys(qrPayloads).length) {
+        setQrImages({ opendome: null, evm: null, solana: null });
+        return;
       }
-    }
-    return '';
-  }, [userProfile, selectedWallet]);
+
+      const images = await generateQrImages(qrPayloads, qrFg, qrBg);
+      if (!cancelled) setQrImages(images);
+    };
+
+    preload();
+    return () => {
+      cancelled = true;
+    };
+  }, [qrPayloads, qrFg, qrBg]);
+
+  const qrImageUrl = qrImages[selectedWallet] || null;
 
   const copyAddress = useMemo(() => {
-    if (!userProfile || selectedWallet === 'all') return '';
+    if (!userProfile || selectedWallet === 'opendome') return '';
     if (selectedWallet === 'evm') return userProfile.evm || '';
     if (selectedWallet === 'solana') return userProfile.solana || '';
     return '';
@@ -75,13 +141,6 @@ export default function QRApp({ verifiedToken }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [copyAddress]);
-
-  // Higher ECC so a center logo still scans reliably.
-  const qrFg = theme.isDark ? 'FFFFFF' : '000000';
-  const qrBg = theme.isDark ? '000000' : 'FFFFFF';
-  const qrImageUrl = qrData
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=10&ecc=H&color=${qrFg}&bgcolor=${qrBg}&data=${encodeURIComponent(qrData)}`
-    : null;
 
   const defaultFont = Platform.select({
     ios: 'System',
@@ -129,7 +188,7 @@ export default function QRApp({ verifiedToken }) {
       width: n(220),
       height: n(220),
       borderRadius: n(16),
-      marginBottom: n(24),
+      marginBottom: n(16),
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
@@ -138,6 +197,11 @@ export default function QRApp({ verifiedToken }) {
     qrImage: {
       width: n(200),
       height: n(200),
+    },
+    qrImageHidden: {
+      position: 'absolute',
+      opacity: 0,
+      pointerEvents: 'none',
     },
     logoBadge: {
       position: 'absolute',
@@ -199,22 +263,35 @@ export default function QRApp({ verifiedToken }) {
       fontFamily: theme.typography?.fontFamily || defaultFont,
       lineHeight: n(20),
     },
-    copyRow: {
+    addressRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: n(16),
-      gap: n(8),
-    },
-    copyButton: {
-      width: n(40),
-      height: n(40),
-      borderRadius: n(20),
-      alignItems: 'center',
-      justifyContent: 'center',
+      width: '100%',
+      marginBottom: n(16),
+      paddingVertical: n(12),
+      paddingHorizontal: n(14),
+      borderRadius: n(12),
       backgroundColor: theme.bg.nested,
       borderWidth: 1,
       borderColor: theme.border.default,
+      gap: n(10),
+    },
+    addressText: {
+      flex: 1,
+      fontSize: n(13),
+      color: theme.text.primary,
+      fontFamily: theme.typography?.fontFamilyCode || 'monospace',
+    },
+    copyIcon: {
+      padding: n(4),
+    },
+    usernameLabel: {
+      fontSize: n(18),
+      fontWeight: '700',
+      color: theme.text.primary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+      marginBottom: n(12),
+      textAlign: 'center',
     },
     emptyState: {
       alignItems: 'center',
@@ -230,15 +307,15 @@ export default function QRApp({ verifiedToken }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={s.header}>
-          <Text style={s.title}>My QR Code</Text>
-          <Text style={s.subtitle}>Scan to view connected crypto accounts</Text>
+          <Text style={s.title}>Receive</Text>
+          <Text style={s.subtitle}>Share your OpenDome profile or addresses</Text>
         </View>
 
         <View style={s.qrCard}>
           {userProfile ? (
             <>
               <View style={s.selectorContainer}>
-                {['all', 'evm', 'solana'].map((tab) => (
+                {QR_TABS.map((tab) => (
                   <Pressable
                     key={tab}
                     style={[
@@ -253,20 +330,28 @@ export default function QRApp({ verifiedToken }) {
                         selectedWallet === tab && s.selectorTextActive,
                       ]}
                     >
-                      {tab === 'all' ? 'All' : tab === 'evm' ? 'EVM' : 'Solana'}
+                      {TAB_LABELS[tab]}
                     </Text>
                   </Pressable>
                 ))}
               </View>
 
               {qrImageUrl ? (
-                  <View style={s.qrFrame}>
-                  <Image
-                    source={{ uri: qrImageUrl }}
-                    style={s.qrImage}
-                    contentFit="contain"
-                  />
-                  {selectedWallet !== 'all' ? (
+                <View style={s.qrFrame}>
+                  {QR_TABS.map((tab) =>
+                    qrImages[tab] ? (
+                      <Image
+                        key={tab}
+                        source={{ uri: qrImages[tab] }}
+                        style={[
+                          s.qrImage,
+                          tab !== selectedWallet && s.qrImageHidden,
+                        ]}
+                        contentFit="contain"
+                      />
+                    ) : null
+                  )}
+                  {selectedWallet !== 'opendome' ? (
                     <View style={s.logoBadge}>
                       <Image
                         source={selectedWallet === 'solana' ? solLogo : ethLogo}
@@ -293,35 +378,36 @@ export default function QRApp({ verifiedToken }) {
                     color={theme.text.secondary}
                   />
                   <Text style={[s.infoText, { marginTop: n(16) }]}>
-                    No {selectedWallet} address found.
+                    No {TAB_LABELS[selectedWallet] || selectedWallet} code available.
                   </Text>
                 </View>
               )}
 
-              <Text style={s.infoText}>
-                {selectedWallet === 'all'
-                  ? 'This QR code contains your EVM and Solana wallet addresses.'
-                  : `This QR code contains your ${
-                      selectedWallet === 'evm' ? 'EVM' : 'Solana'
-                    } wallet address.`}
-              </Text>
+              {selectedWallet === 'opendome' && userProfile?.username ? (
+                <Text style={s.usernameLabel}>@{userProfile.username}</Text>
+              ) : null}
 
-              {selectedWallet !== 'all' && copyAddress ? (
-                <View style={s.copyRow}>
-                  <Pressable
-                    style={s.copyButton}
-                    onPress={handleCopyAddress}
-                    accessibilityLabel="Copy address"
-                    accessibilityRole="button"
-                  >
+              {selectedWallet !== 'opendome' && copyAddress ? (
+                <Pressable
+                  style={s.addressRow}
+                  onPress={handleCopyAddress}
+                  accessibilityLabel="Copy address"
+                  accessibilityRole="button"
+                >
+                  <Text style={s.addressText} numberOfLines={1}>
+                    {formatAddress(copyAddress)}
+                  </Text>
+                  <View style={s.copyIcon}>
                     <Ionicons
                       name={copied ? 'checkmark' : 'copy-outline'}
-                      size={n(20)}
+                      size={n(18)}
                       color={copied ? theme.text.primary : theme.text.secondary}
                     />
-                  </Pressable>
-                </View>
+                  </View>
+                </Pressable>
               ) : null}
+
+              <Text style={s.infoText}>{TAB_DESCRIPTIONS[selectedWallet]}</Text>
             </>
           ) : (
             <View style={s.emptyState}>

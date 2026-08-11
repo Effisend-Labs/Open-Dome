@@ -142,12 +142,12 @@ export const springboardApps = [
     meta: "12 EVENTS · 4 VENUES",
     accent: colors.brand.primary,
     happening: 3,
-    url: typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1') ? 'http://localhost:8084/' : 'https://miniapp.expo.app/',
+    url: typeof window !== 'undefined' && (window.location?.hostname === 'localhost' || window.location?.hostname === '127.0.0.1') ? 'http://localhost:8084/' : 'https://demo.opendome.xyz/',
   },
   {
     id: "sandbox_app",
     name: "Sandbox",
-    iconUrl: "https://miniapp.expo.app/favicon.ico",
-    url: "https://miniapp.expo.app/",
+    iconUrl: "https://demo.opendome.xyz/favicon.ico",
+    url: "https://demo.opendome.xyz/",
   }
 ];

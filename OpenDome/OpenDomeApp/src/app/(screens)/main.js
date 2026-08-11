@@ -20,15 +20,13 @@ import { locales } from '../../core/locales';
 import ContextModule from '../../providers/contextModule';
 import { Events } from '../../core/events';
 import StoreApp from '../../components/StoreApp';
+import { enrichStoreApp } from '../../core/storeAppIcons';
 import MapApp from '../../components/MapApp';
 
 
-const miniAppUrl = __DEV__ ? 'http://localhost:8084/' : 'https://miniapp.expo.app/';
-
 const CORE_APPS = [
-  { id: 'miniapp', name: 'MiniApp',  iconSource: require('../../assets/logoMA.png'), color: '#FFFFFF', url: miniAppUrl },
   { id: 'store', name: 'OpenStore', icon: 'bag-handle', color: '#007AFF' },
-  { id: 'settings', name: 'Settings',  icon: 'settings',     color: '#8E8E93' },
+  { id: 'settings', name: 'Settings', icon: 'settings', color: '#8E8E93' },
 ];
 
 // Helper to simulate glassmorphism across platforms
@@ -78,7 +76,7 @@ export default function Main() {
   
   const [activeApp, setActiveApp] = useState(null);
   const [appsLayout, setAppsLayout] = useState(CORE_APPS);
-  const [installedAppIds, setInstalledAppIds] = useState(['miniapp', 'store', 'settings']);
+  const [installedAppIds, setInstalledAppIds] = useState(['demo', 'store', 'settings']);
   const [availableApps, setAvailableApps] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedAppId, setSelectedAppId] = useState(null);
@@ -127,11 +125,17 @@ export default function Main() {
       try {
         const savedIds = await AsyncStorage.getItem('opendome_installed_app_ids');
         if (savedIds) {
-          const parsedIds = JSON.parse(savedIds);
-          setInstalledAppIds(parsedIds);
+          const parsedIds = JSON.parse(savedIds).map((id) =>
+            id === 'miniapp' ? 'demo' : id
+          );
+          const uniqueIds = [...new Set(parsedIds)];
+          setInstalledAppIds(uniqueIds);
+          await AsyncStorage.setItem(
+            'opendome_installed_app_ids',
+            JSON.stringify(uniqueIds)
+          );
         } else {
-          // First boot or no saved apps
-          setInstalledAppIds(['miniapp', 'store', 'settings']);
+          setInstalledAppIds(['demo', 'store', 'settings']);
         }
       } catch (e) {}
 
@@ -148,7 +152,7 @@ export default function Main() {
     const newLayout = installedAppIds.map(id => {
       const core = CORE_APPS.find(c => c.id === id);
       if (core) return core;
-      return availableApps.find(a => a.id === id);
+      return enrichStoreApp(availableApps.find(a => a.id === id));
     }).filter(Boolean);
     setAppsLayout(newLayout);
   }, [installedAppIds, availableApps]);
@@ -240,7 +244,7 @@ export default function Main() {
     } else {
       // Launch the specific URL if the app has one, else use default
       const targetApp = appsLayout.find(a => a.id === appId);
-      const targetUrl = targetApp?.url || springboardApps[0]?.url || 'https://miniapp.expo.app/';
+      const targetUrl = targetApp?.url || springboardApps[0]?.url || 'https://demo.opendome.xyz/';
       setActiveApp({ id: appId, url: targetUrl });
     }
   };
@@ -312,7 +316,7 @@ export default function Main() {
                 onAuthSuccess={(token) => handleUserAuthChanged({ token })}
                 onLogout={() => handleUserAuthChanged(null)}
               />
-            ) : activeTab === 'wallet' ? (
+            ) : activeTab === 'passes' ? (
               <WalletApp verifiedToken={verifiedToken} />
             ) : activeTab === 'qr' ? (
               <QRApp verifiedToken={verifiedToken} />
@@ -372,7 +376,7 @@ export default function Main() {
                     appColor = '#78909C'; // Muted slate color
                   }
                   
-                  const isCoreApp = ['miniapp', 'store', 'settings'].includes(app.id);
+                  const isCoreApp = ['store', 'settings'].includes(app.id);
                   
                   return (
                     <Animated.View key={app.id} style={[s.appIconWrapper, animatedStyle]}>
@@ -391,9 +395,9 @@ export default function Main() {
                           onLongPress={handleLongPress}
                           delayLongPress={500}
                         >
-                          <View style={[s.appIcon, { backgroundColor: appColor }, isSelected && s.appIconSelected]}>
+                          <View style={[s.appIcon, app.iconSource ? s.appIconLogoShell : { backgroundColor: appColor }, isSelected && s.appIconSelected]}>
                             {app.iconSource ? (
-                              <Image source={app.iconSource} style={[s.appIconImage, (theme.icons?.overrideColor || theme.icons?.mapColors) ? { tintColor: iconColor } : {}]} contentFit="contain" />
+                              <Image source={app.iconSource} style={s.appIconLogo} contentFit="cover" />
                             ) : app.iconUrl ? (
                               <Image source={{ uri: app.iconUrl }} style={[s.appIconImage, (theme.icons?.overrideColor || theme.icons?.mapColors) ? { tintColor: iconColor } : {}]} contentFit="contain" />
                             ) : (
@@ -416,16 +420,16 @@ export default function Main() {
             <View style={s.dockWrapper}>
               <View style={[s.dock, glassStyles]}>
                 <Pressable style={s.dockBtn} onPress={() => { setActiveTab('home'); closeApp(); }}>
-                  <Ionicons name="home" size={n(24)} color={activeTab === 'home' ? (theme.text.accent || theme.text.primary) : theme.text.primary} style={activeTab === 'home' ? {} : { opacity: 0.6 }} />
+                  <Ionicons name="home" size={n(24)} color={theme.text.primary} style={activeTab === 'home' ? {} : { opacity: 0.6 }} />
                 </Pressable>
-                <Pressable style={s.dockBtn} onPress={() => { setActiveTab('wallet'); closeApp(); }}>
-                  <Ionicons name="wallet" size={n(24)} color={activeTab === 'wallet' ? (theme.text.accent || theme.text.primary) : theme.text.primary} style={activeTab === 'wallet' ? {} : { opacity: 0.6 }} />
+                <Pressable style={s.dockBtn} onPress={() => { setActiveTab('passes'); closeApp(); }}>
+                  <Ionicons name="ticket" size={n(24)} color={theme.text.primary} style={activeTab === 'passes' ? {} : { opacity: 0.6 }} />
                 </Pressable>
                 <Pressable style={s.dockBtn} onPress={() => { setActiveTab('qr'); closeApp(); }}>
-                  <Ionicons name="qr-code" size={n(24)} color={activeTab === 'qr' ? (theme.text.accent || theme.text.primary) : theme.text.primary} style={activeTab === 'qr' ? {} : { opacity: 0.6 }} />
+                  <Ionicons name="qr-code" size={n(24)} color={theme.text.primary} style={activeTab === 'qr' ? {} : { opacity: 0.6 }} />
                 </Pressable>
                 <Pressable style={s.dockBtn} onPress={() => { setActiveTab('person'); closeApp(); }}>
-                  <Ionicons name="person" size={n(24)} color={activeTab === 'person' ? (theme.text.accent || theme.text.primary) : theme.text.primary} style={activeTab === 'person' ? {} : { opacity: 0.6 }} />
+                  <Ionicons name="person" size={n(24)} color={theme.text.primary} style={activeTab === 'person' ? {} : { opacity: 0.6 }} />
                 </Pressable>
               </View>
             </View>
@@ -661,6 +665,7 @@ const useStyles = (n, theme) => StyleSheet.create({
       marginBottom: n(6),
       borderWidth: theme.border?.width ?? 0,
       borderColor: theme.border.default,
+      overflow: 'hidden',
       ...(theme.shadow?.icon || {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: n(4) },
@@ -796,6 +801,14 @@ const useStyles = (n, theme) => StyleSheet.create({
     borderWidth: n(3),
     borderColor: theme.text.primary,
     opacity: 0.8,
+  },
+  appIconLogoShell: {
+    backgroundColor: '#000000',
+    padding: 0,
+  },
+  appIconLogo: {
+    width: '100%',
+    height: '100%',
   },
   appIconImage: {
     width: '75%',

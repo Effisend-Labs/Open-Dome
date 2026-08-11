@@ -9,15 +9,10 @@ export const locales = {
       queue: "Queue: 15 min",
       done: "Done",
       apps: {
-        miniapp: "MiniApp",
-        app1: "Food",
-        app2: "Map",
-        app3: "Rides",
-        app4: "Merch",
-        app5: "Spa",
-        app6: "Restrooms",
-        app7: "Search",
-        app8: "Settings"
+        demo: "Mini App",
+        wallet: "Wallet",
+        store: "OpenStore",
+        settings: "Settings",
       }
     },
     settings: {
@@ -47,15 +42,10 @@ export const locales = {
       queue: "Fila: 15 min",
       done: "Listo",
       apps: {
-        miniapp: "MiniApp",
-        app1: "Comida",
-        app2: "Mapa",
-        app3: "Atracciones",
-        app4: "Tienda",
-        app5: "Spa",
-        app6: "Baños",
-        app7: "Buscar",
-        app8: "Ajustes"
+        demo: "Mini App",
+        wallet: "Wallet",
+        store: "OpenStore",
+        settings: "Ajustes",
       }
     },
     settings: {
@@ -85,15 +75,10 @@ export const locales = {
       queue: "待ち時間: 15分",
       done: "完了",
       apps: {
-        miniapp: "MiniApp",
-        app1: "フード",
-        app2: "マップ",
-        app3: "アトラクション",
-        app4: "グッズ",
-        app5: "スパ",
-        app6: "トイレ",
-        app7: "検索",
-        app8: "設定"
+        demo: "Mini App",
+        wallet: "Wallet",
+        store: "OpenStore",
+        settings: "設定",
       }
     },
     settings: {
@@ -123,15 +108,10 @@ export const locales = {
       queue: "File : 15 min",
       done: "Terminé",
       apps: {
-        miniapp: "MiniApp",
-        app1: "Nourriture",
-        app2: "Carte",
-        app3: "Manèges",
-        app4: "Boutique",
-        app5: "Spa",
-        app6: "Toilettes",
-        app7: "Recherche",
-        app8: "Paramètres"
+        demo: "Mini App",
+        wallet: "Wallet",
+        store: "OpenStore",
+        settings: "Paramètres",
       }
     },
     settings: {
@@ -161,15 +141,10 @@ export const locales = {
       queue: "排队: 15 分钟",
       done: "完成",
       apps: {
-        miniapp: "MiniApp",
-        app1: "美食",
-        app2: "地图",
-        app3: "游乐设施",
-        app4: "周边",
-        app5: "水疗",
-        app6: "洗手间",
-        app7: "搜索",
-        app8: "设置"
+        demo: "Mini App",
+        wallet: "Wallet",
+        store: "OpenStore",
+        settings: "设置",
       }
     },
     settings: {

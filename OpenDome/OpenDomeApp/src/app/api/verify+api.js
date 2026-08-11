@@ -14,8 +14,10 @@ const VALID_TOKENS = [
 const ALLOWED_ORIGINS = [
   'http://localhost:8081',
   'http://localhost:8084',
+  'http://localhost:8085',
   'https://opendome.expo.app',
   'https://opendomeos.expo.app',
+  'https://demo.opendome.xyz',
   'https://miniapp.expo.app',
 ];
 
@@ -78,6 +80,7 @@ export async function POST(request) {
       matchedOrigin &&
       (matchedOrigin.includes('localhost') ||
         matchedOrigin.includes('opendome.expo.app') ||
+        matchedOrigin.includes('demo.opendome.xyz') ||
         matchedOrigin.includes('miniapp.expo.app') ||
         matchedOrigin.includes('opendome.xyz') ||
         matchedOrigin.includes('effisend'));

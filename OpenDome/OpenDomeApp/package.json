@@ -52,6 +52,7 @@
     "mqtt": "^5.15.1",
     "ol": "^10.9.0",
     "opendome": "file:../../open-dome-lib",
+    "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",

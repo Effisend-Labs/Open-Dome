@@ -7,7 +7,6 @@ import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import PasskeyAuth from './PasskeyAuth';
 
-// Helper to decode JWT
 const parseJwt = (t) => {
   if (!t) return null;
   try {
@@ -24,14 +23,6 @@ const parseJwt = (t) => {
   } catch (e) {
     return null;
   }
-};
-
-const formatAddress = (address) => {
-  if (!address) return 'Not Available';
-  if (address.length > 20) {
-    return `${address.slice(0, 6)}...${address.slice(-6)}`;
-  }
-  return address;
 };
 
 export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
@@ -95,7 +86,7 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
     scrollContent: {
       padding: n(24),
       paddingTop: n(40),
-      paddingBottom: n(120), // Leave space for dock
+      paddingBottom: n(120),
     },
     header: {
       marginBottom: n(32),
@@ -119,13 +110,14 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
       padding: n(24),
       borderWidth: theme.border?.width ?? 1,
       borderColor: theme.border.default,
-      marginBottom: n(24),
+      marginBottom: n(16),
+      alignItems: 'center',
       ...(theme.shadow?.card || {}),
     },
     avatarPlaceholder: {
-      width: n(64),
-      height: n(64),
-      borderRadius: n(32),
+      width: n(88),
+      height: n(88),
+      borderRadius: n(44),
       backgroundColor: bgNested,
       alignItems: 'center',
       justifyContent: 'center',
@@ -137,55 +129,77 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
     avatarImage: {
       width: '100%',
       height: '100%',
-      borderRadius: n(32),
+      borderRadius: n(44),
     },
     editBadge: {
       position: 'absolute',
       bottom: 0,
       right: 0,
-      backgroundColor: theme.text.accent || theme.text.primary,
-      width: n(22),
-      height: n(22),
-      borderRadius: n(11),
+      backgroundColor: theme.text.primary,
+      width: n(26),
+      height: n(26),
+      borderRadius: n(13),
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
       borderColor: theme.bg.card,
     },
     userName: {
-      fontSize: n(24),
+      fontSize: n(26),
       fontWeight: '700',
       color: theme.text.primary,
       fontFamily: theme.typography?.fontFamily || defaultFont,
-      marginBottom: n(24),
+      marginBottom: n(4),
     },
-    sectionTitle: {
-      fontSize: n(12),
-      fontWeight: '700',
-      color: textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      marginBottom: n(12),
+    userHint: {
+      fontSize: n(14),
+      color: theme.text.secondary,
       fontFamily: theme.typography?.fontFamily || defaultFont,
+      textAlign: 'center',
+      lineHeight: n(20),
     },
-    walletRow: {
+    infoCard: {
+      backgroundColor: theme.bg.card,
+      borderRadius: theme.shape?.cardRadius ?? n(20),
+      padding: n(4),
+      borderWidth: theme.border?.width ?? 1,
+      borderColor: theme.border.default,
+      marginBottom: n(24),
+      ...(theme.shadow?.card || {}),
+    },
+    infoRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingVertical: n(12),
+      paddingVertical: n(14),
+      paddingHorizontal: n(16),
+      gap: n(12),
+    },
+    infoRowBorder: {
       borderBottomWidth: 1,
       borderBottomColor: theme.border.subtle,
     },
-    walletLabel: {
+    infoIconWrap: {
+      width: n(36),
+      height: n(36),
+      borderRadius: n(10),
+      backgroundColor: bgNested,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    infoContent: {
+      flex: 1,
+    },
+    infoLabel: {
       fontSize: n(14),
       fontWeight: '600',
-      color: theme.text.secondary,
+      color: theme.text.primary,
       fontFamily: theme.typography?.fontFamily || defaultFont,
     },
-    walletAddress: {
+    infoValue: {
       fontSize: n(13),
-      color: theme.text.primary,
-      fontFamily: theme.typography?.fontFamilyCode || 'monospace',
+      color: theme.text.secondary,
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+      marginTop: n(2),
     },
     logoutButton: {
       backgroundColor: bgNested,
@@ -212,7 +226,7 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
         <View style={s.header}>
           <Text style={s.title}>{userProfile ? 'Profile' : 'Account'}</Text>
           <Text style={s.subtitle}>
-            {userProfile ? 'Manage your web3 identity and wallets' : 'Sign in to sync your web3 identity'}
+            {userProfile ? 'Your passkey identity on Open Dome' : 'Sign in to sync your web3 identity'}
           </Text>
         </View>
 
@@ -223,28 +237,40 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
                 {avatarUri ? (
                   <Image source={{ uri: avatarUri }} style={s.avatarImage} />
                 ) : (
-                  <Ionicons name="person" size={n(32)} color={textMuted} />
+                  <Ionicons name="person" size={n(40)} color={textMuted} />
                 )}
                 <View style={s.editBadge}>
                   <Ionicons name="camera" size={n(12)} color={theme.bg.card} />
                 </View>
               </Pressable>
               <Text style={s.userName}>@{userProfile.username}</Text>
+              <Text style={s.userHint}>
+                Venues can scan your OpenDome QR to verify passes and profile.
+              </Text>
+            </View>
 
-              <Text style={s.sectionTitle}>Connected Wallets</Text>
-              
-              <View style={s.walletRow}>
-                <Text style={s.walletLabel}>Ethereum (EVM)</Text>
-                <Text style={s.walletAddress}>{formatAddress(userProfile.evm)}</Text>
+            <View style={s.infoCard}>
+              <View style={[s.infoRow, s.infoRowBorder]}>
+                <View style={s.infoIconWrap}>
+                  <Ionicons name="finger-print" size={n(18)} color={theme.text.primary} />
+                </View>
+                <View style={s.infoContent}>
+                  <Text style={s.infoLabel}>Passkey secured</Text>
+                  <Text style={s.infoValue}>Sign in with biometrics or device PIN</Text>
+                </View>
               </View>
-              
-              <View style={[s.walletRow, { borderBottomWidth: 0 }]}>
-                <Text style={s.walletLabel}>Solana</Text>
-                <Text style={s.walletAddress}>{formatAddress(userProfile.solana)}</Text>
+              <View style={s.infoRow}>
+                <View style={s.infoIconWrap}>
+                  <Ionicons name="qr-code-outline" size={n(18)} color={theme.text.primary} />
+                </View>
+                <View style={s.infoContent}>
+                  <Text style={s.infoLabel}>OpenDome QR</Text>
+                  <Text style={s.infoValue}>Share your profile at check-in and events</Text>
+                </View>
               </View>
             </View>
 
-            <Pressable 
+            <Pressable
               style={({ pressed }) => [s.logoutButton, pressed && { opacity: 0.7 }]}
               onPress={onLogout}
             >
@@ -254,9 +280,9 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
           </View>
         ) : (
           <View>
-            <PasskeyAuth 
-              onAuthSuccess={onAuthSuccess} 
-              addLog={(msg) => console.log(msg)} 
+            <PasskeyAuth
+              onAuthSuccess={onAuthSuccess}
+              addLog={(msg) => console.log(msg)}
             />
           </View>
         )}
