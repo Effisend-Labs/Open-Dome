@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, TextInput, View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSmartSize } from '../providers/smartProvider';
@@ -12,6 +12,16 @@ if (Platform.OS === 'web') {
     startAuthentication = WebAuthn.startAuthentication;
   } catch (err) {
     console.error('Failed to load simplewebauthn in web browser context:', err);
+  }
+}
+
+async function readApiError(res) {
+  const errText = await res.text();
+  try {
+    const parsed = JSON.parse(errText);
+    return parsed.error || errText;
+  } catch {
+    return errText || `Request failed (${res.status})`;
   }
 }
 
@@ -93,12 +103,29 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
       fontSize: n(16),
       fontFamily: theme.typography?.fontFamilyCode || 'monospace',
     },
+    hintText: {
+      fontSize: n(12),
+      fontFamily: theme.typography?.fontFamily || defaultFont,
+      marginTop: n(2),
+    },
+    hintOk: {
+      color: theme.status?.success || '#34C759',
+    },
+    hintBad: {
+      color: theme.status?.danger || '#FF3B30',
+    },
+    hintMuted: {
+      color: theme.text.muted || '#8E8E93',
+    },
     actionButton: {
       backgroundColor: theme.text.accent || '#007AFF',
       borderRadius: n(14),
       paddingVertical: n(14),
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    actionButtonDisabled: {
+      opacity: 0.45,
     },
     actionButtonText: {
       color: theme.text.buttonText || (isDark ? '#000000' : '#FFFFFF'),
@@ -130,51 +157,105 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
   const [usernameInput, setUsernameInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login');
+  const [usernameStatus, setUsernameStatus] = useState(null);
+  const [usernameHint, setUsernameHint] = useState('');
+  const checkSeq = useRef(0);
+
+  useEffect(() => {
+    if (mode !== 'register') return undefined;
+
+    const trimmed = usernameInput.trim();
+    if (!trimmed) {
+      setUsernameStatus(null);
+      setUsernameHint('');
+      return undefined;
+    }
+
+    const seq = ++checkSeq.current;
+    setUsernameStatus('checking');
+    setUsernameHint('Checking availability…');
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/passkey/check-username', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: trimmed }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (seq !== checkSeq.current) return;
+
+        if (data.available) {
+          setUsernameStatus('available');
+          setUsernameHint(`@${data.username} is available`);
+          setErrorMsg('');
+        } else {
+          setUsernameStatus(data.error?.includes('3–32') ? 'invalid' : 'taken');
+          setUsernameHint(data.error || 'Username already taken');
+        }
+      } catch {
+        if (seq !== checkSeq.current) return;
+        setUsernameStatus(null);
+        setUsernameHint('');
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [usernameInput, mode]);
 
   const handleRegister = async () => {
     if (!usernameInput.trim()) {
       setErrorMsg('Username is required for registration.');
       return;
     }
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid') {
+      setErrorMsg(usernameHint || 'Username is not available.');
+      return;
+    }
     setErrorMsg('');
     setLoading(true);
-    addLog(`[Passkey] Registering user "${usernameInput}"...`);
+    addLog(`[Passkey] Registering user "${usernameInput.trim()}"...`);
 
     try {
       if (Platform.OS !== 'web' || !startRegistration) {
         throw new Error('WebAuthn is only supported in web environments currently.');
       }
 
-      // 1. Get options from server
+      const checkRes = await fetch('/api/passkey/check-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: usernameInput.trim() }),
+      });
+      const checkData = await checkRes.json().catch(() => ({}));
+      if (!checkData.available) {
+        throw new Error(checkData.error || 'Username already taken. Please sign in instead.');
+      }
+
       const optRes = await fetch('/api/passkey/register-options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: usernameInput.trim() })
+        body: JSON.stringify({ username: usernameInput.trim() }),
       });
 
       if (!optRes.ok) {
-        const errText = await optRes.text();
-        throw new Error(errText || `Failed to fetch registration options (${optRes.status})`);
+        throw new Error(await readApiError(optRes));
       }
 
       const { options, userId } = await optRes.json();
       addLog(`[Passkey] Received registration options for user_${userId}`);
 
-      // 2. Prompt authenticator
       const credential = await startRegistration({ optionsJSON: options });
       addLog(`[Passkey] Authenticator success: ${credential.id.slice(0, 12)}...`);
 
-      // 3. Verify on server
       const verifyRes = await fetch('/api/passkey/register-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, credentialResponse: credential })
+        body: JSON.stringify({ userId, credentialResponse: credential }),
       });
 
       if (!verifyRes.ok) {
-        const errText = await verifyRes.text();
-        throw new Error(errText || `Registration verification failed (${verifyRes.status})`);
+        throw new Error(await readApiError(verifyRes));
       }
 
       const verifyResult = await verifyRes.json();
@@ -203,34 +284,29 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
         throw new Error('WebAuthn is only supported in web environments.');
       }
 
-      // 1. Get options
       const optRes = await fetch('/api/passkey/login-options', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!optRes.ok) {
-        const errText = await optRes.text();
-        throw new Error(errText || `Failed to fetch login options (${optRes.status})`);
+        throw new Error(await readApiError(optRes));
       }
 
       const { options, challengeId } = await optRes.json();
       addLog(`[Passkey] Received authentication challenge (ID: ${challengeId.slice(0, 8)}...)`);
 
-      // 2. Prompt authenticator
       const assertion = await startAuthentication({ optionsJSON: options });
       addLog(`[Passkey] Assertion received: ${assertion.id.slice(0, 12)}...`);
 
-      // 3. Verify on server
       const verifyRes = await fetch('/api/passkey/login-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ challengeId, assertionResponse: assertion })
+        body: JSON.stringify({ challengeId, assertionResponse: assertion }),
       });
 
       if (!verifyRes.ok) {
-        const errText = await verifyRes.text();
-        throw new Error(errText || `Login verification failed (${verifyRes.status})`);
+        throw new Error(await readApiError(verifyRes));
       }
 
       const verifyResult = await verifyRes.json();
@@ -249,18 +325,31 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
     }
   };
 
+  const registerDisabled =
+    loading ||
+    usernameStatus === 'taken' ||
+    usernameStatus === 'invalid' ||
+    usernameStatus === 'checking' ||
+    !usernameInput.trim();
+
   return (
     <View style={styles.container}>
       <View style={styles.tabContainer}>
-        <Pressable 
+        <Pressable
           style={[styles.tabButton, mode === 'login' && styles.activeTab]}
-          onPress={() => { setMode('login'); setErrorMsg(''); }}
+          onPress={() => {
+            setMode('login');
+            setErrorMsg('');
+          }}
         >
           <Text style={[styles.tabText, mode === 'login' && styles.activeTabText]}>Login</Text>
         </Pressable>
-        <Pressable 
+        <Pressable
           style={[styles.tabButton, mode === 'register' && styles.activeTab]}
-          onPress={() => { setMode('register'); setErrorMsg(''); }}
+          onPress={() => {
+            setMode('register');
+            setErrorMsg('');
+          }}
         >
           <Text style={[styles.tabText, mode === 'register' && styles.activeTabText]}>Register</Text>
         </Pressable>
@@ -275,18 +364,40 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
               placeholder="e.g. victor_altaga"
               placeholderTextColor={theme.text.muted || '#8E8E93'}
               value={usernameInput}
-              onChangeText={setUsernameInput}
+              onChangeText={(text) => {
+                setUsernameInput(text);
+                setErrorMsg('');
+              }}
               autoCapitalize="none"
               autoCorrect={false}
               editable={!loading}
               accessibilityLabel="Username"
             />
+            {usernameHint ? (
+              <Text
+                style={[
+                  styles.hintText,
+                  usernameStatus === 'available'
+                    ? styles.hintOk
+                    : usernameStatus === 'taken' || usernameStatus === 'invalid'
+                      ? styles.hintBad
+                      : styles.hintMuted,
+                ]}
+              >
+                {usernameHint}
+              </Text>
+            ) : null}
           </View>
         )}
 
         {errorMsg ? (
           <View style={styles.errorBox} accessibilityRole="alert">
-            <Ionicons name="warning" size={n(16)} color={theme.status?.danger || '#FF3B30'} style={{ marginRight: 4 }} />
+            <Ionicons
+              name="warning"
+              size={n(16)}
+              color={theme.status?.danger || '#FF3B30'}
+              style={{ marginRight: 4 }}
+            />
             <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         ) : null}
@@ -297,11 +408,11 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
           <Pressable
             style={({ pressed }) => [
               styles.actionButton,
-              pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }
+              mode === 'register' && registerDisabled && styles.actionButtonDisabled,
+              pressed && { opacity: 0.85 },
             ]}
+            disabled={mode === 'register' ? registerDisabled : loading}
             onPress={mode === 'login' ? handleLogin : handleRegister}
-            accessibilityRole="button"
-            accessibilityLabel={mode === 'login' ? 'Sign in with passkey' : 'Create passkey'}
           >
             <Text style={styles.actionButtonText}>
               {mode === 'login' ? 'Sign In with Passkey' : 'Create Passkey'}
@@ -312,4 +423,3 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
     </View>
   );
 }
-
