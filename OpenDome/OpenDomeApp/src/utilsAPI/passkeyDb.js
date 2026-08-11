@@ -98,20 +98,44 @@ export const Transactions = lazyCollection('Transactions');
 export const LocationLogs = lazyCollection('LocationLogs');
 export const Challenges = lazyCollection('Challenges');
 
+export function normalizeUsername(username) {
+  if (username == null) return '';
+  return String(username).trim().toLowerCase();
+}
+
 export async function getUserById(userId) {
   const doc = await collections().Users.doc(userId).get();
   if (!doc.exists) return null;
   return { id: doc.id, ...doc.data() };
 }
 
+/** Case-insensitive lookup via usernameLower, with fallback for legacy docs. */
 export async function getUserByUsername(username) {
-  const snapshot = await collections()
-    .Users.where('username', '==', username)
+  const key = normalizeUsername(username);
+  if (!key) return null;
+
+  let snapshot = await collections()
+    .Users.where('usernameLower', '==', key)
     .limit(1)
     .get();
+
+  if (snapshot.empty) {
+    snapshot = await collections()
+      .Users.where('username', '==', key)
+      .limit(1)
+      .get();
+  }
+
   if (snapshot.empty) return null;
   const doc = snapshot.docs[0];
   return { id: doc.id, ...doc.data() };
+}
+
+/** True when username is claimed by a finished registration (has wallet). */
+export async function isUsernameTaken(username) {
+  const user = await getUserByUsername(username);
+  if (!user) return false;
+  return user.currentChallenge == null && Boolean(user.evmAddress);
 }
 
 export async function getPasskeyById(credentialID) {
