@@ -109,35 +109,38 @@ export default function Main() {
   const pulse = useRef(new Animated.Value(0.3)).current;
   const jiggle = useRef(new Animated.Value(0)).current;
 
-  // Load saved layout on mount and dynamically fetch Sandbox metadata
+  // Load saved layout + store catalog together to avoid race condition
   useEffect(() => {
     (async () => {
+      let fetchedApps = [];
       try {
         const res = await fetch('/api/apps');
         const json = await res.json();
         if (json.success && json.data) {
-          setAvailableApps(json.data);
+          fetchedApps = json.data;
         }
       } catch (e) {
         console.warn('Failed to fetch available apps', e);
       }
 
+      let ids = ['demo', 'store', 'settings'];
       try {
         const savedIds = await AsyncStorage.getItem('opendome_installed_app_ids');
         if (savedIds) {
           const parsedIds = JSON.parse(savedIds).map((id) =>
             id === 'miniapp' ? 'demo' : id
           );
-          const uniqueIds = [...new Set(parsedIds)];
-          setInstalledAppIds(uniqueIds);
+          ids = [...new Set(parsedIds)];
           await AsyncStorage.setItem(
             'opendome_installed_app_ids',
-            JSON.stringify(uniqueIds)
+            JSON.stringify(ids)
           );
-        } else {
-          setInstalledAppIds(['demo', 'store', 'settings']);
         }
       } catch (e) {}
+
+      // Set both at once so the layout effect has the full catalog
+      setAvailableApps(fetchedApps);
+      setInstalledAppIds(ids);
 
       try {
         const savedToken = await AsyncStorage.getItem('opendome_auth_token');
