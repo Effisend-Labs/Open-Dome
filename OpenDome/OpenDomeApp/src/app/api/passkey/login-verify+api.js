@@ -10,43 +10,51 @@ const getDynamicRpID = (req) => {
     return host;
   } catch(e) { return 'localhost'; }
 };
-const JWT_SECRET = 'opendome-sandbox-mock-secret';
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
 
 export const POST = async (request) => {
   const expectedRPID = getDynamicRpID(request);
-  const expectedOrigin = request.headers.get("origin") || "http://localhost:8082";
+  const expectedOrigin = request.headers.get('origin') || 'http://localhost:8082';
   console.log('[Passkey API] POST /api/passkey/login-verify initiated');
   try {
     const { userId, credentialResponse } = await request.json();
     console.log(`[Passkey API] login-verify userId: ${userId}`);
 
     if (!userId || !credentialResponse) {
-      return Response.json({ error: 'User ID and credentialResponse are required' }, { status: 400 });
+      return Response.json(
+        { error: 'User ID and credentialResponse are required' },
+        { status: 400 }
+      );
     }
 
     const user = await getUserById(userId);
     if (!user || !user.currentChallenge) {
-      return Response.json({ error: 'User not found or no authentication challenge found' }, { status: 400 });
+      return Response.json(
+        { error: 'User not found or no authentication challenge found' },
+        { status: 400 }
+      );
     }
 
-    // Find the specific passkey the user authenticated with
     const passkey = await getPasskeyById(credentialResponse.id);
     if (!passkey || passkey.userId !== user.id) {
-      return Response.json({ error: 'Passkey not found or does not belong to this user' }, { status: 404 });
+      return Response.json(
+        { error: 'Passkey not found or does not belong to this user' },
+        { status: 404 }
+      );
     }
-
-    
 
     let verification;
     try {
       verification = await verifyAuthenticationResponse({
         response: credentialResponse,
         expectedChallenge: user.currentChallenge,
-        expectedOrigin: expectedOrigin,
-        expectedRPID: expectedRPID,
-        authenticator: {
-          credentialID: Buffer.from(passkey.credentialID, 'base64url'),
-          credentialPublicKey: Buffer.from(passkey.publicKey, 'base64'),
+        expectedOrigin,
+        expectedRPID,
+        credential: {
+          id: passkey.credentialID,
+          publicKey: Buffer.from(passkey.publicKey, 'base64'),
           counter: passkey.counter,
         },
       });
@@ -58,25 +66,27 @@ export const POST = async (request) => {
     const { verified, authenticationInfo } = verification;
 
     if (verified) {
-      // Update the counter in DB to prevent replay attacks
       await Passkeys.doc(passkey.id).update({
-        counter: authenticationInfo.newCounter
+        counter: authenticationInfo.newCounter,
       });
 
-      // Clear the user's challenge
       await Users.doc(user.id).update({ currentChallenge: null });
 
-      // Generate a mock JWT representing a successful Sandbox session
-      const token = jwt.sign({ 
-        userId: user.id, 
-        username: user.username,
-        role: 'sandbox_user'
-      }, JWT_SECRET, { expiresIn: '2h' });
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          username: user.username,
+          role: 'user',
+          evm: user.evmAddress || undefined,
+        },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
 
-      return Response.json({ 
+      return Response.json({
         verified: true,
         token,
-        message: "Successfully logged in via Passkey!"
+        message: 'Successfully logged in via Passkey!',
       });
     }
 
