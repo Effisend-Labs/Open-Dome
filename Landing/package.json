@@ -42,7 +42,6 @@
     "build": "npx expo export -p web",
     "webbuild": "npx expo export -p web",
     "webdeploy": "npx expo export -p web && eas deploy",
-    "webprod": "npx expo export -p web && eas deploy --prod",
     "webserve": "npx expo export -p web && npx expo serve",
     "lint": "expo lint"
   },

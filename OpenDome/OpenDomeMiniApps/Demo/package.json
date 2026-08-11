@@ -7,8 +7,7 @@
     "android": "expo start --android --port 8084",
     "ios": "expo start --ios --port 8084",
     "web": "set BROWSER=none&& expo start --web --port 8084 -c",
-    "build": "npx expo export -p web",
-    "webprod": "expo export -p web && eas deploy --prod"
+    "build": "npx expo export -p web"
   },
   "dependencies": {
     "@expo/metro-runtime": "57.0.8",
