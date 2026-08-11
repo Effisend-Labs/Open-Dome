@@ -28,6 +28,7 @@ function AdminGate({ appId, appToken }) {
   const { isAuthorized, isLocked, token, user, loading } = useOpenDome({
     appId,
     appToken,
+    blockchain: false,
   });
 
   useEffect(() => {

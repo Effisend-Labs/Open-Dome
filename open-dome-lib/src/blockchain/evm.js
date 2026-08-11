@@ -20,10 +20,16 @@ export class EVMAdapter {
 
     // For ethers compatibility, we use the first RPC from the chain's metadata
     this.currentUrl = this.chain.rpcUrls.default.http[0];
-    this.provider = new ethers.JsonRpcProvider(this.currentUrl);
+    this.provider =
+      ethers && typeof ethers.JsonRpcProvider === 'function'
+        ? new ethers.JsonRpcProvider(this.currentUrl)
+        : null;
   }
 
   async getProvider() {
+    if (!ethers || typeof ethers.JsonRpcProvider !== 'function') {
+      throw new Error('ethers is not available in this runtime');
+    }
     // Ethers failover using chain's RPC list
     for (const url of this.chain.rpcUrls.default.http) {
         try {

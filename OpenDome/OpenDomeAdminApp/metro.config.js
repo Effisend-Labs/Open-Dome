@@ -33,7 +33,6 @@ const SERVER_ONLY_PACKAGES = [
   '@google-cloud/firestore',
   'google-gax',
   'google-auth-library',
-  'ethers',
 ];
 
 function isServerBundle(context) {

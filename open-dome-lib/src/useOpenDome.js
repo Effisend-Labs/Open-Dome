@@ -111,8 +111,11 @@ export function useOpenDome(config = {}) {
     isLocked: globalIsLocked,
   });
 
-  // Initialize blockchain with provided config — stable reference, never re-created
-  const [blockchain] = useState(() => new Blockchain(config.blockchain));
+  // Initialize blockchain with provided config — stable reference, never re-created.
+  // Pass blockchain: false to skip (Admin and other non-wallet mini-apps).
+  const [blockchain] = useState(() =>
+    config.blockchain === false ? null : new Blockchain(config.blockchain)
+  );
 
   const getTargetOrigin = () => {
     try {

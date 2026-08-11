@@ -18,7 +18,10 @@ export function normalizePrivateKey(raw) {
 
 /** Canonical god account — only this role can open Admin App */
 export function getGodUsername() {
-  const raw = stripQuotes(process.env.ADMIN_USERNAME) || '@altaga';
+  const raw =
+    stripQuotes(process.env.ADMIN_GOD_USERNAME) ||
+    stripQuotes(process.env.ADMIN_USERNAME) ||
+    '@altaga';
   return raw.startsWith('@') ? raw : `@${raw}`;
 }
 
