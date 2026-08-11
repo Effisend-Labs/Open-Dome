@@ -91,9 +91,9 @@ export const POST = async (request) => {
       });
 
       console.log(
-        '[Passkey API] Generating Circle Developer-Controlled Wallets across ALL EVMs...'
+        '[Passkey API] Generating Circle Developer-Controlled Wallets (EVM + Solana)...'
       );
-      const walletRes = await circleClient.createWallets({
+      const evmWalletRes = await circleClient.createWallets({
         blockchains: ['ARB', 'AVAX', 'BASE', 'ETH', 'MATIC', 'OP'],
         count: 1,
         accountType: 'EOA',
@@ -101,27 +101,44 @@ export const POST = async (request) => {
         idempotencyKey: randomUUID(),
       });
 
+      const solWalletRes = await circleClient.createWallets({
+        blockchains: ['SOL'],
+        count: 1,
+        walletSetId: 'afd0591a-e99a-5883-89e7-a1c27316eee8',
+        idempotencyKey: randomUUID(),
+      });
+
       const walletIds = {};
-      let primaryAddress = '';
-      for (const w of walletRes.data?.wallets || []) {
+      let evmAddress = '';
+      let solanaAddress = '';
+      for (const w of evmWalletRes.data?.wallets || []) {
         walletIds[w.blockchain] = w.id;
-        primaryAddress = w.address;
+        if (!evmAddress) evmAddress = w.address;
+      }
+      for (const w of solWalletRes.data?.wallets || []) {
+        walletIds[w.blockchain] = w.id;
+        solanaAddress = w.address;
       }
 
-      if (!primaryAddress) {
-        throw new Error('Circle createWallets returned no wallet address');
+      if (!evmAddress) {
+        throw new Error('Circle createWallets returned no EVM wallet address');
+      }
+      if (!solanaAddress) {
+        throw new Error('Circle createWallets returned no Solana wallet address');
       }
 
       await Wallets.doc(user.id).set({
         userId: user.id,
-        address: primaryAddress,
+        address: evmAddress,
+        solanaAddress,
         walletIds,
         createdAt: new Date().toISOString(),
       });
 
       await Users.doc(user.id).update({
         currentChallenge: null,
-        evmAddress: primaryAddress,
+        evmAddress,
+        solanaAddress,
       });
 
       const token = jwt.sign(
@@ -129,7 +146,8 @@ export const POST = async (request) => {
           userId: user.id,
           username: user.username,
           role: 'user',
-          evm: primaryAddress,
+          evm: evmAddress,
+          solana: solanaAddress,
         },
         JWT_SECRET,
         { expiresIn: '30d' }
@@ -138,7 +156,8 @@ export const POST = async (request) => {
       return Response.json({
         verified: true,
         token,
-        evmAddress: primaryAddress,
+        evmAddress,
+        solanaAddress,
       });
     }
 

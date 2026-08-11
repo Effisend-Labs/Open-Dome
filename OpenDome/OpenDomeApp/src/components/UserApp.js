@@ -238,14 +238,9 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
                 <Text style={s.walletAddress}>{formatAddress(userProfile.evm)}</Text>
               </View>
               
-              <View style={s.walletRow}>
+              <View style={[s.walletRow, { borderBottomWidth: 0 }]}>
                 <Text style={s.walletLabel}>Solana</Text>
                 <Text style={s.walletAddress}>{formatAddress(userProfile.solana)}</Text>
-              </View>
-
-              <View style={[s.walletRow, { borderBottomWidth: 0 }]}>
-                <Text style={s.walletLabel}>Starknet</Text>
-                <Text style={s.walletAddress}>{formatAddress(userProfile.starknet)}</Text>
               </View>
             </View>
 
