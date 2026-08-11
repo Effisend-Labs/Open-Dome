@@ -327,14 +327,23 @@ export default function WalletView({ theme, tokens, t, isDark }) {
 
   // ── Authenticated ──────────────────────────────────────────────────────────
 
-  // Compute chain order: chains with non-zero balance first, then alphabetical
   const chainKeys = Object.keys(CHAINS);
+
+  // Priority tiebreaker when USD value is zero on both chains
+  const ZERO_PRIORITY = { base: 0, solana: 1, mainnet: 2, arbitrum: 3, optimism: 4, polygon: 5, avalanche: 6, monad: 7 };
+
+  const getUsdValue = (chain) => {
+    const meta = CHAINS[chain];
+    const nBal = parseFloat(balances[chain]?.native) || 0;
+    const uBal = parseFloat(balances[chain]?.usdc) || 0;
+    return (nBal * (MOCK_PRICES[meta.ticker] || 0)) + (uBal * MOCK_PRICES.USDC);
+  };
+
   const sortedChains = [...chainKeys].sort((a, b) => {
-    const balA = (parseFloat(balances[a]?.native) || 0) + (parseFloat(balances[a]?.usdc) || 0);
-    const balB = (parseFloat(balances[b]?.native) || 0) + (parseFloat(balances[b]?.usdc) || 0);
-    if (balA > 0 && balB === 0) return -1;
-    if (balA === 0 && balB > 0) return 1;
-    return 0;
+    const usdA = getUsdValue(a);
+    const usdB = getUsdValue(b);
+    if (usdA !== usdB) return usdB - usdA;
+    return (ZERO_PRIORITY[a] ?? 99) - (ZERO_PRIORITY[b] ?? 99);
   });
 
   const activeChains = chainKeys.filter(k => (parseFloat(balances[k]?.native) || 0) + (parseFloat(balances[k]?.usdc) || 0) > 0).length;

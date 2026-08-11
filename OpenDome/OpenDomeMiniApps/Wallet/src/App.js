@@ -14,7 +14,7 @@ LogBox.ignoreLogs(['"shadow*" style props are deprecated']);
 
 const TABS = [
   { id: 'WALLET', label: 'Portfolio', icon: 'pie-chart-outline' },
-  { id: 'PASSES', label: 'Passes', icon: 'ticket-outline' },
+  { id: 'PASSES', label: 'NFTs', icon: 'images-outline' },
   { id: 'AGENT', label: 'Agent', icon: 'sparkles-outline' },
   { id: 'USER', label: 'Account', icon: 'person-outline' },
 ];
