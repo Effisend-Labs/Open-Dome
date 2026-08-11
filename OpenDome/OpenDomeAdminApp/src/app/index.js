@@ -19,8 +19,9 @@ function normalizeUsername(name) {
 
 function isAltagaGod(user, tokenPayloadRole) {
   const username = normalizeUsername(user?.username);
+  if (username !== 'altaga') return false;
   const role = String(tokenPayloadRole || user?.role || '').toLowerCase();
-  return username === 'altaga' && role === 'god';
+  return !role || role === 'god';
 }
 
 function AdminGate({ appId, appToken }) {

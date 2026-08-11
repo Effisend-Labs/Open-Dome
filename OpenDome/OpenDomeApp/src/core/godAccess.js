@@ -3,26 +3,29 @@ export function parseHostJwt(token) {
   try {
     const part = token.split('.')[1];
     if (!part) return null;
-    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
-    return JSON.parse(decodeURIComponent(
-      json.split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-    ));
+    const padded = part.replace(/-/g, '+').replace(/_/g, '/');
+    const json =
+      typeof atob === 'function'
+        ? atob(padded)
+        : Buffer.from(padded, 'base64').toString('utf8');
+    return JSON.parse(json);
   } catch {
-    try {
-      return JSON.parse(atob(token.split('.')[1]));
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 
-/** Admin mini-app is only for @altaga with role god (localhost + production). */
+/**
+ * Admin mini-app: only @altaga (canonical GOD).
+ * Username match is enough — older JWTs may omit role; login always treats altaga as god.
+ */
 export function isAltagaGodToken(token) {
   const claims = parseHostJwt(token);
   if (!claims) return false;
   const username = String(claims.username || '')
     .toLowerCase()
     .replace(/^@/, '');
+  if (username !== 'altaga') return false;
   const role = String(claims.role || '').toLowerCase();
-  return username === 'altaga' && role === 'god';
+  // Accept missing role (legacy tokens) or explicit god
+  return !role || role === 'god';
 }
