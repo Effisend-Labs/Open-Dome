@@ -3,6 +3,7 @@ import {
   Users,
   Passkeys,
   Wallets,
+  Challenges,
   getUserById,
   getPasskeyById,
 } from '../../../utilsAPI/passkeyDb';
@@ -31,28 +32,37 @@ export const POST = async (request) => {
     request.headers.get('origin') || 'http://localhost:8082';
   console.log('[Passkey API] POST /api/passkey/login-verify initiated');
   try {
-    const { userId, credentialResponse } = await request.json();
-    console.log(`[Passkey API] login-verify userId: ${userId}`);
+    const { challengeId, assertionResponse } = await request.json();
+    console.log(`[Passkey API] login-verify challengeId: ${challengeId}`);
 
-    if (!userId || !credentialResponse) {
+    if (!challengeId || !assertionResponse) {
       return Response.json(
-        { error: 'User ID and credentialResponse are required' },
+        { error: 'challengeId and assertionResponse are required' },
         { status: 400 }
       );
     }
 
-    const user = await getUserById(userId);
-    if (!user || !user.currentChallenge) {
+    const challengeDoc = await Challenges.doc(challengeId).get();
+    if (!challengeDoc.exists) {
       return Response.json(
-        { error: 'User not found or no authentication challenge found' },
+        { error: 'Authentication challenge expired or not found' },
         { status: 400 }
       );
     }
+    const expectedChallenge = challengeDoc.data().challenge;
 
-    const passkey = await getPasskeyById(credentialResponse.id);
-    if (!passkey || passkey.userId !== user.id) {
+    const passkey = await getPasskeyById(assertionResponse.id);
+    if (!passkey) {
       return Response.json(
-        { error: 'Passkey not found or does not belong to this user' },
+        { error: 'Passkey not found in database' },
+        { status: 404 }
+      );
+    }
+
+    const user = await getUserById(passkey.userId);
+    if (!user) {
+      return Response.json(
+        { error: 'User associated with this passkey not found' },
         { status: 404 }
       );
     }
@@ -60,8 +70,8 @@ export const POST = async (request) => {
     let verification;
     try {
       verification = await verifyAuthenticationResponse({
-        response: credentialResponse,
-        expectedChallenge: user.currentChallenge,
+        response: assertionResponse,
+        expectedChallenge,
         expectedOrigin,
         expectedRPID,
         credential: {
@@ -82,7 +92,7 @@ export const POST = async (request) => {
         counter: authenticationInfo.newCounter,
       });
 
-      await Users.doc(user.id).update({ currentChallenge: null });
+      await Challenges.doc(challengeId).delete();
 
       // Backfill Solana for users registered before Solana was wired up
       let solanaAddress = user.solanaAddress;
@@ -111,12 +121,16 @@ export const POST = async (request) => {
         const walletSnap = await Wallets.doc(user.id).get();
         if (walletSnap.exists) {
           const walletData = walletSnap.data() || {};
-          walletData.solanaAddress = solanaAddress;
-          walletData.walletIds = {
-            ...(walletData.walletIds || {}),
-            SOL: solWalletRes.data.wallets[0].id,
-          };
-          await Wallets.doc(user.id).set(walletData, { merge: true });
+          await Wallets.doc(user.id).set(
+            {
+              solanaAddress,
+              walletIds: {
+                ...(walletData.walletIds || {}),
+                SOL: solWalletRes.data.wallets[0].id,
+              },
+            },
+            { merge: true }
+          );
         } else {
           await Wallets.doc(user.id).set({
             userId: user.id,

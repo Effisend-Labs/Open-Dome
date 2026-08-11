@@ -1,50 +1,35 @@
 import { generateAuthenticationOptions } from '@simplewebauthn/server';
-import { Users, getUserByUsername, getUserPasskeys } from '../../../utilsAPI/passkeyDb';
+import { Challenges } from '../../../utilsAPI/passkeyDb';
+import { randomUUID } from 'crypto';
 
 const getDynamicRpID = (req) => {
   try {
     const origin = req.headers.get('origin') || 'http://localhost';
-    let host = new URL(origin).hostname;
+    const host = new URL(origin).hostname;
     if (host.endsWith('.opendome.xyz') || host === 'opendome.xyz') return 'opendome.xyz';
     return host;
-  } catch(e) { return 'localhost'; }
+  } catch {
+    return 'localhost';
+  }
 };
 
 export const POST = async (request) => {
   const rpID = getDynamicRpID(request);
   console.log('[Passkey API] POST /api/passkey/login-options initiated');
   try {
-    const { username } = await request.json();
-    console.log(`[Passkey API] login-options username: ${username}`);
-
-    if (!username) {
-      return Response.json({ error: 'Username is required' }, { status: 400 });
-    }
-
-    const user = await getUserByUsername(username);
-    if (!user) {
-      return Response.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    const userPasskeys = await getUserPasskeys(user.id);
-    
-    // Generate auth options allowing any of the user's previously registered credentials
+    // Discoverable credentials: client sends empty body; do not require username/JSON.
     const options = await generateAuthenticationOptions({
       rpID,
-      allowCredentials: userPasskeys.map(passkey => ({
-        id: Buffer.from(passkey.credentialID, 'base64url'),
-        type: 'public-key',
-        transports: passkey.transports,
-      })),
       userVerification: 'preferred',
     });
 
-    // Save the auth challenge for verification
-    await Users.doc(user.id).update({
-      currentChallenge: options.challenge
+    const challengeId = randomUUID();
+    await Challenges.doc(challengeId).set({
+      challenge: options.challenge,
+      createdAt: new Date().toISOString(),
     });
 
-    return Response.json({ options, userId: user.id });
+    return Response.json({ options, challengeId });
   } catch (e) {
     console.error('[Passkey API] Error generating login options:', e);
     return Response.json({ error: e.message }, { status: 500 });

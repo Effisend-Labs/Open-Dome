@@ -55,6 +55,7 @@ let passkeysCol;
 let walletsCol;
 let transactionsCol;
 let locationLogsCol;
+let challengesCol;
 
 function collections() {
   if (!db) {
@@ -64,6 +65,7 @@ function collections() {
     walletsCol = db.collection('Wallets');
     transactionsCol = db.collection('Transactions');
     locationLogsCol = db.collection('LocationLogs');
+    challengesCol = db.collection('Challenges');
   }
   return {
     Users: usersCol,
@@ -71,6 +73,7 @@ function collections() {
     Wallets: walletsCol,
     Transactions: transactionsCol,
     LocationLogs: locationLogsCol,
+    Challenges: challengesCol,
   };
 }
 
@@ -93,6 +96,7 @@ export const Passkeys = lazyCollection('Passkeys');
 export const Wallets = lazyCollection('Wallets');
 export const Transactions = lazyCollection('Transactions');
 export const LocationLogs = lazyCollection('LocationLogs');
+export const Challenges = lazyCollection('Challenges');
 
 export async function getUserById(userId) {
   const doc = await collections().Users.doc(userId).get();
