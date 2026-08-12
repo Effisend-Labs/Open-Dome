@@ -9,3 +9,16 @@ export const STORE_APP_ICONS = {
   admin: adminIcon,
   scanner: scannerIcon,
 };
+
+export function enrichStoreApp(app) {
+  if (!app) return app;
+
+  const iconSource = STORE_APP_ICONS[app.id];
+  if (!iconSource) return app;
+
+  return {
+    ...app,
+    iconSource,
+    color: '#111111',
+  };
+}
