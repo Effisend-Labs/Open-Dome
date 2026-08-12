@@ -22,8 +22,8 @@ const APP_DIRS = [
   'OpenDome/OpenDomeMiniApps/IMMTheater',
   'OpenDome/OpenDomeMiniApps/KorakuenHall',
   'OpenDome/OpenDomeMiniApps/GalleryAaMo',
-  // Admin is Next.js — only write .npmrc, do not apply Expo catalog
-  'OpenDome/OpenDomeAdminApp',
+  'OpenDome/OpenDomeMiniApps/Admin',
+  'OpenDome/OpenDomeMiniApps/Scanner',
   'Contracts',
   'open-dome-lib',
   'test',
@@ -36,11 +36,6 @@ function writeNpmrc(dir) {
 }
 
 function applyCatalog(relDir) {
-  if (relDir.includes('OpenDomeAdminApp')) {
-    console.log(`[catalog] ${relDir}: skipped (Next.js)`);
-    return;
-  }
-
   const pkgPath = path.join(ROOT, relDir, 'package.json');
   if (!fs.existsSync(pkgPath)) return;
 
@@ -72,8 +67,6 @@ function applyCatalog(relDir) {
 }
 
 function updateAgentsMd(relDir) {
-  // Admin is Next.js — never overwrite its AGENTS.md with Expo rules.
-  if (relDir.includes('OpenDomeAdminApp')) return;
   const agentsPath = path.join(ROOT, relDir, 'AGENTS.md');
   if (!fs.existsSync(agentsPath)) return;
   const next =

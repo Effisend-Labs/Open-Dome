@@ -1,21 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity } from 'react-native';
-import { useOpenDome } from 'opendome';
+import { useOpenDome, OPENDOME_PASSES_CONFIG } from 'opendome';
 import { Ionicons } from '@expo/vector-icons';
 import { GLOBAL_STYLES } from '../theme';
 
-// Define the contract addresses to track on each network
-const PASSES_CONFIG = {
-  base: [
-    // "0xYourContractAddressOnBase"
-  ],
-  arbitrum: [],
-  optimism: [],
-  mainnet: [],
-  polygon: [],
-  monad: [],
-  solana: []
-};
+const PASSES_CONFIG = OPENDOME_PASSES_CONFIG;
 
 export default function PassesView({ theme, tokens, t, isDark }) {
   const { blockchain, user, isAuthorized } = useOpenDome();

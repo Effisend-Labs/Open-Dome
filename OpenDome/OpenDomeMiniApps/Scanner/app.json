@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "OpenDome Scanner",
+    "slug": "opendome-scanner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "opendomescanner",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "web": {
+      "output": "server",
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "owner": "altaga"
+  }
+}

@@ -1,4 +1,4 @@
-/** Same decoder Profile uses — keeps Admin visibility in sync with @username. */
+/** Same decoder Profile uses — keeps Admin / Scanner visibility in sync. */
 export function parseHostJwt(token) {
   if (!token || typeof token !== 'string') return null;
   try {
@@ -14,11 +14,20 @@ export function parseHostJwt(token) {
     return JSON.parse(jsonPayload);
   } catch {
     try {
-      return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return JSON.parse(
+        atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+      );
     } catch {
       return null;
     }
   }
+}
+
+function normalizeUsername(name) {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/^@/, '')
+    .trim();
 }
 
 /**
@@ -28,9 +37,23 @@ export function parseHostJwt(token) {
 export function isAltagaGodToken(token) {
   const claims = parseHostJwt(token);
   if (!claims) return false;
-  const username = String(claims.username || '')
-    .toLowerCase()
-    .replace(/^@/, '')
-    .trim();
-  return username === 'altaga';
+  return normalizeUsername(claims.username) === 'altaga';
+}
+
+/**
+ * Staff for Scanner mini-app: god (@altaga), admin, scanner.
+ */
+export function getStaffRoleFromToken(token) {
+  const claims = parseHostJwt(token);
+  if (!claims) return null;
+  if (normalizeUsername(claims.username) === 'altaga') return 'god';
+  const role = String(claims.role || '').toLowerCase();
+  if (role === 'god') return 'god';
+  if (role === 'admin') return 'admin';
+  if (role === 'scanner' || role === 'checker') return 'scanner';
+  return null;
+}
+
+export function isStaffToken(token) {
+  return Boolean(getStaffRoleFromToken(token));
 }

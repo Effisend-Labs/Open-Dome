@@ -54,6 +54,19 @@ export async function GET(request) {
         'https://admin.opendome.xyz/'
       ),
     },
+    {
+      id: 'scanner',
+      name: 'Scanner',
+      description: 'Verify guest QR / wallets and use passes — scanner, admin, god.',
+      publisher: 'Open Dome',
+      staffOnly: true,
+      url: resolveMiniAppUrl(
+        request,
+        8091,
+        'SCANNER_MINIAPP_URL',
+        'https://scanner.opendome.xyz/'
+      ),
+    },
   ];
 
   return Response.json({ success: true, data: storeApps });

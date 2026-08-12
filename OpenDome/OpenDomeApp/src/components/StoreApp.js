@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { STORE_APP_ICONS } from '../core/storeAppIcons';
-import { isAltagaGodToken } from '../core/godAccess';
+import { isAltagaGodToken, isStaffToken } from '../core/godAccess';
 
 const ACTION_DURATION_MS = 5000;
 
@@ -34,6 +34,7 @@ export default function StoreApp({
   const progressRefs = useRef({});
   const iconPulseRefs = useRef({});
   const isGod = isAltagaGodToken(verifiedToken);
+  const isStaff = isStaffToken(verifiedToken);
 
   useEffect(() => {
     (async () => {
@@ -54,7 +55,11 @@ export default function StoreApp({
   }, []);
 
   // Re-filter when auth token arrives (token often loads after first paint)
-  const visibleApps = storeApps.filter((app) => !app.godOnly || isGod);
+  const visibleApps = storeApps.filter((app) => {
+    if (app.godOnly && !isGod) return false;
+    if (app.staffOnly && !isStaff) return false;
+    return true;
+  });
 
   useEffect(() => {
     return () => {

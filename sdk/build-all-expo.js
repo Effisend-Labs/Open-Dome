@@ -18,7 +18,8 @@ const APPS = [
   { dir: 'OpenDome/OpenDomeMiniApps/IMMTheater', build: 'npx expo export -p web' },
   { dir: 'OpenDome/OpenDomeMiniApps/KorakuenHall', build: 'npx expo export -p web' },
   { dir: 'OpenDome/OpenDomeMiniApps/GalleryAaMo', build: 'npx expo export -p web' },
-  { dir: 'OpenDome/OpenDomeAdminApp', build: 'npm run build' },
+  { dir: 'OpenDome/OpenDomeMiniApps/Admin', build: 'npm run build' },
+  { dir: 'OpenDome/OpenDomeMiniApps/Scanner', build: 'npm run build' },
 ];
 
 const results = [];

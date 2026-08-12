@@ -10,6 +10,7 @@ const VALID_TOKENS = [
   'c4f9dbec-4d4e-4dea-8e0e-dce37e583ade', // KorakuenHall
   'd54e84f5-8daa-4d11-9459-d08691083d69', // GalleryAaMo
   'f0e1d2c3-b4a5-6789-0123-456789abcdef', // Admin
+  '9e8d7c6b-5a4f-3210-9876-543210fedcba', // Scanner
 ];
 
 const ALLOWED_ORIGINS = [
@@ -17,11 +18,13 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8084',
   'http://localhost:8085',
   'http://localhost:8090',
+  'http://localhost:8091',
   'https://opendome.expo.app',
   'https://opendomeos.expo.app',
   'https://demo.opendome.xyz',
   'https://wallet.opendome.xyz',
   'https://admin.opendome.xyz',
+  'https://scanner.opendome.xyz',
   'https://miniapp.expo.app',
 ];
 

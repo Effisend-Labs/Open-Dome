@@ -22,7 +22,7 @@ import { Events } from '../../core/events';
 import StoreApp from '../../components/StoreApp';
 import { enrichStoreApp } from '../../core/storeAppIcons';
 import MapApp from '../../components/MapApp';
-import { isAltagaGodToken } from '../../core/godAccess';
+import { isAltagaGodToken, isStaffToken } from '../../core/godAccess';
 
 
 const CORE_APPS = [
@@ -155,8 +155,10 @@ export default function Main() {
 
   useEffect(() => {
     const allowAdmin = isAltagaGodToken(verifiedToken);
+    const allowScanner = isStaffToken(verifiedToken);
     const newLayout = installedAppIds.map(id => {
       if (id === 'admin' && !allowAdmin) return null;
+      if (id === 'scanner' && !allowScanner) return null;
       const core = CORE_APPS.find(c => c.id === id);
       if (core) return core;
       return enrichStoreApp(availableApps.find(a => a.id === id));
