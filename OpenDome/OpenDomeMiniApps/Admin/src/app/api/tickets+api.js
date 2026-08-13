@@ -2,6 +2,24 @@ import { getTicketsByAddress } from '../../utilsAPI/adminDb';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const DEFAULT_CONTRACT =
+  process.env.CONTRACT_ADDRESS || '0x40c39F091a7c85D10B8C46762b59Df3eCd77630C';
+const BASESCAN = 'https://basescan.org';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Accept',
+};
+
+function json(data, status = 200) {
+  return Response.json(data, { status, headers: CORS_HEADERS });
+}
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 let eventsCache = null;
 
 function loadEvents() {
@@ -23,10 +41,35 @@ function loadEvents() {
   return eventsCache;
 }
 
+function resolveExplorer(ticket, address) {
+  const owner = String(address || ticket.address || '').toLowerCase();
+  const contractAddress = ticket.contractAddress || DEFAULT_CONTRACT;
+  const mintTxHash = ticket.mintTxHash || null;
+  const paymentTxHash = ticket.paymentTxHash || null;
+  const stored = ticket.explorer || {};
+
+  return {
+    mintTxUrl:
+      stored.mintTxUrl ||
+      (mintTxHash ? `${BASESCAN}/tx/${mintTxHash}` : null),
+    paymentTxUrl:
+      stored.paymentTxUrl ||
+      (paymentTxHash ? `${BASESCAN}/tx/${paymentTxHash}` : null),
+    tokenInventoryUrl:
+      stored.tokenInventoryUrl ||
+      (owner
+        ? `${BASESCAN}/token/${contractAddress}?a=${owner}`
+        : `${BASESCAN}/token/${contractAddress}`),
+    ownerAddressUrl:
+      stored.ownerAddressUrl ||
+      (owner ? `${BASESCAN}/address/${owner}` : null),
+  };
+}
+
 export async function GET(request) {
   const address = new URL(request.url).searchParams.get('address');
   if (!address) {
-    return Response.json({ error: 'Address is required' }, { status: 400 });
+    return json({ error: 'Address is required' }, 400);
   }
 
   try {
@@ -35,8 +78,10 @@ export async function GET(request) {
 
     const populated = tickets.map((ticket) => {
       const eventMeta = allEvents.find(
-        (e) => String(e.id) === String(ticket.ticketId)
+        (e) => String(e.id) === String(ticket.ticketId),
       );
+      const explorer = resolveExplorer(ticket, address);
+      const contractAddress = ticket.contractAddress || DEFAULT_CONTRACT;
 
       if (eventMeta) {
         return {
@@ -53,7 +98,14 @@ export async function GET(request) {
               value: new Date(eventMeta.from).toLocaleDateString(),
             },
           ],
-          network: 'Server Bridge (ERC-1155)',
+          network: 'base',
+          chain: 'Base',
+          contractAddress,
+          mintTxHash: ticket.mintTxHash || null,
+          paymentTxHash: ticket.paymentTxHash || null,
+          explorer,
+          mintTxUrl: explorer.mintTxUrl,
+          tokenInventoryUrl: explorer.tokenInventoryUrl,
         };
       }
 
@@ -63,13 +115,20 @@ export async function GET(request) {
         amount: ticket.amount,
         description: '',
         attributes: [],
-        network: 'Server Bridge (ERC-1155)',
+        network: 'base',
+        chain: 'Base',
+        contractAddress,
+        mintTxHash: ticket.mintTxHash || null,
+        paymentTxHash: ticket.paymentTxHash || null,
+        explorer,
+        mintTxUrl: explorer.mintTxUrl,
+        tokenInventoryUrl: explorer.tokenInventoryUrl,
       };
     });
 
-    return Response.json(populated);
+    return json(populated);
   } catch (err) {
     console.error('[Tickets Error]', err);
-    return Response.json([]);
+    return json([]);
   }
 }

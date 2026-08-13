@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.OpenDomeSeller = exports.OpenDomeFacilitator = exports.OpenDomeBuyer = void 0;
+exports.usdPriceToUsdcAtomic = usdPriceToUsdcAtomic;
 var _crypto = _interopRequireDefault(require("crypto"));
 var _viem = require("viem");
 var _accounts = require("viem/accounts");
@@ -68,15 +69,19 @@ class OpenDomeBuyer {
     };
   }
   generateEIP3009Payload(payTo, amount) {
-    const validAfter = Math.floor(Date.now() / 1000);
-    const validBefore = validAfter + 3600; // 1 hour validity
+    // USDC FiatTokenV2 requires block.timestamp > validAfter (strict).
+    // Using "now" races Base sequencer time and reverts with
+    // "authorization is not yet valid". 0 = valid immediately.
+    const now = Math.floor(Date.now() / 1000);
+    const validAfter = 0;
+    const validBefore = now + 3600; // 1 hour validity window
     const nonce = '0x' + _crypto.default.randomBytes(32).toString('hex');
     return {
       from: this.accountAddress,
       to: payTo,
       value: amount,
-      validAfter: validAfter,
-      validBefore: validBefore,
+      validAfter: String(validAfter),
+      validBefore: String(validBefore),
       nonce: nonce
     };
   }
@@ -89,13 +94,22 @@ class OpenDomeBuyer {
     };
   }
 }
+
+/** Convert a USD price string to USDC atomic units (6 decimals on Base). */
 exports.OpenDomeBuyer = OpenDomeBuyer;
+function usdPriceToUsdcAtomic(priceStr) {
+  const usd = parseFloat(String(priceStr));
+  if (!Number.isFinite(usd) || usd <= 0) {
+    throw new Error('Invalid price');
+  }
+  return String(Math.round(usd * 1_000_000));
+}
 class OpenDomeSeller {
   constructor(merchantAddress) {
     this.merchantAddress = merchantAddress;
   }
   generateChallenge(price) {
-    const amount = price === '0.0001' ? '100' : price === '0.01' ? '10000' : '1000';
+    const amount = usdPriceToUsdcAtomic(price);
     const challengeParams = ['scheme="exact"', 'network="eip155:8453"', 'asset="0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"',
     // USDC on Base
     `amount="${amount}"`, `payTo="${this.merchantAddress}"`];
@@ -123,8 +137,8 @@ class OpenDomeSeller {
     if (to.toLowerCase() !== this.merchantAddress.toLowerCase()) {
       throw new Error('Invalid merchant address in signature');
     }
-    const expectedAmount = expectedPrice === '0.0001' ? '100' : expectedPrice === '0.01' ? '10000' : '1000';
-    if (value !== expectedAmount) {
+    const expectedAmount = usdPriceToUsdcAtomic(expectedPrice);
+    if (String(value) !== expectedAmount) {
       throw new Error('Insufficient payment amount');
     }
     return {

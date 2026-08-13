@@ -1,13 +1,13 @@
-import { Stack } from 'expo-router';
+import { Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { View } from 'react-native';
 
+/** Slot avoids Stack's deprecated pointerEvents prop warning on web. */
 export default function RootLayout() {
   return (
-    <>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-      </Stack>
+    <View style={{ flex: 1 }}>
+      <Slot />
       <StatusBar style="auto" />
-    </>
+    </View>
   );
 }

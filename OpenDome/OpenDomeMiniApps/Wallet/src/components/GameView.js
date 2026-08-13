@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Animated, Vibration, Platform, Easing } from 'react-native';
 import { GLOBAL_STYLES } from '../theme';
+import { USE_NATIVE_DRIVER, boxShadow } from '../utils/styleCompat';
 
 const WINNING_LINES = [
   [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -21,7 +22,7 @@ const checkWinner = (squares) => {
 const NeonToken = ({ type, tokens, isDark, isDimmed }) => {
   const scale = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.spring(scale, { toValue: 1, friction: 4, tension: 100, useNativeDriver: Platform.OS !== 'web' }).start();
+    Animated.spring(scale, { toValue: 1, friction: 4, tension: 100, useNativeDriver: USE_NATIVE_DRIVER }).start();
   }, []);
 
   const color = type === 'X' ? tokens.NEON_PRIMARY : tokens.NEON_DANGER;
@@ -32,7 +33,7 @@ const NeonToken = ({ type, tokens, isDark, isDimmed }) => {
     : {};
     
   const nativeGlow = Platform.OS !== 'web' && isDark 
-    ? { shadowColor: color, shadowOpacity: 0.8, shadowRadius: 10 } 
+    ? boxShadow({ color, offsetY: 0, blur: 10, opacity: 0.8, elevation: 0 })
     : {};
 
   return (
@@ -93,7 +94,7 @@ export default function GameView({ isAuthorized, username, theme, tokens, scores
 
   const showResult = () => {
     Animated.timing(resultAnim, {
-      toValue: 1, duration: 500, easing: Easing.out(Easing.back(1.5)), useNativeDriver: Platform.OS !== 'web',
+      toValue: 1, duration: 500, easing: Easing.out(Easing.back(1.5)), useNativeDriver: USE_NATIVE_DRIVER,
     }).start();
   };
 
@@ -167,7 +168,9 @@ export default function GameView({ isAuthorized, username, theme, tokens, scores
     if (!winData) return null;
     const { index } = winData;
     let style = { position: 'absolute', backgroundColor: winData.winner === 'X' ? tokens.NEON_PRIMARY : tokens.NEON_DANGER, zIndex: 10 };
-    const glow = isDark ? { shadowColor: style.backgroundColor, shadowOpacity: 1, shadowRadius: 15, elevation: 10 } : {};
+    const glow = isDark
+      ? boxShadow({ color: style.backgroundColor, offsetY: 0, blur: 15, opacity: 1, elevation: 10 })
+      : {};
 
     if (index <= 2) style = { ...style, height: 4, width: '100%', top: `${16.6 + (index * 33.3)}%` };
     else if (index >= 3 && index <= 5) style = { ...style, width: 4, height: '100%', left: `${16.6 + ((index - 3) * 33.3)}%` };

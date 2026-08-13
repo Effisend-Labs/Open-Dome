@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "OpenAgent",
+    "slug": "openagent",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/logoMA.png",
+    "scheme": "opendome-openagent",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./src/assets/logoMA.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/logoMA.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "output": "server",
+      "favicon": "./src/assets/logoMA.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "unstable_useServerMiddleware": true
+        }
+      ]
+    ],
+    "owner": "altaga"
+  }
+}

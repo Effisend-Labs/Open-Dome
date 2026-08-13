@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { Communication, useOpenDome } from 'opendome';
 import { GLOBAL_STYLES } from '../theme';
+import { boxShadow } from '../utils/styleCompat';
 
   const LogCard = ({ log, tokens, isDark }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -220,8 +221,13 @@ export default function CommunicationView({ theme, tokens }) {
           <View style={{ 
             width: 6, height: 6, borderRadius: 3, 
             backgroundColor: status === 'CONNECTED' ? tokens.NEON_SUCCESS : (status === 'ERROR' ? tokens.NEON_DANGER : tokens.MUTED),
-            shadowColor: status === 'CONNECTED' ? tokens.NEON_SUCCESS : (status === 'ERROR' ? tokens.NEON_DANGER : 'transparent'), 
-            shadowRadius: 4, shadowOpacity: 0.8
+            ...boxShadow({
+              color: status === 'CONNECTED' ? (tokens.NEON_SUCCESS || '#00D897') : (status === 'ERROR' ? (tokens.NEON_DANGER || '#EF4444') : 'transparent'),
+              offsetY: 0,
+              blur: 4,
+              opacity: 0.8,
+              elevation: 0,
+            }),
           }} />
           <Text style={{ color: tokens.MUTED, fontSize: 9, fontFamily: tokens.font.mono, fontWeight: 'bold' }}>
             {status}

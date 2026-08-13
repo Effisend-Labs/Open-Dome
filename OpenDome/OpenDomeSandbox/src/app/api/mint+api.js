@@ -95,6 +95,13 @@ export async function POST(req) {
     }
     const receipt = await tx.wait();
 
+    try {
+      const { assignTicketsAsPlatform } = await import('../../utilsAPI/ticketsDb.js');
+      await assignTicketsAsPlatform(to, ids, amounts);
+    } catch (indexErr) {
+      console.warn('[Sandbox Mint API] Ticket assign failed:', indexErr.message);
+    }
+
     return Response.json({
       success: true,
       txHash: receipt.hash,
@@ -102,7 +109,8 @@ export async function POST(req) {
       to,
       ids,
       amounts,
-      message: 'Mint successful',
+      signedBy: 'platform',
+      message: 'Platform minted and assigned tickets',
     });
   } catch (error) {
     console.error('[Sandbox Mint API]', error);

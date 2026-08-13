@@ -169,6 +169,60 @@ export default function IframeContainer({
         onTransactionIntent({ chain, to, amount });
       }
 
+      // 2b. x402 Payment Intent (Wallet Agent checkout / paid APIs)
+      if (type === 'OPENDOME_PAYMENT_INTENT') {
+        const { id, payload: payPayload } = event.data;
+        const { serviceUrl, amount, fetchOptions } = payPayload || {};
+        onAddLog(`[Bridge] Payment intent: ${amount} USDC → ${serviceUrl}`);
+
+        if (!verifiedToken) {
+          const sourceWindow = event.source;
+          if (sourceWindow) {
+            sourceWindow.postMessage({
+              type: 'OPENDOME_PAYMENT_RESPONSE',
+              id,
+              error: 'Not authenticated. Please log in first.',
+            }, origin);
+          }
+          return;
+        }
+
+        try {
+          const payRes = await fetch('/api/x402-pay', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${verifiedToken}`,
+            },
+            body: JSON.stringify({ serviceUrl, amount, fetchOptions }),
+          });
+          const payData = await payRes.json().catch(() => ({}));
+          if (!payRes.ok) {
+            throw new Error(payData.error || payData.message || `Payment failed (${payRes.status})`);
+          }
+
+          const sourceWindow = event.source;
+          if (sourceWindow) {
+            sourceWindow.postMessage({
+              type: 'OPENDOME_PAYMENT_RESPONSE',
+              id,
+              response: payData.data,
+            }, origin);
+            onAddLog('[Bridge] Payment success — response sent to mini-app.');
+          }
+        } catch (payErr) {
+          onAddLog(`[Bridge] Payment error: ${payErr.message}`);
+          const sourceWindow = event.source;
+          if (sourceWindow) {
+            sourceWindow.postMessage({
+              type: 'OPENDOME_PAYMENT_RESPONSE',
+              id,
+              error: payErr.message,
+            }, origin);
+          }
+        }
+      }
+
       // 3. Delegated Authentication Request (Register)
       if (type === 'OPENDOME_REGISTER_REQUEST') {
         const { username } = payload;

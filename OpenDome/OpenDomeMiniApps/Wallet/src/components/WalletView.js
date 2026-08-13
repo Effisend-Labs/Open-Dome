@@ -5,6 +5,7 @@ import { useOpenDome } from 'opendome';
 import { GLOBAL_STYLES } from '../theme';
 import SendModal from './SendModal';
 import ReceiveModal from './ReceiveModal';
+import { AuthRequiredPanel } from '../features/auth/AuthRequiredPanel';
 
 // Chain logos
 import imgBase from '../assets/base.png';
@@ -232,7 +233,7 @@ const NetworkRow = ({ chainKey, balanceData, address, tokens, isDark, onCopy, co
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export default function WalletView({ theme, tokens, t, isDark }) {
+export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) {
   const { blockchain, user, isAuthorized } = useOpenDome();
   const [balances, setBalances] = useState({});
   const [loading, setLoading] = useState(true);
@@ -264,7 +265,12 @@ export default function WalletView({ theme, tokens, t, isDark }) {
           const tokenAddr = USDC_ADDRESSES[chain];
           let native = '0';
           let usdc = '0';
-          
+
+          if (!blockchain?.supportsChain?.(chain)) {
+            results[chain] = { native: '0', usdc: '0', unsupported: true };
+            return;
+          }
+
           if (addr) {
             native = await blockchain.getBalance(chain, addr);
             if (tokenAddr) {
@@ -309,19 +315,12 @@ export default function WalletView({ theme, tokens, t, isDark }) {
 
   if (!isAuthorized) {
     return (
-      <View style={[styles.emptyContainer, { backgroundColor: tokens.BG }]}>
-        <View style={[styles.lockIcon, { backgroundColor: tokens.SURFACE_ELEVATED, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.BORDER }]}>
-          {/* Geometric lock built from Views — no emojis */}
-          <View style={{ width: 14, height: 10, borderRadius: 7, borderWidth: 2, borderColor: tokens.MUTED, marginBottom: -2 }} />
-          <View style={{ width: 18, height: 12, borderRadius: 3, backgroundColor: tokens.MUTED }} />
-        </View>
-        <Text style={[styles.emptyTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-          Authentication required
-        </Text>
-        <Text style={[styles.emptyDesc, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
-          Switch to the Account tab and authenticate with your passkey to access your multi-chain portfolio.
-        </Text>
-      </View>
+      <AuthRequiredPanel
+        tokens={tokens}
+        t={t}
+        description={t?.authRequired?.portfolio}
+        onSignIn={onGoToAccount}
+      />
     );
   }
 

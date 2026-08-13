@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Modal, TouchableOpacity, Image, ScrollView } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { boxShadow } from '../utils/styleCompat';
 
 export default function ReceiveModal({ visible, onClose, tokens, isDark, evmAddress, solanaAddress }) {
   const [activeTab, setActiveTab] = useState('EVM');
@@ -41,14 +42,14 @@ export default function ReceiveModal({ visible, onClose, tokens, isDark, evmAddr
             {/* Network Selector */}
             <View style={[styles.tabContainer, { backgroundColor: tokens.SURFACE }]}>
               <TouchableOpacity 
-                style={[styles.tab, activeTab === 'EVM' && { backgroundColor: tokens.BG, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }]}
+                style={[styles.tab, activeTab === 'EVM' && { backgroundColor: tokens.BG, ...boxShadow({ blur: 2, opacity: 0.1, elevation: 2 }) }]}
                 onPress={() => { setActiveTab('EVM'); setCopied(false); }}
               >
                 <Text style={[styles.tabText, { color: activeTab === 'EVM' ? tokens.FG : tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>EVM</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                style={[styles.tab, activeTab === 'Solana' && { backgroundColor: tokens.BG, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }]}
+                style={[styles.tab, activeTab === 'Solana' && { backgroundColor: tokens.BG, ...boxShadow({ blur: 2, opacity: 0.1, elevation: 2 }) }]}
                 onPress={() => { setActiveTab('Solana'); setCopied(false); }}
               >
                 <Text style={[styles.tabText, { color: activeTab === 'Solana' ? tokens.FG : tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>Solana</Text>
@@ -147,11 +148,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    ...boxShadow({ offsetY: 4, blur: 12, opacity: 0.1, elevation: 5 }),
   },
   qrImage: {
     width: 180,

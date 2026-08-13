@@ -82,6 +82,7 @@ export async function mintPassesToAddress({
   network = 'base',
   contractAddress,
   recordTickets = true,
+  paymentTxHash = null,
 } = {}) {
   if (!to) {
     const err = new Error('to (recipient address) is required');
@@ -111,8 +112,14 @@ export async function mintPassesToAddress({
   }
   const receipt = await tx.wait();
 
+  let explorer = null;
   if (recordTickets) {
-    await addTickets(to, resolvedIds, resolvedAmounts);
+    ({ explorer } = await addTickets(to, resolvedIds, resolvedAmounts, {
+      mintTxHash: receipt.hash,
+      paymentTxHash,
+      contractAddress: address,
+      assignedBy: 'admin',
+    }));
   }
 
   return {
@@ -123,6 +130,7 @@ export async function mintPassesToAddress({
     ids: resolvedIds,
     amounts: resolvedAmounts,
     network: chain,
+    explorer,
   };
 }
 

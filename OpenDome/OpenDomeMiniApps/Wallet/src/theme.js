@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { boxShadow } from './utils/styleCompat';
 
 export const GLOBAL_STYLES = {
   monospace: Platform.select({ ios: 'Menlo', web: '"SF Mono", "Fira Code", "Courier New", monospace', default: 'monospace' }),
@@ -28,7 +29,9 @@ export const MINI_APP_THEMES = {
     DANGER_SOFT: 'rgba(220, 38, 38, 0.06)',
     WARNING: '#D97706',
     shape: { cardRadius: 16, buttonRadius: 12, pillRadius: 999, border: 0 },
-    shadow: { card: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 1 } },
+    shadow: {
+      card: boxShadow({ offsetY: 2, blur: 12, opacity: 0.04, elevation: 1 }),
+    },
     font: { primary: GLOBAL_STYLES.sans, mono: GLOBAL_STYLES.monospace }
   },
   dark: {
@@ -50,7 +53,7 @@ export const MINI_APP_THEMES = {
     DANGER_SOFT: 'rgba(239, 68, 68, 0.10)',
     WARNING: '#F59E0B',
     shape: { cardRadius: 16, buttonRadius: 12, pillRadius: 999, border: 0 },
-    shadow: { card: { shadowOpacity: 0, elevation: 0 } },
+    shadow: { card: {} },
     font: { primary: GLOBAL_STYLES.sans, mono: GLOBAL_STYLES.monospace }
   },
   // Legacy aliases — map to the refined dark/light above

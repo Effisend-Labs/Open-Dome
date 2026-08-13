@@ -455,19 +455,39 @@ export async function getTicketsByAddress(address) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-export async function addTickets(address, ticketIds, amounts) {
+export async function addTickets(address, ticketIds, amounts, meta = {}) {
   ensureDb();
+  const owner = String(address).toLowerCase();
+  const contractAddress =
+    meta.contractAddress ||
+    process.env.CONTRACT_ADDRESS ||
+    '0x40c39F091a7c85D10B8C46762b59Df3eCd77630C';
+  const mintTxHash = meta.mintTxHash || null;
+  const paymentTxHash = meta.paymentTxHash || null;
+  const explorer = {
+    mintTxUrl: mintTxHash ? `https://basescan.org/tx/${mintTxHash}` : null,
+    paymentTxUrl: paymentTxHash ? `https://basescan.org/tx/${paymentTxHash}` : null,
+    tokenInventoryUrl: `https://basescan.org/token/${contractAddress}?a=${owner}`,
+    ownerAddressUrl: `https://basescan.org/address/${owner}`,
+  };
   const batch = db.batch();
   for (let i = 0; i < ticketIds.length; i++) {
     const ref = adminTicketsCol.doc();
     batch.set(ref, {
-      address: address.toLowerCase(),
+      address: owner,
       ticketId: ticketIds[i],
       amount: amounts[i],
       assignedAt: Date.now(),
+      assignedBy: meta.assignedBy || 'admin',
+      network: 'base',
+      contractAddress,
+      mintTxHash,
+      paymentTxHash,
+      explorer,
     });
   }
   await batch.commit();
+  return { explorer };
 }
 
 /**

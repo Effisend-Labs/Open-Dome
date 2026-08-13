@@ -6,7 +6,7 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
  */
 export function OpenDomeLockScreen({
   title = 'OpenDome required',
-  message = 'This mini-app only runs inside OpenDome. Open it from the host app.',
+  message = 'This mini-app only runs inside OpenDome or the Sandbox. Open it from the host app (app.opendome.xyz) or demo.opendome.xyz.',
 }) {
   return (
     <View style={styles.root} accessibilityRole="alert">

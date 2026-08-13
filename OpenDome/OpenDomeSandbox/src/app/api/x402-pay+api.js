@@ -37,6 +37,26 @@ export async function POST(request) {
     }
 
     console.log(`[x402 Custodial Backend] Received payment intent for ${serviceUrl} from user ${decoded.username}`);
+
+    // Dev: skip Circle sign + facilitator path
+    if (process.env.OD_BYPASS_X402 === 'true') {
+      console.warn('[x402 Custodial Backend] OD_BYPASS_X402 — calling service without settlement');
+      const { BYPASS_HEADER } = await import('opendome/dist/devBypass.js');
+      const response = await fetch(serviceUrl, {
+        ...fetchOptions,
+        headers: {
+          ...(fetchOptions?.headers || {}),
+          [BYPASS_HEADER]: '1',
+        },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Bypass payment failed: ${response.status} - ${errorText}`);
+      }
+      const data = await response.json();
+      return Response.json({ success: true, data, bypassX402: true });
+    }
+
     console.log(`[x402 Custodial Backend] Retrieving Developer-Controlled Wallet for user ID: ${decoded.userId}...`);
 
     const walletDoc = await Wallets.doc(decoded.userId).get();
@@ -177,15 +197,21 @@ export async function POST(request) {
     return Response.json({ success: true, data });
 
   } catch (err) {
-    if (err.message?.includes('Payment settlement failed') || err.message?.includes('Internal Server Error')) {
-      console.log(`[x402 Custodial Backend] Payment mathematically verified, but Circle Gateway relayer failed to settle. Treating as SUCCESS for Sandbox.`);
-      return Response.json({ 
-        success: true, 
-        data: { 
-          response: `Hello from OpenDome! The payment signature was verified successfully.\n\nTransaction Explorer: https://basescan.org/tx/0x${Math.random().toString(16).slice(2)}`
-        } 
+    const relaxed =
+      process.env.OD_RELAX_X402_ERRORS === 'true' &&
+      (err.message?.includes('Payment settlement failed') ||
+        err.message?.includes('Internal Server Error'));
+
+    if (relaxed) {
+      console.warn(`[x402 Custodial Backend] Relaxed mode: treating error as success — ${err.message}`);
+      return Response.json({
+        success: true,
+        data: {
+          response: `Payment signature verified (relaxed sandbox mode).`,
+        },
       });
     }
+
     console.error(`[x402 Custodial Backend] Error:`, err.message);
     return Response.json({ error: err.message }, { status: 500 });
   }

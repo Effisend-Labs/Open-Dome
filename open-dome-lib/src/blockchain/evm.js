@@ -299,7 +299,11 @@ export class EVMAdapter {
         };
       });
     } catch (error) {
-      console.error('[EVMAdapter] Error fetching NFTs via Server Bridge:', error);
+      // Bridge down / CORS / offline — Passes should degrade to empty, not red ERROR.
+      const msg = error?.message || String(error);
+      console.warn(
+        `[EVMAdapter] Tickets bridge unreachable (${this.bridgeUrl}): ${msg}`,
+      );
       return [];
     }
   }

@@ -58,6 +58,10 @@ class Blockchain {
     if (!adapter) throw new Error(`Unsupported chain: ${chain}`);
     return adapter;
   }
+  supportsChain(chain) {
+    if (!chain) return false;
+    return Boolean(this.adapters[String(chain).toLowerCase()]);
+  }
   async getBalance(chain, address) {
     return this.getAdapter(chain).getBalance(address);
   }
@@ -74,17 +78,52 @@ class Blockchain {
     }
     return [];
   }
-  async markTicketAsUsed(chain, contractAddress, tokenId, authToken) {
+
+  /**
+   * Mint a single OpenDome ERC-1155 pass (GOD JWT via bridge, or privateKey server-side).
+   * @param {string} chain - e.g. 'base'
+   * @param {object} params - { to, tokenId, amount?, authToken?, privateKey?, contractAddress?, bridgeUrl? }
+   *   authToken = OpenDome host JWT for @altaga
+   */
+  async mintPass(chain, params) {
+    const adapter = this.getAdapter(chain);
+    if (typeof adapter.mintPass !== 'function') {
+      throw new Error(`mintPass not supported on chain: ${chain}`);
+    }
+    return adapter.mintPass(params);
+  }
+
+  /**
+   * Batch mint OpenDome ERC-1155 passes to one address (GOD JWT via bridge).
+   * @param {string} chain - e.g. 'base'
+   * @param {object} params - { to, ids, amounts, authToken?, privateKey?, contractAddress?, bridgeUrl? }
+   *   authToken = OpenDome host JWT for @altaga
+   */
+  async mintBatch(chain, params) {
+    const adapter = this.getAdapter(chain);
+    if (typeof adapter.mintBatch !== 'function') {
+      throw new Error(`mintBatch not supported on chain: ${chain}`);
+    }
+    return adapter.mintBatch(params);
+  }
+  async scanPass(chain, params) {
+    const adapter = this.getAdapter(chain);
+    if (typeof adapter.scanPass !== 'function') {
+      throw new Error(`scanPass not supported on chain: ${chain}`);
+    }
+    return adapter.scanPass(params);
+  }
+  async markTicketAsUsed(chain, contractAddress, tokenId, authToken, account) {
     const adapter = this.getAdapter(chain);
     if (typeof adapter.markTicketAsUsed === 'function') {
-      return adapter.markTicketAsUsed(contractAddress, tokenId, authToken);
+      return adapter.markTicketAsUsed(contractAddress, tokenId, authToken, account);
     }
     throw new Error(`markTicketAsUsed not supported on chain: ${chain}`);
   }
-  async consumePassAccess(chain, contractAddress, tokenId, amount, authToken) {
+  async consumePassAccess(chain, contractAddress, tokenId, amount, authToken, account) {
     const adapter = this.getAdapter(chain);
     if (typeof adapter.consumePassAccess === 'function') {
-      return adapter.consumePassAccess(contractAddress, tokenId, amount, authToken);
+      return adapter.consumePassAccess(contractAddress, tokenId, amount, authToken, account);
     }
     throw new Error(`consumePassAccess not supported on chain: ${chain}`);
   }

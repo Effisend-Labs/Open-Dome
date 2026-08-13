@@ -31,10 +31,34 @@ export const locales = {
     },
     agent: {
       workspace: "Agent Workspace",
-      poweredBy: "Powered by Gemini",
+      poweredBy: "Pick a Gemini model for chat. Day plans run as a four-agent council.",
       helpText: "How can I help you today?",
       placeholder: "Ask anything...",
-      thinking: "Thinking..."
+      thinking: "Thinking...",
+      itineraryReply: "Here's a Tokyo Dome City day matched to your show.",
+      quoteReply: "Here is your quote — tickets, amenity slots, and NFT minting. Review and sign to confirm.",
+      confirmReply: "Payment signed. Your slots are reserved and NFTs are in your wallet.",
+      quoteBadge: "CHECKOUT QUOTE",
+      quoteTestBadge: "TEST QUOTE · $0.001/NFT",
+      signAndPay: "Sign & pay",
+      checkoutTitle: "Sign to confirm",
+      confirmed: "All set — reservations confirmed",
+      passesMinted: "NFTS MINTED",
+    },
+    authRequired: {
+      title: "Sign in to continue",
+      description: "Your passkey unlocks balances, NFTs, and payments. Planning tools still work without signing in.",
+      cta: "Go to Account · Sign in",
+      hint: "Account tab → Register or Sign in with Passkey",
+      portfolio: "Authenticate to view your multi-chain portfolio and send funds.",
+      passes: "Authenticate to load your event NFTs and tickets.",
+      checkout: "Sign in before you can pay and mint NFTs for your itinerary.",
+    },
+    itinerary: {
+      badge: "Day plan",
+      viewFull: "View full day",
+      sheetTitle: "Day plan",
+      footerNote: "Preview only — quote and minting come after you confirm.",
     },
     events: {
       title: "TOKYO_DOME_EVENTS",
@@ -109,10 +133,19 @@ export const locales = {
     },
     agent: {
       workspace: "Consola del Agente",
-      poweredBy: "Potenciado por Gemini",
+      poweredBy: "Gemini 3.6 Flash · cuatro planners para Tokyo Dome City",
       helpText: "¿En qué te puedo ayudar hoy?",
       placeholder: "Pregúntame lo que sea...",
       thinking: "Pensando..."
+    },
+    authRequired: {
+      title: "Inicia sesión para continuar",
+      description: "Tu passkey desbloquea balances, NFTs y pagos. La planificación funciona sin iniciar sesión.",
+      cta: "Ir a Cuenta · Iniciar sesión",
+      hint: "Pestaña Cuenta → Registrarse o iniciar con Passkey",
+      portfolio: "Autentícate para ver tu portafolio multichain y enviar fondos.",
+      passes: "Autentícate para cargar tus NFTs y entradas.",
+      checkout: "Inicia sesión antes de pagar y acuñar NFTs para tu itinerario.",
     },
     events: {
       title: "EVENTOS_TOKYO_DOME",
@@ -187,7 +220,7 @@ export const locales = {
     },
     agent: {
       workspace: "エージェント ワークスペース",
-      poweredBy: "Powered by Gemini",
+      poweredBy: "Pick a Gemini model for chat. Day plans run as a four-agent council.",
       helpText: "今日はどのようなご用件でしょうか？",
       placeholder: "何でも聞いてください...",
       thinking: "考え中..."
@@ -265,7 +298,7 @@ export const locales = {
     },
     agent: {
       workspace: "Espace Agent",
-      poweredBy: "Propulsé par Gemini",
+      poweredBy: "Gemini 3.6 Flash · quatre planificateurs pour Tokyo Dome City",
       helpText: "Comment puis-je vous aider aujourd'hui ?",
       placeholder: "Demandez n'importe quoi...",
       thinking: "Réflexion..."
@@ -343,7 +376,7 @@ export const locales = {
     },
     agent: {
       workspace: "特工工作区",
-      poweredBy: "由 Gemini 提供支持",
+      poweredBy: "Gemini 3.6 Flash · 四位规划师，东京巨蛋城一日",
       helpText: "今天我能怎么帮助你？",
       placeholder: "随便问点什么...",
       thinking: "思考中..."

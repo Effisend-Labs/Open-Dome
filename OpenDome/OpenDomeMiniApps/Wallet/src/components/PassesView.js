@@ -1,12 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity } from 'react-native';
-import { useOpenDome, OPENDOME_PASSES_CONFIG } from 'opendome';
+import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity, Linking } from 'react-native';
+import { useOpenDome, OPENDOME_PASSES_CONFIG, OPENDOME_PASS_ADDRESS } from 'opendome';
 import { Ionicons } from '@expo/vector-icons';
 import { GLOBAL_STYLES } from '../theme';
+import { AuthRequiredPanel } from '../features/auth/AuthRequiredPanel';
 
 const PASSES_CONFIG = OPENDOME_PASSES_CONFIG;
+const BASESCAN = 'https://basescan.org';
 
-export default function PassesView({ theme, tokens, t, isDark }) {
+function inventoryUrlFor(nft, owner) {
+  if (nft?.tokenInventoryUrl) return nft.tokenInventoryUrl;
+  if (nft?.explorer?.tokenInventoryUrl) return nft.explorer.tokenInventoryUrl;
+  const contract = nft?.contractAddress || OPENDOME_PASS_ADDRESS;
+  if (!owner || !contract) return null;
+  return `${BASESCAN}/token/${contract}?a=${String(owner).toLowerCase()}`;
+}
+
+export default function PassesView({ theme, tokens, t, isDark, onGoToAccount }) {
   const { blockchain, user, isAuthorized } = useOpenDome();
   const [nfts, setNfts] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -49,15 +59,12 @@ export default function PassesView({ theme, tokens, t, isDark }) {
 
   if (!isAuthorized) {
     return (
-      <View style={[styles.emptyContainer, { backgroundColor: tokens.BG }]}>
-        <View style={[styles.lockIcon, { backgroundColor: tokens.SURFACE_ELEVATED, borderWidth: StyleSheet.hairlineWidth, borderColor: tokens.BORDER }]}>
-          <View style={{ width: 14, height: 10, borderRadius: 7, borderWidth: 2, borderColor: tokens.MUTED, marginBottom: -2 }} />
-          <View style={{ width: 18, height: 12, borderRadius: 3, backgroundColor: tokens.MUTED }} />
-        </View>
-        <Text style={[styles.emptyTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-          Authentication required
-        </Text>
-      </View>
+      <AuthRequiredPanel
+        tokens={tokens}
+        t={t}
+        description={t?.authRequired?.passes}
+        onSignIn={onGoToAccount}
+      />
     );
   }
 
@@ -69,42 +76,37 @@ export default function PassesView({ theme, tokens, t, isDark }) {
       >
         <View style={styles.listSection}>
           <View style={[styles.listHeader, { borderBottomColor: tokens.BORDER }]}>
-            <Text style={[styles.listTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-              Passes
+            <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.mono, letterSpacing: 0.3 }}>
+              {!isScanning && lastScan ? `Synced ${lastScan}` : ' '}
             </Text>
-            
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              {!isScanning && lastScan && (
-                <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.mono, letterSpacing: 0.3 }}>
-                  Synced {lastScan}
-                </Text>
-              )}
-              <TouchableOpacity activeOpacity={0.6} onPress={scanNFTs}>
-                <Text style={{ color: tokens.ACCENT, fontSize: 12, fontWeight: '500', fontFamily: tokens.font.primary }}>
-                  {isScanning ? 'Syncing...' : 'Refresh'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity activeOpacity={0.6} onPress={scanNFTs}>
+              <Text style={{ color: tokens.ACCENT, fontSize: 12, fontWeight: '500', fontFamily: tokens.font.primary }}>
+                {isScanning ? 'Syncing...' : 'Refresh'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {nfts.length === 0 && !isScanning ? (
             <View style={styles.emptyState}>
               <View style={[styles.emptyIconWrapper, { backgroundColor: tokens.SURFACE_ELEVATED }]}>
-                <Ionicons name="ticket-outline" size={24} color={tokens.FG_SECONDARY} />
+                <Ionicons name="images-outline" size={24} color={tokens.FG_SECONDARY} />
               </View>
               <Text style={[styles.emptyText, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
-                No passes found
+                Nothing here yet
               </Text>
             </View>
           ) : (
             <View>
               {nfts.map((nft, idx) => {
                 const isLast = idx === nfts.length - 1;
+                const exploreUrl = inventoryUrlFor(nft, evmAddr);
                 return (
-                  <View 
-                    key={`${nft.network}-${nft.tokenId}-${idx}`} 
+                  <TouchableOpacity
+                    key={`${nft.network}-${nft.tokenId}-${idx}`}
+                    activeOpacity={0.7}
+                    onPress={() => exploreUrl && Linking.openURL(exploreUrl).catch(() => {})}
                     style={[
-                      styles.passRow, 
+                      styles.passRow,
                       { borderBottomColor: tokens.BORDER, borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth }
                     ]}
                   >
@@ -118,15 +120,15 @@ export default function PassesView({ theme, tokens, t, isDark }) {
                     
                     <View style={styles.passInfo}>
                       <Text style={[styles.passName, { color: tokens.FG, fontFamily: tokens.font.primary }]} numberOfLines={1}>
-                        {nft.name || 'Unnamed Pass'}
+                        {nft.name || 'Unnamed NFT'}
                       </Text>
                       <Text style={[styles.passNetwork, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
-                        {nft.network.charAt(0).toUpperCase() + nft.network.slice(1)} Network
+                        {(nft.network || 'base').charAt(0).toUpperCase() + (nft.network || 'base').slice(1)} · BaseScan
                       </Text>
                     </View>
 
-                    <Ionicons name="chevron-forward" size={16} color={tokens.MUTED} />
-                  </View>
+                    <Ionicons name="open-outline" size={16} color={tokens.MUTED} />
+                  </TouchableOpacity>
                 );
               })}
             </View>

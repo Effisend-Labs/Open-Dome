@@ -3,14 +3,14 @@ import { StyleSheet, Text, View, TouchableOpacity, Platform, Animated, ScrollVie
 import { useOpenDome, OpenDomeLockScreen } from 'opendome';
 import { MINI_APP_THEMES, GLOBAL_STYLES } from './theme';
 import { locales } from './core/locales';
+import { USE_NATIVE_DRIVER } from './utils/styleCompat';
 
 import WalletView from './components/WalletView';
 import PassesView from './components/PassesView';
 import AgentView from './components/AgentView';
 import UserView from './components/UserView';
-import { LogBox } from 'react-native';
+import { AgentConversationProvider } from './features/agent/AgentConversationContext';
 import { Ionicons } from '@expo/vector-icons';
-LogBox.ignoreLogs(['"shadow*" style props are deprecated']);
 
 const TABS = [
   { id: 'WALLET', label: 'Portfolio', icon: 'pie-chart-outline' },
@@ -51,7 +51,7 @@ export default function App({ appId, appToken }) {
     Animated.timing(slideAnim, {
       toValue: direction * 40,
       duration: 120,
-      useNativeDriver: true,
+      useNativeDriver: USE_NATIVE_DRIVER,
     }).start(() => {
       setActiveTab(tabId);
       // Reset to opposite side and slide in
@@ -59,7 +59,7 @@ export default function App({ appId, appToken }) {
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 180,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }).start();
     });
 
@@ -110,7 +110,18 @@ export default function App({ appId, appToken }) {
   }
 
   const renderContent = () => {
-    const props = { isAuthorized, theme: themeType, tokens, t, isDark, user, register, login, username: user?.username || 'Guest' };
+    const props = {
+      isAuthorized,
+      theme: themeType,
+      tokens,
+      t,
+      isDark,
+      user,
+      register,
+      login,
+      username: user?.username || 'Guest',
+      onGoToAccount: () => switchTab('USER'),
+    };
     switch (activeTab) {
       case 'WALLET': return <WalletView {...props} />;
       case 'PASSES': return <PassesView {...props} />;
@@ -124,6 +135,7 @@ export default function App({ appId, appToken }) {
   const activeTabWidth = tabWidths.current[activeTab] || 48;
 
   return (
+    <AgentConversationProvider>
     <View style={[styles.container, { backgroundColor: tokens.BG }]}>
       {/* Minimal Top Bar */}
       <View style={[styles.topBar, { borderBottomColor: tokens.BORDER }]}>
@@ -182,6 +194,7 @@ export default function App({ appId, appToken }) {
         {renderContent()}
       </Animated.View>
     </View>
+    </AgentConversationProvider>
   );
 }
 

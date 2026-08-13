@@ -11,7 +11,8 @@
     "webbuild": "npx expo export -p web",
     "webdeploy": "npx expo export -p web && eas deploy",
     "webserve": "npx expo export -p web && npx expo serve",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:bypass": "node scripts/test-bypass-apis.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1100.0",

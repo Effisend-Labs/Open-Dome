@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Modal, TouchableOpacity, TextInput, Animated } from 'react-native';
 import { GLOBAL_STYLES } from '../theme';
+import { USE_NATIVE_DRIVER } from '../utils/styleCompat';
 
 // ── Progress Bar ────────────────────────────────────────────────────────────────
 // Fills proportionally to estimated transfer time (latency-optimized feedback).
@@ -64,13 +65,13 @@ export default function SendModal({ visible, onClose, tokens, isDark }) {
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 200,
-          useNativeDriver: true
+          useNativeDriver: USE_NATIVE_DRIVER
         }).start(() => {
           setStatus('success');
           Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 200,
-            useNativeDriver: true
+            useNativeDriver: USE_NATIVE_DRIVER
           }).start();
         });
       }, delay);

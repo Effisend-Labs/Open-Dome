@@ -8,6 +8,7 @@ const VALID_TOKENS = [
   '5c5071b1-d259-44f4-9728-1af67f84c431', // IMMTheater
   'c4f9dbec-4d4e-4dea-8e0e-dce37e583ade', // KorakuenHall
   'd54e84f5-8daa-4d11-9459-d08691083d69', // GalleryAaMo
+  '7b6a5c4d-3e2f-4190-8a1b-0c9d8e7f6a5b', // OpenAgent
 ];
 
 const ALLOWED_ORIGINS = [

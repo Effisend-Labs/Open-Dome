@@ -63,6 +63,11 @@ export class Blockchain {
     return adapter;
   }
 
+  supportsChain(chain) {
+    if (!chain) return false;
+    return Boolean(this.adapters[String(chain).toLowerCase()]);
+  }
+
   async getBalance(chain, address) {
     return this.getAdapter(chain).getBalance(address);
   }

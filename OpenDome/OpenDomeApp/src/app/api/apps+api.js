@@ -42,6 +42,18 @@ export async function GET(request) {
       ),
     },
     {
+      id: 'openagent',
+      name: 'OpenAgent',
+      description: 'Gemini chat billed per message via x402 (base tariff + length).',
+      publisher: 'Open Dome',
+      url: resolveMiniAppUrl(
+        request,
+        8086,
+        'OPENAGENT_MINIAPP_URL',
+        'https://openagent.opendome.xyz/'
+      ),
+    },
+    {
       id: 'admin',
       name: 'Admin',
       description: 'Server Bridge — GOD only (@altaga).',

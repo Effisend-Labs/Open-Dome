@@ -90,7 +90,7 @@ export async function OPTIONS(request) {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, payment-signature, x-payment-network',
     }
   });
 }
@@ -115,7 +115,10 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const defaultPrompt = 'You are the OpenDome AI Agent. You manage MPC wallets using Circle. If asked, you can create a wallet or send nanopayments. You must execute tools when asked to.';
+    const isOpenAgent = body.mode === 'openagent' || body.app === 'openagent';
+    const defaultPrompt = isOpenAgent
+      ? 'You are OpenAgent, a Gemini assistant inside OpenDome. Be helpful, concise, and accurate. Answer the user directly. Do not claim you charged a card or moved funds unless a tool actually ran.'
+      : 'You are the OpenDome AI Agent. You manage MPC wallets using Circle. If asked, you can create a wallet or send nanopayments. You must execute tools when asked to.';
     const userPrompt = body.prompt || body.message || defaultPrompt;
 
     // --- GUARDRAIL 1: Input Overload Protection ---
@@ -140,17 +143,10 @@ export async function POST(req) {
       rateLimitStore.set(decoded.userId, recentRequests);
     }
 
-    // --- MODEL ROUTING AND DYNAMIC PRICING ---
-    let targetModel = 'gemini-3.6-flash';
-    let price = '0.001';
-    
-    if (body.modelId === 'fast-lite') {
-      targetModel = 'gemini-3.1-flash-lite';
-      price = '0.0001';
-    } else if (body.modelId === 'pro') {
-      targetModel = 'gemini-3.1-pro';
-      price = '0.01';
-    }
+    const { quotePromptTariff } = await import('opendome/dist/agentTariff.js');
+    const tariff = quotePromptTariff(userPrompt, body.modelId);
+    const targetModel = tariff.apiModel;
+    const price = tariff.x402Amount;
 
     // --- x402 CLASSIC FACILITATOR MIDDLEWARE ---
     if (!decoded) {
@@ -180,22 +176,26 @@ export async function POST(req) {
 
       console.log(`[x402 Facilitator] Signature format valid. Handing over to OpenDomeFacilitator to verify and sponsor transaction for ${parsedPayment.from}...`);
 
-      // 2. Verify mathematically and relay transaction to Base Mainnet
-      const facilitator = new OpenDomeFacilitator(process.env.MERCHANT_PRIVATE_KEY);
-      
-      try {
-        const txHash = await facilitator.verifyAndRelay(parsedPayment.payload, parsedPayment.signature);
-        console.log(`[x402 Facilitator] Transaction confirmed! Payment settled. Hash: ${txHash}`);
-      } catch (err) {
-        console.error('[x402 Facilitator] Error relaying transaction:', err.message);
-        return Response.json({ error: err.message }, { status: 500 });
+      if (process.env.OD_BYPASS_X402 === 'true') {
+        console.warn('[x402 Facilitator] OD_BYPASS_X402 — skipping on-chain relay');
+      } else {
+        // 2. Verify mathematically and relay transaction to Base Mainnet
+        const facilitator = new OpenDomeFacilitator(process.env.MERCHANT_PRIVATE_KEY);
+        
+        try {
+          const txHash = await facilitator.verifyAndRelay(parsedPayment.payload, parsedPayment.signature);
+          console.log(`[x402 Facilitator] Transaction confirmed! Payment settled. Hash: ${txHash}`);
+        } catch (err) {
+          console.error('[x402 Facilitator] Error relaying transaction:', err.message);
+          return Response.json({ error: err.message }, { status: 500 });
+        }
       }
 
       decoded = { userId: 'x402-user', username: 'x402 Payer' };
     }
 
     const config = {
-      tools: circleAgentTools,
+      tools: isOpenAgent ? undefined : circleAgentTools,
       temperature: 0.7,
       systemInstruction: defaultPrompt
     };
@@ -238,13 +238,19 @@ export async function POST(req) {
       return Response.json({
         response: `*(Tool executed: ${call.name})*\n\n${finalResponse.text}`,
         tool_executed: call.name,
-        tool_result: toolResult
+        tool_result: toolResult,
+        model: targetModel,
+        modelLabel: tariff.modelLabel,
+        tariff,
       });
     }
 
     // Standard text response
     return Response.json({
-      response: response.text
+      response: response.text,
+      model: targetModel,
+      modelLabel: tariff.modelLabel,
+      tariff,
     });
 
   } catch (error) {

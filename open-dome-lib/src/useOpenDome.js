@@ -53,8 +53,25 @@ let globalAuthError = null;
 let globalAuthPending = false;
 /** True when opened outside OpenDome host (no iframe) or dock rejected. */
 let globalIsLocked = false;
+/** Shared Blockchain across all useOpenDome() mounts (App config wins). */
+let globalBlockchain = undefined;
 
 const subscribers = new Set();
+
+function resolveBlockchain(config = {}) {
+  // Explicit opt-out for Admin / non-wallet mounts — do not touch the shared instance.
+  if (config.blockchain === false) return null;
+
+  if (config.blockchain && typeof config.blockchain === 'object') {
+    globalBlockchain = new Blockchain(config.blockchain);
+    return globalBlockchain;
+  }
+
+  if (globalBlockchain === undefined) {
+    globalBlockchain = new Blockchain();
+  }
+  return globalBlockchain;
+}
 
 const updateSubscribers = () => {
   subscribers.forEach(fn => {
@@ -111,11 +128,9 @@ export function useOpenDome(config = {}) {
     isLocked: globalIsLocked,
   });
 
-  // Initialize blockchain with provided config — stable reference, never re-created.
-  // Pass blockchain: false to skip (Admin and other non-wallet mini-apps).
-  const [blockchain] = useState(() =>
-    config.blockchain === false ? null : new Blockchain(config.blockchain)
-  );
+  // Shared blockchain singleton — App.js config is used by WalletView / PassesView
+  // even when those children call useOpenDome() with no args.
+  const [blockchain] = useState(() => resolveBlockchain(config));
 
   const getTargetOrigin = () => {
     try {

@@ -39,7 +39,8 @@ function populatePasses(tickets) {
           { trait_type: 'Category', value: eventMeta.category },
           { trait_type: 'Venue', value: eventMeta.placeName },
         ],
-        network: 'Server Bridge (ERC-1155)',
+        network: eventMeta.placeName || 'Base',
+        chain: 'Base',
       };
     }
     return {
@@ -48,7 +49,8 @@ function populatePasses(tickets) {
       amount: ticket.amount,
       description: '',
       attributes: [],
-      network: 'Server Bridge (ERC-1155)',
+      network: 'Base',
+      chain: 'Base',
     };
   });
 }
