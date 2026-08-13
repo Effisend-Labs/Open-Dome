@@ -16,6 +16,11 @@ try {
 } catch (e) {
   console.warn('[api boot] circle:', e.message);
 }
+try {
+  require('./load-opendome');
+} catch (e) {
+  console.warn('[api boot] opendome:', e.message);
+}
 
 const { createRequestHandler } = require('@expo/server/adapter/vercel');
 

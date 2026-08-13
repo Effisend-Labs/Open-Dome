@@ -4,8 +4,13 @@
   "description": "Enterprise SDK for Open-Dome module integration and secure handover.",
   "main": "dist/index.js",
   "module": "src/index.js",
+  "files": [
+    "src",
+    "dist"
+  ],
   "scripts": {
-    "build": "npx babel src --out-dir dist --extensions \".js,.jsx\" --copy-files"
+    "build": "npx babel src --out-dir dist --extensions \".js,.jsx\" --copy-files",
+    "prepack": "npm run build"
   },
   "peerDependencies": {
     "react": ">=16.8.0",

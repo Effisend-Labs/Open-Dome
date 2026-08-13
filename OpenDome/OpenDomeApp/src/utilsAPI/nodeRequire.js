@@ -50,6 +50,7 @@ function collectRequireFiles(id) {
       path.join(root, 'package.json'),
       path.join(root, 'api', 'index.js'),
       path.join(root, 'api', 'load-firestore.js'),
+      path.join(root, 'api', 'load-opendome.js'),
       path.join(root, relPkg),
     ]) {
       if (exists(file)) files.push(file);
@@ -58,14 +59,28 @@ function collectRequireFiles(id) {
   return [...new Set(files)];
 }
 
+function subpathFromPackage(id) {
+  if (!id.startsWith('opendome/')) return null;
+  return `./${id.slice('opendome/'.length)}`;
+}
+
 export function nodeRequire(id) {
   const files = collectRequireFiles(id);
+  const relative = subpathFromPackage(id);
   let lastErr;
   for (const file of files) {
+    const req = createRequire(file);
     try {
-      return createRequire(file)(id);
+      return req(id);
     } catch (err) {
       lastErr = err;
+    }
+    if (relative) {
+      try {
+        return req(relative);
+      } catch (err) {
+        lastErr = err;
+      }
     }
   }
 
