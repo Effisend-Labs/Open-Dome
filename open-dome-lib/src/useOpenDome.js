@@ -4,6 +4,8 @@ import { Location } from './location';
 import { Events } from './events';
 import { Communication } from './communication';
 import { Agent } from './agent';
+import { Host } from './host';
+import { resolveAppCredentials } from './docking';
 
 const ALLOWED_ORIGINS = [
   'https://opendome.expo.app',
@@ -243,22 +245,6 @@ export function useOpenDome(config = {}) {
     if (typeof window !== 'undefined' && window.parent !== window) {
       globalIsLocked = false;
 
-      const appToken =
-        config.appToken ||
-        config.token ||
-        (typeof process !== 'undefined' ? process.env.OD_APP_TOKEN : null) ||
-        (() => {
-          try {
-            // Optional Expo extra injected from OD_APP_TOKEN via app.config.js
-            // eslint-disable-next-line global-require
-            const Constants = require('expo-constants').default;
-            return Constants?.expoConfig?.extra?.odAppToken || null;
-          } catch {
-            return null;
-          }
-        })();
-      const appId = config.appId || (typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_OD_APP_ID : null);
-
       const handleMessage = globalMessageHandler || ((event) => {
         if (!event.data) return;
         if (event.source !== window.parent) return;
@@ -376,33 +362,37 @@ export function useOpenDome(config = {}) {
 
       if (!globalHandshakeInitiated) {
         globalHandshakeInitiated = true;
-        window.parent.postMessage({
-          type: 'OPENDOME_READY',
-          token: appToken || null,
-          appId: appId || null
-        }, getTargetOrigin());
+        resolveAppCredentials(config)
+          .catch(() => ({ appToken: null, appId: null }))
+          .then(({ appToken, appId }) => {
+            window.parent.postMessage({
+              type: 'OPENDOME_READY',
+              token: appToken || null,
+              appId: appId || null
+            }, getTargetOrigin());
 
-        setTimeout(() => {
-          if (globalLoading && !globalIsAuthorized) {
-            if (allowStandaloneDebug(config) && skipAuthEnabled()) {
-              globalToken = 'DEBUG_TOKEN';
-              globalUser = {
-                username: 'DebugUser',
-                evmAddress: '0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681',
-                solanaAddress: 'FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u'
-              };
-              globalContext = { theme: 'light', lang: 'en' };
-              globalIsAuthorized = true;
-              globalIsLocked = false;
-              globalLoading = false;
-            } else {
-              globalIsLocked = true;
-              globalIsAuthorized = false;
-              globalLoading = false;
-            }
-            updateSubscribers();
-          }
-        }, 5000);
+            setTimeout(() => {
+              if (globalLoading && !globalIsAuthorized) {
+                if (allowStandaloneDebug(config) && skipAuthEnabled()) {
+                  globalToken = 'DEBUG_TOKEN';
+                  globalUser = {
+                    username: 'DebugUser',
+                    evmAddress: '0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681',
+                    solanaAddress: 'FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u'
+                  };
+                  globalContext = { theme: 'light', lang: 'en' };
+                  globalIsAuthorized = true;
+                  globalIsLocked = false;
+                  globalLoading = false;
+                } else {
+                  globalIsLocked = true;
+                  globalIsAuthorized = false;
+                  globalLoading = false;
+                }
+                updateSubscribers();
+              }
+            }, 5000);
+          });
       }
 
       return () => {
@@ -469,6 +459,7 @@ export function useOpenDome(config = {}) {
     Location,
     Events,
     Communication,
-    Agent
+    Agent,
+    Host,
   };
 }

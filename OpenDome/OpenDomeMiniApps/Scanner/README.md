@@ -2,6 +2,8 @@
 
 Venue verifier mini-app for **SCANNER**, **ADMIN**, and **GOD** (`@altaga`).
 
+UI only. Talk to the host through `opendome` (`useOpenDome`, `Host.scanLookup`, `Host.scanPass`). No host URLs, no CORS.
+
 ## Local
 
 ```bash
@@ -9,14 +11,4 @@ npm install
 npm run web   # http://localhost:8091
 ```
 
-Requires OpenDomeApp (`8082`). Admin bridge (`8090`) is only needed to **verify & use** (burn) a pass.
-
-## Flow
-
-1. Paste / type guest QR (`opendome:user:…`), `@username`, EVM, or Solana
-2. Lookup resolves profile + passes via host `POST /api/scan-lookup`
-3. **Verify & use** burns 1 unit on-chain via Admin `POST /api/scanner` (staff JWT)
-
-## Auth
-
-Host session JWT must be staff. Admin APIs verify via OpenDome `/api/verify` and role/username.
+Open from OpenDomeApp (`8082`) while signed in as staff.

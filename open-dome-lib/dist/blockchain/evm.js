@@ -8,6 +8,7 @@ var _ethers = require("ethers");
 var _viem = require("viem");
 var _chains = require("viem/chains");
 var _passContract = require("./passContract");
+var _host = require("../host");
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function transfer(address, uint256) returns (bool)'];
 function resolveBridgeUrl(explicit) {
   return (explicit || typeof process !== 'undefined' && process.env?.OPENDOME_BRIDGE_URL || typeof process !== 'undefined' && process.env?.ADMIN_BRIDGE_URL || _passContract.DEFAULT_BRIDGE_URL).replace(/\/$/, '');
@@ -222,6 +223,10 @@ class EVMAdapter {
   }
   async getNFTs(userAddress, contractAddress) {
     try {
+      if (typeof window !== 'undefined' && window.parent !== window) {
+        const data = await _host.Host.scanLookup(userAddress);
+        return Array.isArray(data.passes) ? data.passes : [];
+      }
       const response = await fetch(`${this.bridgeUrl}/api/tickets?address=${encodeURIComponent(userAddress)}`);
       if (!response.ok) {
         throw new Error(`Failed to fetch tickets: ${response.statusText}`);
@@ -315,6 +320,15 @@ class EVMAdapter {
         txHash: receipt.hash,
         mode: 'direct'
       };
+    }
+    if (typeof window !== 'undefined' && window.parent !== window) {
+      return _host.Host.scanPass({
+        network: networkKey(this.chain),
+        contractAddress: resolvePassAddress(contractAddress || this.passAddress),
+        tokenId,
+        amount,
+        account
+      });
     }
     if (!authToken) {
       throw new Error('scanPass requires authToken or privateKey');

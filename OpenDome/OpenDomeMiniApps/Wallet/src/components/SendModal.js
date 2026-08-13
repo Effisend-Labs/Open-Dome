@@ -15,18 +15,13 @@ export default function SendModal({
   onClose,
   tokens,
   isDark,
-  authToken,
-  transferApiUrl,
   solanaAddress,
 }) {
   const [amount, setAmount] = useState('');
   const [destination, setDestination] = useState('');
   const [status, setStatus] = useState('idle');
   const [scanning, setScanning] = useState(false);
-  const { send, error, result, reset } = useSponsoredTransfer({
-    token: authToken,
-    apiUrl: transferApiUrl,
-  });
+  const { send, error, result, reset } = useSponsoredTransfer();
 
   useEffect(() => {
     if (!visible) return;

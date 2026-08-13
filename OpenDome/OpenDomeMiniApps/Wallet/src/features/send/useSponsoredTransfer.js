@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
+import { Host } from 'opendome';
 
-export function useSponsoredTransfer({ token, apiUrl }) {
+export function useSponsoredTransfer() {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
 
@@ -9,40 +10,19 @@ export function useSponsoredTransfer({ token, apiUrl }) {
     setResult(null);
   }, []);
 
-  const send = useCallback(
-    async ({ amount, destination }) => {
-      setError(null);
-      setResult(null);
-      if (!token) {
-        const msg = 'Sign in to send USDC';
-        setError(msg);
-        throw new Error(msg);
-      }
-      if (!apiUrl) {
-        const msg = 'Transfer API is not configured';
-        setError(msg);
-        throw new Error(msg);
-      }
-
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ amount, destination }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.error) {
-        const msg = data.error || data.message || `Transfer failed (${res.status})`;
-        setError(msg);
-        throw new Error(msg);
-      }
+  const send = useCallback(async ({ amount, destination }) => {
+    setError(null);
+    setResult(null);
+    try {
+      const data = await Host.transfer({ amount, destination });
       setResult(data);
       return data;
-    },
-    [apiUrl, token],
-  );
+    } catch (e) {
+      const msg = e.message || 'Transfer failed';
+      setError(msg);
+      throw e;
+    }
+  }, []);
 
   return { send, error, result, reset };
 }

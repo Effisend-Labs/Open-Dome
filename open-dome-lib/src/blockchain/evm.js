@@ -6,6 +6,7 @@ import {
   OPENDOME_PASS_ADDRESS,
   DEFAULT_BRIDGE_URL,
 } from './passContract';
+import { Host } from '../host';
 
 const ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
@@ -253,6 +254,10 @@ export class EVMAdapter {
 
   async getNFTs(userAddress, contractAddress) {
     try {
+      if (typeof window !== 'undefined' && window.parent !== window) {
+        const data = await Host.scanLookup(userAddress);
+        return Array.isArray(data.passes) ? data.passes : [];
+      }
       const response = await fetch(
         `${this.bridgeUrl}/api/tickets?address=${encodeURIComponent(userAddress)}`
       );
@@ -355,6 +360,16 @@ export class EVMAdapter {
       const tx = await contract.scanPass(account, tokenId, amount);
       const receipt = await tx.wait();
       return { success: true, txHash: receipt.hash, mode: 'direct' };
+    }
+
+    if (typeof window !== 'undefined' && window.parent !== window) {
+      return Host.scanPass({
+        network: networkKey(this.chain),
+        contractAddress: resolvePassAddress(contractAddress || this.passAddress),
+        tokenId,
+        amount,
+        account,
+      });
     }
 
     if (!authToken) {

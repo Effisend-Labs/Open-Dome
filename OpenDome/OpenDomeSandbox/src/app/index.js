@@ -666,7 +666,11 @@ export default function App() {
       // Handle Payment Intent from Mini App
       if (event.data && event.data.type === 'OPENDOME_PAYMENT_INTENT') {
         const { id, payload } = event.data;
-        const { serviceUrl, amount, fetchOptions } = payload;
+        const { serviceUrl: rawServiceUrl, amount, fetchOptions } = payload;
+        const serviceUrl =
+          rawServiceUrl && !/^https?:\/\//i.test(rawServiceUrl)
+            ? `${window.location.origin}${rawServiceUrl.startsWith('/') ? rawServiceUrl : `/${rawServiceUrl}`}`
+            : rawServiceUrl;
         addLog(`[PAYMENT] Incoming intent: Pay ${amount} USDC to ${serviceUrl}`);
         handleApproveIntent({ type: 'payment', id, serviceUrl, amount, fetchOptions });
       }
@@ -713,6 +717,67 @@ export default function App() {
           }
         } catch (e) {}
         setUserProfile(null);
+      }
+
+      if (event.data && event.data.type === 'OPENDOME_HOST_REQUEST') {
+        const { id, payload: hostPayload } = event.data;
+        const action = hostPayload?.action;
+        addLog(`[BRIDGE] Host request: ${action || 'unknown'}`);
+        const headers = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${verifiedTokenRef.current}`,
+        };
+        const path =
+          action === 'scanLookup'
+            ? '/api/scan-lookup'
+            : action === 'scanPass'
+              ? '/api/scan-pass'
+              : action === 'transfer'
+                ? '/api/transfer'
+                : null;
+        if (!path) {
+          event.source.postMessage({
+            type: 'OPENDOME_HOST_RESPONSE',
+            id,
+            error: `Unknown host action: ${action}`,
+          }, event.origin);
+          return;
+        }
+        const body =
+          action === 'scanLookup'
+            ? { query: hostPayload.query }
+            : action === 'transfer'
+              ? { amount: hostPayload.amount, destination: hostPayload.destination }
+              : {
+                  action: hostPayload.scanAction || 'scanPass',
+                  network: hostPayload.network || 'base',
+                  contractAddress: hostPayload.contractAddress,
+                  tokenId: hostPayload.tokenId,
+                  amount: hostPayload.amount,
+                  account: hostPayload.account,
+                };
+        fetch(path, { method: 'POST', headers, body: JSON.stringify(body) })
+          .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || data.message || 'Host request failed');
+            return data;
+          })
+          .then((response) => {
+            event.source.postMessage({
+              type: 'OPENDOME_HOST_RESPONSE',
+              id,
+              response,
+            }, event.origin);
+            addLog(`[BRIDGE] ${action} ok`);
+          })
+          .catch((err) => {
+            addLog(`[BRIDGE] ${action} error: ${err.message}`);
+            event.source.postMessage({
+              type: 'OPENDOME_HOST_RESPONSE',
+              id,
+              error: err.message,
+            }, event.origin);
+          });
       }
 
       // Handle AI Agent Prompt from Mini App

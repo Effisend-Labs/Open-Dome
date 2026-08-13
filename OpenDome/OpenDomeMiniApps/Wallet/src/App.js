@@ -22,10 +22,8 @@ const TABS = [
 
 const TAB_INDEX = { WALLET: 0, PASSES: 1, AGENT: 2, USER: 3 };
 
-export default function App({ appId, appToken }) {
+export default function App() {
   const { isAuthorized, isLocked, token, user, context, loading, register, login } = useOpenDome({
-    appId: appId || process.env.EXPO_PUBLIC_OD_APP_ID,
-    appToken,
     blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] }
   });
 

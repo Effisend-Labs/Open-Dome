@@ -13,10 +13,8 @@ import { CreditsBadge } from './features/credits/CreditsBadge';
 import { useUsdcCredits } from './features/credits/useUsdcCredits';
 import { openBaseScan, usdcExplorerUrl } from './features/explorer/baseScan';
 
-export default function App({ appId, appToken }) {
+export default function App() {
   const { isAuthorized, isLocked, user, context, loading, register, login, logout, authPending, authError } = useOpenDome({
-    appId: appId || process.env.EXPO_PUBLIC_OD_APP_ID,
-    appToken,
     blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] },
   });
 

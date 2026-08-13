@@ -10,6 +10,7 @@ export * from './quote';
 export * from './pricing';
 export * from './communication';
 export * from './agent';
+export * from './host';
 export * from './agentTariff';
 export * from './openAgentPrompt';
 export * from './agentSkills';

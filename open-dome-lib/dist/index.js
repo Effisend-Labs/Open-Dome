@@ -135,6 +135,17 @@ Object.keys(_agent).forEach(function (key) {
     }
   });
 });
+var _host = require("./host");
+Object.keys(_host).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (key in exports && exports[key] === _host[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _host[key];
+    }
+  });
+});
 var _agentTariff = require("./agentTariff");
 Object.keys(_agentTariff).forEach(function (key) {
   if (key === "default" || key === "__esModule") return;

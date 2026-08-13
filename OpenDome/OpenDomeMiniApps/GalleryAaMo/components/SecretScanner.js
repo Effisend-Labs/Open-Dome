@@ -95,16 +95,11 @@ export default function SecretScanner({ tokens }) {
 
     setIsProcessing(true);
     try {
-      const authToken = process.env.EXPO_PUBLIC_ADMIN_SCANNER_TOKEN;
-      if (!authToken) {
-        throw new Error('EXPO_PUBLIC_ADMIN_SCANNER_TOKEN is not set');
-      } 
-
       if (isReusable) {
-        await blockchain.consumePassAccess(network, contractAddress, tokenId, consumeAmount, authToken);
+        await blockchain.consumePassAccess(network, contractAddress, tokenId, consumeAmount);
         Alert.alert("Redemption Successful", `Consumed ${consumeAmount} access(es) for Token #${tokenId}`);
       } else {
-        await blockchain.markTicketAsUsed(network, contractAddress, tokenId, authToken);
+        await blockchain.markTicketAsUsed(network, contractAddress, tokenId);
         Alert.alert("Redemption Successful", `Ticket #${tokenId} marked as used.`);
       }
       setAvailabilityMsg(null);

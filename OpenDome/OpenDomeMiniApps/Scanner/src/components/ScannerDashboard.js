@@ -39,7 +39,7 @@ export default function ScannerDashboard({ hostToken, currentUser }) {
     usePass,
     resetGuest,
     pasteClipboard,
-  } = useGuestLookup(hostToken);
+  } = useGuestLookup();
 
   const onQrDetected = (value) => {
     setMode('paste');

@@ -6,7 +6,6 @@ import { GLOBAL_STYLES } from '../theme';
 import SendModal from './SendModal';
 import ReceiveModal from './ReceiveModal';
 import { AuthRequiredPanel } from '../features/auth/AuthRequiredPanel';
-import { getTransferApiUrl } from '../config/agentSettings';
 
 // Chain logos
 import imgBase from '../assets/base.png';
@@ -235,7 +234,7 @@ const NetworkRow = ({ chainKey, balanceData, address, tokens, isDark, onCopy, co
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) {
-  const { blockchain, user, isAuthorized, token } = useOpenDome();
+  const { blockchain, user, isAuthorized } = useOpenDome();
   const [balances, setBalances] = useState({});
   const [loading, setLoading] = useState(true);
   const [copiedKey, setCopiedKey] = useState(null);
@@ -478,8 +477,6 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
         onClose={() => setShowSendModal(false)} 
         tokens={tokens} 
         isDark={isDark}
-        authToken={token}
-        transferApiUrl={getTransferApiUrl()}
         solanaAddress={solAddr}
       />
 

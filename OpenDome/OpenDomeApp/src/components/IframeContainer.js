@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, space, radii, type as typeTokens, shadow } from '../core/tokens';
+import { runHostRequest, resolveHostServiceUrl } from '../features/bridge/runHostRequest';
 
 export default function IframeContainer({
   activeUrl,
@@ -174,7 +175,8 @@ export default function IframeContainer({
       // 2b. x402 Payment Intent (Wallet Agent checkout / paid APIs)
       if (type === 'OPENDOME_PAYMENT_INTENT') {
         const { id, payload: payPayload } = event.data;
-        const { serviceUrl, amount, fetchOptions } = payPayload || {};
+        const { serviceUrl: rawServiceUrl, amount, fetchOptions } = payPayload || {};
+        const serviceUrl = resolveHostServiceUrl(rawServiceUrl);
         onAddLog(`[Bridge] Payment intent: ${amount} USDC → ${serviceUrl}`);
 
         if (!verifiedToken) {
@@ -357,6 +359,34 @@ export default function IframeContainer({
       if (type === 'OPENDOME_LOGOUT') {
         onAddLog('[Bridge] Received logout command. Resetting Host user profile.');
         onUserAuthChanged({ token: null, profile: null, jwt: null });
+      }
+
+      // 5b. Mini-app host APIs (Scanner lookup / use) — same-origin on the host
+      if (type === 'OPENDOME_HOST_REQUEST') {
+        const { id, payload: hostPayload } = event.data;
+        const sourceWindow = event.source;
+        try {
+          if (!verifiedToken) {
+            throw new Error('Not authenticated. Sign in on OpenDome first.');
+          }
+          onAddLog(`[Bridge] Host request: ${hostPayload?.action || 'unknown'}`);
+          const response = await runHostRequest(hostPayload, verifiedToken);
+          if (sourceWindow) {
+            sourceWindow.postMessage(
+              { type: 'OPENDOME_HOST_RESPONSE', id, response },
+              origin,
+            );
+          }
+        } catch (hostErr) {
+          onAddLog(`[Bridge] Host request error: ${hostErr.message}`);
+          if (sourceWindow) {
+            sourceWindow.postMessage(
+              { type: 'OPENDOME_HOST_RESPONSE', id, error: hostErr.message },
+              origin,
+            );
+          }
+        }
+        return;
       }
 
       // 6. Handle AI Agent Prompt from Mini App

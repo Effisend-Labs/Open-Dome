@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Agent } from 'opendome';
 import { quotePromptTariff, GEMINI_CHAT_MODELS } from 'opendome/src/agentTariff.js';
-import { getAgentApiUrl } from '../../config/host';
 
 export function useAgentChat({ isAuthorized, onNeedAuth, onPaid, modelId: modelIdProp, onChangeModel }) {
   const [messages, setMessages] = useState([]);
@@ -45,7 +44,7 @@ export function useAgentChat({ isAuthorized, onNeedAuth, onPaid, modelId: modelI
     setIsTyping(true);
 
     try {
-      const res = await Agent.pay(getAgentApiUrl(), intent.quote.x402Amount, {
+      const res = await Agent.pay('/api/agent', intent.quote.x402Amount, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

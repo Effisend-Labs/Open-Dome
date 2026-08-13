@@ -1,29 +1,3 @@
-import { getOpenDomeAppClientUrl } from './hostUrls';
-
-export async function scannerFetch(path, { token, method = 'GET', body } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-    headers['X-OpenDome-Jwt'] = token;
-  }
-  const res = await fetch(path, {
-    method,
-    headers,
-    body: body != null ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || data.message || `Request failed (${res.status})`);
-  }
-  return data;
-}
-
-/** OpenDomeApp owns tickets + chain. Scanner is UI only. */
-export function hostFetch(path, opts) {
-  const base = getOpenDomeAppClientUrl();
-  return scannerFetch(`${base}${path}`, opts);
-}
-
 export function parseScanQuery(raw) {
   const q = String(raw || '').trim();
   if (!q) return { type: 'empty', value: '' };

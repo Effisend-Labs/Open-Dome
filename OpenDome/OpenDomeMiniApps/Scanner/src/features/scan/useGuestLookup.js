@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
-import { parseScanQuery, hostFetch } from '../../core/scannerApi';
+import { Host } from 'opendome';
+import { parseScanQuery } from '../../core/scannerApi';
 import { formatPublicError } from '../../core/formatPublicError';
 import {
   loadRecentScans,
@@ -18,7 +19,7 @@ function clampBurnAmount(pass, amount) {
   return Math.min(n, max);
 }
 
-export default function useGuestLookup(hostToken) {
+export default function useGuestLookup() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [usingId, setUsingId] = useState(null);
@@ -61,11 +62,7 @@ export default function useGuestLookup(hostToken) {
       setQuery(raw);
       setLoading(true);
       try {
-        const data = await hostFetch('/api/scan-lookup', {
-          token: hostToken,
-          method: 'POST',
-          body: { query: raw },
-        });
+        const data = await Host.scanLookup(raw);
         const nextProfile = data.profile || null;
         const nextPasses = Array.isArray(data.passes) ? data.passes : [];
         setProfile(nextProfile);
@@ -95,7 +92,7 @@ export default function useGuestLookup(hostToken) {
         setLoading(false);
       }
     },
-    [hostToken, query],
+    [query],
   );
 
   const usePass = useCallback(
@@ -110,17 +107,12 @@ export default function useGuestLookup(hostToken) {
       setError('');
       setFlash('');
       try {
-        const data = await hostFetch('/api/scan-pass', {
-          token: hostToken,
-          method: 'POST',
-          body: {
-            action: 'scanPass',
-            network: 'base',
-            contractAddress: pass.contractAddress || DEFAULT_CONTRACT,
-            tokenId: pass.tokenId,
-            amount: burnAmount,
-            account: profile.evmAddress,
-          },
+        const data = await Host.scanPass({
+          network: 'base',
+          contractAddress: pass.contractAddress || DEFAULT_CONTRACT,
+          tokenId: pass.tokenId,
+          amount: burnAmount,
+          account: profile.evmAddress,
         });
         setStats((s) => ({ ...s, used: s.used + burnAmount }));
         const shortTx = data.txHash ? `${data.txHash.slice(0, 10)}…` : 'ok';
@@ -135,11 +127,7 @@ export default function useGuestLookup(hostToken) {
             .filter(Boolean),
         );
         try {
-          const refreshed = await hostFetch('/api/scan-lookup', {
-            token: hostToken,
-            method: 'POST',
-            body: { query: query.trim() },
-          });
+          const refreshed = await Host.scanLookup(query.trim());
           setPasses(Array.isArray(refreshed.passes) ? refreshed.passes : []);
           setProfile(refreshed.profile || profile);
         } catch {
@@ -153,7 +141,7 @@ export default function useGuestLookup(hostToken) {
         setUsingId(null);
       }
     },
-    [hostToken, profile, query],
+    [profile, query],
   );
 
   const pasteClipboard = useCallback(async () => {
