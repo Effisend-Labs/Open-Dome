@@ -5,7 +5,7 @@
  * Firestore / Circle MUST be top-level requires (see load-*.js). Lazy
  * `() => require(...)` is invisible to NFT, which is why check-username
  * still 500'd with Cannot find module '@google-cloud/firestore'.
- */
+ */ 
 try {
   require('./load-firestore');
 } catch (e) {
