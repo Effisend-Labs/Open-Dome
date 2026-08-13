@@ -49,7 +49,11 @@ export function useKeyboardDodge() {
 
   return {
     fieldRef,
-    onFocus: () => setFocused(true),
+    onFocus: (event) => {
+      const node = event?.target || event?.nativeEvent?.target;
+      if (node?.getBoundingClientRect) fieldRef.current = node;
+      setFocused(true);
+    },
     onBlur: () => setFocused(false),
     dodgeStyle:
       shift > 0

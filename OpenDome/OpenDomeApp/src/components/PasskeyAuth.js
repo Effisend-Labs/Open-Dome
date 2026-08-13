@@ -337,7 +337,7 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
     !usernameInput.trim();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dodgeStyle]}>
       <View style={styles.tabContainer}>
         <Pressable
           style={[styles.tabButton, mode === 'login' && styles.activeTab]}
@@ -364,6 +364,7 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
           <View style={styles.inputWrapper}>
             <Text style={styles.label}>Choose Username</Text>
             <TextInput
+              ref={fieldRef}
               style={styles.textInput}
               placeholder="e.g. victor_altaga"
               placeholderTextColor={theme.text.muted || '#8E8E93'}
@@ -380,15 +381,8 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
               blurOnSubmit={false}
               editable={!loading}
               accessibilityLabel="Username"
-              onFocus={(event) => {
-                onInputFocusChange?.(true);
-                const node = event?.target;
-                if (Platform.OS !== 'web' || !node?.scrollIntoView) return;
-                requestAnimationFrame(() => {
-                  node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                });
-              }}
-              onBlur={() => onInputFocusChange?.(false)}
+              onFocus={onFieldFocus}
+              onBlur={onFieldBlur}
             />
             <Text
               style={[

@@ -95,13 +95,13 @@ describe('Blockchain Handler Logic', () => {
 
   describe('Error Masking', () => {
     it('should never include CIRCLE_API_KEY in error messages', () => {
-      const fakeApiKey = 'LIVE_API_KEY:53cce4ded3d2f66f68c47caae2061a2d:c888d50978d6b7bfe0eade6623d8d085';
+      const fakeApiKey = 'TEST_API_KEY:deadbeef:not-a-real-key';
       const sanitizedError = 'An internal server error occurred. Please contact support.';
       assert.ok(!sanitizedError.includes(fakeApiKey), 'Error response must not contain API keys');
     });
 
     it('should never include CIRCLE_ENTITY_SECRET in error messages', () => {
-      const fakeSecret = '78ac1083d006359015427bf6edae6ed860e6a9cf4db08c853b9ea9bc0817b904';
+      const fakeSecret = '00'.repeat(32);
       const sanitizedError = 'An internal server error occurred. Please contact support.';
       assert.ok(!sanitizedError.includes(fakeSecret), 'Error response must not contain entity secrets');
     });

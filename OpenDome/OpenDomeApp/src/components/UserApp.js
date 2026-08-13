@@ -1,12 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform, Image } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import PasskeyAuth from './PasskeyAuth';
-import { KeyboardScroll } from '../features/shell/KeyboardScroll';
 
 const parseJwt = (t) => {
   if (!t) return null;
@@ -41,7 +40,6 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
   }, [verifiedToken]);
 
   const [avatarUri, setAvatarUri] = useState(null);
-  const [usernameFocused, setUsernameFocused] = useState(false);
 
   useEffect(() => {
     const loadAvatar = async () => {
@@ -83,13 +81,12 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
   const s = StyleSheet.create({
     container: {
       flex: 1,
-      minHeight: 0,
-      position: 'relative',
       backgroundColor: 'transparent',
     },
     scrollContent: {
       padding: n(24),
       paddingTop: n(40),
+      paddingBottom: n(120),
     },
     header: {
       marginBottom: n(32),
@@ -225,8 +222,7 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
 
   return (
     <View style={s.container}>
-      <KeyboardScroll dockPad={n(120)} forceSpacer={usernameFocused}>
-        <View style={s.scrollContent}>
+      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={s.header}>
           <Text style={s.title}>{userProfile ? 'Profile' : 'Account'}</Text>
           <Text style={s.subtitle}>
@@ -287,12 +283,10 @@ export default function UserApp({ verifiedToken, onAuthSuccess, onLogout }) {
             <PasskeyAuth
               onAuthSuccess={onAuthSuccess}
               addLog={(msg) => console.log(msg)}
-              onInputFocusChange={setUsernameFocused}
             />
           </View>
         )}
-        </View>
-      </KeyboardScroll>
+      </ScrollView>
     </View>
   );
 }
