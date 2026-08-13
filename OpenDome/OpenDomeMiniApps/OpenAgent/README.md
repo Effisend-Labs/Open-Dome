@@ -12,7 +12,7 @@ npm install
 npm run web
 ```
 
-Port **8086**. Install **OpenAgent** from the host store.
+Local: port **8086**. Production: `https://agent.opendome.xyz`. Install **OpenAgent** from the host store.
 
 ## Models
 

@@ -50,7 +50,7 @@ export async function GET(request) {
         request,
         8086,
         'OPENAGENT_MINIAPP_URL',
-        'https://openagent.opendome.xyz/'
+        'https://agent.opendome.xyz/'
       ),
     },
     {

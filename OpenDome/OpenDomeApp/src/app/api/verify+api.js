@@ -27,7 +27,7 @@ const ALLOWED_ORIGINS = [
   'https://wallet.opendome.xyz',
   'https://admin.opendome.xyz',
   'https://scanner.opendome.xyz',
-  'https://openagent.opendome.xyz',
+  'https://agent.opendome.xyz',
   'https://miniapp.expo.app',
 ];
 

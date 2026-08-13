@@ -90,6 +90,9 @@ out
 # Nuxt.js build / generate output
 .nuxt
 dist
+# SDK is consumed via dist/ on Vercel — keep compiled output trackable
+!open-dome-lib/dist/
+!open-dome-lib/dist/**
 
 # Gatsby files
 .cache/
