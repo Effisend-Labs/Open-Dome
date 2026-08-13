@@ -29,13 +29,7 @@
       "nodeModules": [
         "@google-cloud/firestore",
         "@circle-fin/developer-controlled-wallets",
-        "@simplewebauthn/server",
-        "@google/genai",
-        "jsonwebtoken",
-        "ethers",
-        "opendome",
-        "tslib",
-        "uuid"
+        "@google/genai"
       ]
     },
     "plugins": [

@@ -1,16 +1,11 @@
 /**
- * Vercel serverless entry.
+ * Vercel catch-all. Keep this file tiny.
  *
- * Static requires exist so Node File Trace copies these into /var/task.
- * API routes load them via nodeRequire (string-split) which NFT cannot see.
+ * Never require('opendome') here — package main loads useOpenDome → React,
+ * and React is not on the Lambda module path (crash: Cannot find module 'react').
+ * Firestore / Circle / GenAI are traced via nft-server-sdks.js (lazy fns).
  */
-require('@google-cloud/firestore');
-require('@circle-fin/developer-controlled-wallets');
-require('@simplewebauthn/server');
-require('@google/genai');
-require('jsonwebtoken');
-require('ethers');
-require('opendome');
+require('./nft-server-sdks');
 
 const { createRequestHandler } = require('@expo/server/adapter/vercel');
 
