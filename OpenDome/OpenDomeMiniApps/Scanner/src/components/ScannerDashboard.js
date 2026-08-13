@@ -164,7 +164,7 @@ export default function ScannerDashboard({ hostToken, currentUser }) {
             <Text style={s.emptySub}>
               Scan a guest QR, or paste an @username or wallet.
             </Text>
-          ) : null}
+          ) : null
         }
       />
       <UsePassModal
