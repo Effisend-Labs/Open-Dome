@@ -22,15 +22,17 @@ function holdCode(stop, index) {
 }
 
 export function buildVenueHolds(proposal) {
-  return (proposal?.stops || []).map((stop, index) => ({
-    id: String(stop.amenityId || stop.id || `stop-${index}`),
-    title: stop.title,
-    placeName: stop.placeName,
-    slot: `${stop.startTime} – ${stop.endTime}`,
-    kind: stop.kind,
-    status: 'idle',
-    holdCode: holdCode(stop, index),
-  }));
+  return (proposal?.stops || [])
+    .filter((stop) => stop.enabled !== false)
+    .map((stop, index) => ({
+      id: String(stop.amenityId || stop.id || `stop-${index}`),
+      title: stop.title,
+      placeName: stop.placeName,
+      slot: `${stop.startTime} – ${stop.endTime}`,
+      kind: stop.kind,
+      status: 'idle',
+      holdCode: holdCode(stop, index),
+    }));
 }
 
 /**

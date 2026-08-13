@@ -4,7 +4,7 @@ import {
   isItineraryFollowUpIntent,
 } from 'opendome/src/planner';
 import { quoteItineraryProposal } from 'opendome/src/quote';
-import { adoptCouncilCandidate } from 'opendome/src/dayPlannerAgents';
+import { adoptCouncilCandidate, toggleProposalStop } from 'opendome/src/dayPlannerAgents';
 import { isPlanningIntent } from 'opendome/src/itinerary';
 import {
   COUNCIL_PHASES,
@@ -129,6 +129,7 @@ export function useDomeChat({ token } = {}) {
     const chosenName = next.council?.candidates?.find((c) => c.id === agentId)?.name || winnerName;
     const overridden = agentId !== next.council?.winner?.id;
     patchSession({ proposal: next, quote, awaitingConfirm: true });
+    setSheetProposal((prev) => (prev ? next : prev));
     const councilId = session?.councilMessageId;
     if (!councilId) return;
     setConversation((prev) =>
@@ -142,6 +143,55 @@ export function useDomeChat({ token } = {}) {
               note: overridden
                 ? `Winner stays ${winnerName}. You chose ${chosenName}. OK books ${quote.totalLabel}.`
                 : `Winner: ${winnerName}. OK books ${quote.totalLabel}.`,
+            }
+          : m,
+      ),
+    );
+  }, [isTyping, patchSession, session]);
+
+  const handleUpdatePlan = useCallback((nextProposal, nextQuote) => {
+    if (!nextProposal || isTyping) return;
+    const quote = nextQuote || quoteItineraryProposal(nextProposal);
+    if (!quote) return;
+    patchSession({
+      proposal: nextProposal,
+      quote,
+      awaitingConfirm: session?.awaitingConfirm ?? true,
+    });
+    setSheetProposal(null);
+    const councilId = session?.councilMessageId;
+    if (!councilId) return;
+    setConversation((prev) =>
+      prev.map((m) =>
+        m.id === councilId
+          ? {
+              ...m,
+              proposal: nextProposal,
+              quote,
+              note: `Updated plan. OK books ${quote.totalLabel}.`,
+            }
+          : m,
+      ),
+    );
+  }, [isTyping, patchSession, session]);
+
+  const handleToggleStop = useCallback((stopIndex) => {
+    if (!session?.proposal || isTyping) return;
+    const { proposal: next, changed } = toggleProposalStop(session.proposal, stopIndex);
+    if (!changed) return;
+    const quote = quoteItineraryProposal(next);
+    patchSession({ proposal: next, quote, awaitingConfirm: session.awaitingConfirm });
+    setSheetProposal(next);
+    const councilId = session?.councilMessageId;
+    if (!councilId || !quote) return;
+    setConversation((prev) =>
+      prev.map((m) =>
+        m.id === councilId
+          ? {
+              ...m,
+              proposal: next,
+              quote,
+              note: `Customized plan. OK books ${quote.totalLabel}.`,
             }
           : m,
       ),
@@ -337,6 +387,8 @@ export function useDomeChat({ token } = {}) {
     send,
     handlePlanDay,
     handlePickCouncilAgent,
+    handleToggleStop,
+    handleUpdatePlan,
     runFulfillment,
     selectEvent,
   };

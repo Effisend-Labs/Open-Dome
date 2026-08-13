@@ -46,7 +46,7 @@ export default function DomeAgentView({ verifiedToken }) {
         onPlanDay={chat.handlePlanDay}
         onSelectAgent={chat.handlePickCouncilAgent}
         onConfirm={(opts) => chat.runFulfillment(opts)}
-        onViewPlan={chat.setSheetProposal}
+        onViewPlan={(p) => chat.setSheetProposal(chat.session?.proposal || p)}
       />
 
       <View style={{ paddingBottom: keyboardInset > 80 ? n(12) : n(108), zIndex: 4 }}>
@@ -66,8 +66,8 @@ export default function DomeAgentView({ verifiedToken }) {
         <ItineraryProposalSheet
           proposal={chat.sheetProposal}
           tokens={tokens}
-          totalLabel={chat.session?.quote?.totalLabel}
           onClose={() => chat.setSheetProposal(null)}
+          onUpdate={chat.handleUpdatePlan}
         />
       ) : null}
     </View>

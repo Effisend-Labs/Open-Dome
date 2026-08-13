@@ -15,7 +15,9 @@ function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e
 const SLOT_TAGS = exports.SLOT_TAGS = {
   morning: ['play', 'sport', 'family', 'thrill', 'culture'],
   lunch: ['eat', 'food'],
-  afternoon: ['relax', 'spa', 'culture', 'play']
+  afternoon: ['relax', 'spa', 'culture', 'play'],
+  /** After the main event — spa, dinner, quiet wind-down. */
+  after: ['relax', 'spa', 'eat', 'food', 'culture']
 };
 
 /**
@@ -176,6 +178,8 @@ function scoreAmenity(amenity, slot, {
   if (slot === 'morning' && aTags.includes('thrill') && eventProfile?.energy === 'high') score += 1;
   if (slot === 'lunch' && amenity.id === 'laqua-lunch' && eventProfile?.energy === 'chill') score += 0.5;
   if (slot === 'lunch' && amenity.id === 'tdc-food-court' && eventProfile?.energy === 'high') score += 1;
+  if (slot === 'after' && aTags.includes('spa')) score += 2;
+  if (slot === 'after' && aTags.some(t => ['eat', 'food'].includes(t))) score += 1.5;
 
   // Deterministic jitter from event seed so ties resolve differently per event
   const unit = seedUnit((eventProfile?.seed || 0) + amenity.id.length * 17 + slot.length);
@@ -192,6 +196,7 @@ function rankAmenitiesForSlot(slot, usedIds, options = {}) {
     userIntent,
     userText,
     anchorStartMinutes,
+    eventEndMinutes,
     travelBufferMinutes = 20,
     tagBias = {}
   } = options;
@@ -201,6 +206,14 @@ function rankAmenitiesForSlot(slot, usedIds, options = {}) {
     if (slot === 'afternoon' && anchorStartMinutes != null) {
       const latestEnd = anchorStartMinutes - travelBufferMinutes;
       if ((a.openFromMinutes ?? 0) + a.durationMinutes > latestEnd) return false;
+    }
+    if (slot === 'after' && eventEndMinutes != null) {
+      const earliestStart = eventEndMinutes + travelBufferMinutes;
+      const open = a.openFromMinutes ?? 0;
+      const close = a.openToMinutes ?? 1440;
+      const duration = a.durationMinutes || 60;
+      const start = Math.max(earliestStart, open);
+      if (start + duration > close) return false;
     }
     return true;
   });

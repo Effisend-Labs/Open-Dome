@@ -10,13 +10,16 @@ import {
 const TRAVEL_BUFFER = 20;
 const SLOT_GAP = 15;
 const DAY_START = 540; // 09:00
-const SLOTS = ['morning', 'lunch', 'afternoon'];
+const PRE_SLOTS = ['morning', 'lunch', 'afternoon'];
+const AFTER_SLOT = 'after';
+const SLOTS = [...PRE_SLOTS, AFTER_SLOT];
 
 const SLOT_LABELS = {
   morning: 'Morning',
   lunch: 'Lunch',
   afternoon: 'Afternoon',
   evening: 'Main Event',
+  after: 'After the show',
 };
 
 /** Planner personas — each builds a full candidate day. */
@@ -30,6 +33,7 @@ export const DAY_PLANNER_AGENTS = [
       morning: ['thunder-dolphin', 'batting-corner'],
       lunch: ['tdc-food-court'],
       afternoon: ['batting-corner', 'thunder-dolphin'],
+      after: ['tdc-food-court', 'spa-laqua'],
     },
   },
   {
@@ -41,6 +45,7 @@ export const DAY_PLANNER_AGENTS = [
       morning: ['tenq', 'gallery-aamo'],
       lunch: ['laqua-lunch'],
       afternoon: ['spa-laqua', 'tenq'],
+      after: ['spa-laqua', 'laqua-lunch'],
     },
   },
   {
@@ -52,6 +57,7 @@ export const DAY_PLANNER_AGENTS = [
       morning: ['gallery-aamo', 'tenq'],
       lunch: ['laqua-lunch'],
       afternoon: ['tenq', 'gallery-aamo'],
+      after: ['gallery-aamo', 'spa-laqua'],
     },
   },
   {
@@ -63,6 +69,7 @@ export const DAY_PLANNER_AGENTS = [
       morning: ['aso-bono', 'go-fun'],
       lunch: ['tdc-food-court'],
       afternoon: ['go-fun', 'aso-bono'],
+      after: ['tdc-food-court', 'spa-laqua'],
     },
   },
 ];
@@ -109,7 +116,7 @@ function fillerSignature(stops) {
 
 // ── ScoutAgent ────────────────────────────────────────────────────────────────
 /** Picks related amenities per slot with persona bias. */
-export function runScoutAgent(agent, { eventProfile, userIntent, doors, bannedIds } = {}) {
+export function runScoutAgent(agent, { eventProfile, userIntent, doors, eventEnds, bannedIds } = {}) {
   const used = new Set(bannedIds || []);
   const picks = [];
   const notes = [];
@@ -121,6 +128,7 @@ export function runScoutAgent(agent, { eventProfile, userIntent, doors, bannedId
       // Persona identity first — user prompt is applied by the critic, not all four scouts
       userText: '',
       anchorStartMinutes: doors,
+      eventEndMinutes: eventEnds,
       travelBufferMinutes: TRAVEL_BUFFER,
       tagBias: agent.tagBias,
     });
@@ -140,46 +148,47 @@ export function runScoutAgent(agent, { eventProfile, userIntent, doors, bannedId
 // ── SchedulerAgent ────────────────────────────────────────────────────────────
 /**
  * Places scout picks on a timeline — open hours, duration, gaps, doors deadline.
- * Drops or squeezes stops that cannot legally fit.
+ * Pre-event slots must finish before doors; after-event slots start after the show.
+ * Drops stops that cannot legally fit.
  */
 export function runSchedulerAgent({ picks, doors, event, dayStart = DAY_START }) {
   const latestEnd = doors - TRAVEL_BUFFER;
+  const anchorStart = event.fromTimeMinutes ?? doors;
+  const anchorEnd = event.toTimeMinutes ?? anchorStart + 120;
   let cursor = dayStart;
   const stops = [];
   const notes = [];
   const violations = [];
 
-  for (const pick of picks) {
+  const placeFiller = (pick, { earliest, latest, cursorStart }) => {
     const a = pick.amenity;
     const open = a.openFromMinutes ?? dayStart;
     const close = a.openToMinutes ?? 1440;
     const duration = a.durationMinutes || 60;
 
-    let start = Math.max(cursor, open);
+    let start = Math.max(cursorStart, open, earliest ?? 0);
     let end = start + duration;
 
-    // Must finish before doors buffer
-    if (end > latestEnd) {
-      const squeezedStart = latestEnd - duration;
-      if (squeezedStart >= open && squeezedStart >= cursor - 5) {
+    if (latest != null && end > latest) {
+      const squeezedStart = latest - duration;
+      if (squeezedStart >= open && squeezedStart >= cursorStart - 5) {
         start = Math.max(squeezedStart, open);
         end = start + duration;
-        notes.push(`Squeezed ${a.name} to end ${formatTime(end)} before doors`);
+        notes.push(`Squeezed ${a.name} to end ${formatTime(end)}`);
       } else {
-        violations.push(`${a.name} cannot finish before doors (${formatTime(latestEnd)})`);
+        violations.push(`${a.name} cannot fit in ${formatTime(earliest ?? 0)}–${formatTime(latest)}`);
         notes.push(`Dropped ${a.name} — duration ${duration}m won't fit`);
-        continue;
+        return null;
       }
     }
 
-    // Must be open for the whole window
     if (start < open || end > close) {
       violations.push(`${a.name} outside open hours ${formatTime(open)}–${formatTime(close)}`);
       notes.push(`Dropped ${a.name} — outside open hours`);
-      continue;
+      return null;
     }
 
-    stops.push({
+    return {
       kind: 'filler',
       slot: pick.slot,
       slotLabel: SLOT_LABELS[pick.slot],
@@ -196,13 +205,24 @@ export function runSchedulerAgent({ picks, doors, event, dayStart = DAY_START })
       coordinates: a.coordinates,
       amenityId: a.id,
       scoutScore: pick.scoutScore,
-    });
+      enabled: true,
+    };
+  };
 
-    cursor = end + SLOT_GAP;
+  const prePicks = (picks || []).filter((p) => PRE_SLOTS.includes(p.slot));
+  const afterPicks = (picks || []).filter((p) => p.slot === AFTER_SLOT);
+
+  for (const pick of prePicks) {
+    const stop = placeFiller(pick, {
+      earliest: dayStart,
+      latest: latestEnd,
+      cursorStart: cursor,
+    });
+    if (!stop) continue;
+    stops.push(stop);
+    cursor = stop.endMinutes + SLOT_GAP;
   }
 
-  const anchorStart = event.fromTimeMinutes ?? doors;
-  const anchorEnd = event.toTimeMinutes ?? anchorStart + 120;
   stops.push({
     kind: 'anchor',
     slot: 'evening',
@@ -220,7 +240,21 @@ export function runSchedulerAgent({ picks, doors, event, dayStart = DAY_START })
     coordinates: event.coordinates,
     event,
     thumbnail: event.thumbnail,
+    enabled: true,
   });
+
+  cursor = anchorEnd + TRAVEL_BUFFER;
+  for (const pick of afterPicks) {
+    const stop = placeFiller(pick, {
+      earliest: anchorEnd + TRAVEL_BUFFER,
+      latest: null,
+      cursorStart: cursor,
+    });
+    if (!stop) continue;
+    stops.push(stop);
+    cursor = stop.endMinutes + SLOT_GAP;
+    notes.push(`After show: ${stop.title} ${stop.startTime}–${stop.endTime}`);
+  }
 
   stops.sort((a, b) => a.startMinutes - b.startMinutes);
 
@@ -242,6 +276,11 @@ export function runCriticAgent(candidates, { eventProfile, userIntent, userText,
     if (fillers.length >= 3) {
       score += 6;
       reasons.push('full morning→lunch→afternoon');
+    }
+    const hasAfter = fillers.some((s) => s.slot === AFTER_SLOT);
+    if (hasAfter) {
+      score += 8;
+      reasons.push('includes after-show plan');
     }
 
     // Feasibility
@@ -327,6 +366,7 @@ export function runDayPlannerCouncil({ event, userText, agentCount = 4 } = {}) {
       userIntent,
       userText,
       doors: anchor.doors,
+      eventEnds: anchor.ends,
       bannedIds,
     });
     let scheduled = runSchedulerAgent({
@@ -344,6 +384,7 @@ export function runDayPlannerCouncil({ event, userText, agentCount = 4 } = {}) {
         userIntent,
         userText,
         doors: anchor.doors,
+        eventEnds: anchor.ends,
         bannedIds,
       });
       scheduled = runSchedulerAgent({
@@ -435,11 +476,41 @@ export function adoptCouncilCandidate(proposal, agentId) {
   if (!cand?.stops?.length) return proposal;
   return {
     ...proposal,
-    stops: cand.stops,
+    stops: cand.stops.map((s) => ({ ...s, enabled: s.enabled !== false })),
     summary: cand.stops.map((s) => `${s.startTime} · ${s.title}`).join(' → '),
     council: {
       ...proposal.council,
       chosenId: agentId,
     },
+  };
+}
+
+/**
+ * Toggle a stop on/off for checkout. Anchor (main event) stays locked on.
+ * @returns {{ proposal: object, changed: boolean }}
+ */
+export function toggleProposalStop(proposal, stopIndex) {
+  if (!proposal?.stops?.length) return { proposal, changed: false };
+  const index = Number(stopIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= proposal.stops.length) {
+    return { proposal, changed: false };
+  }
+  const target = proposal.stops[index];
+  if (target.kind === 'anchor') return { proposal, changed: false };
+
+  const stops = proposal.stops.map((s, i) => {
+    if (i !== index) return s;
+    return { ...s, enabled: s.enabled === false };
+  });
+  return {
+    proposal: {
+      ...proposal,
+      stops,
+      summary: stops
+        .filter((s) => s.enabled !== false)
+        .map((s) => `${s.startTime} · ${s.title}`)
+        .join(' → '),
+    },
+    changed: true,
   };
 }

@@ -85,6 +85,7 @@ function quoteItineraryProposal(proposal) {
   const tokenIds = [];
   const amounts = [];
   for (const stop of proposal.stops) {
+    if (stop.enabled === false) continue;
     if (stop.kind === 'anchor') {
       const price = eventTicketPrice(stop);
       lineItems.push({
@@ -131,6 +132,7 @@ function quoteItineraryProposal(proposal) {
     });
   }
   const totalUsd = lineItems.reduce((sum, item) => sum + item.totalUsd, 0);
+  if (!lineItems.length) return null;
   return {
     id: `quote-${proposal.id}-${Date.now()}`,
     proposalId: proposal.id,
