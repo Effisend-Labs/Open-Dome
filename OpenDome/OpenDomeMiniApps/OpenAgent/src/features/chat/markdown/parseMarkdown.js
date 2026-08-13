@@ -10,12 +10,16 @@ const STEP_BOLD = /^\*\*(.+?)\*\*:?\s*([\s\S]*)$/;
 const STEP_COLON = /^([^:*]{2,48}):\s+([\s\S]+)$/;
 const SPECIAL = /^(#{1,3}\s+|```|\d+[.)]\s+|[-*•]\s+)/;
 
+function cleanTitle(value) {
+  return String(value || '').trim().replace(/:$/, '');
+}
+
 export function splitStep(raw) {
   const text = String(raw || '').trim();
   const bold = text.match(STEP_BOLD);
-  if (bold) return { title: bold[1].trim(), body: bold[2].trim() };
+  if (bold) return { title: cleanTitle(bold[1]), body: bold[2].trim() };
   const colon = text.match(STEP_COLON);
-  if (colon) return { title: colon[1].trim(), body: colon[2].trim() };
+  if (colon) return { title: cleanTitle(colon[1]), body: colon[2].trim() };
   return { title: '', body: text };
 }
 
@@ -84,8 +88,9 @@ export function parseMarkdown(raw) {
       continue;
     }
 
-    if (BOLD_LINE.test(trimmed)) {
-      blocks.push({ type: 'heading', level: 3, inlines: parseInlines(trimmed) });
+    const boldLine = trimmed.match(BOLD_LINE);
+    if (boldLine) {
+      blocks.push({ type: 'heading', level: 2, inlines: parseInlines(boldLine[1]) });
       i += 1;
       continue;
     }

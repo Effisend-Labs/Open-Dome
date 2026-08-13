@@ -4,7 +4,22 @@ import { parseInlines, parseMarkdown } from './parseMarkdown';
 import { InlineText } from './InlineText';
 import { StepList } from './StepList';
 
-const HEADING_SIZE = { 1: 20, 2: 17, 3: 15 };
+const HEADING_SIZE = { 1: 22, 2: 18, 3: 16 };
+
+function splitLead(inlines) {
+  const first = inlines?.[0];
+  if (first?.type !== 'bold') return null;
+  const lead = String(first.text || '').replace(/:$/, '').trim();
+  if (!lead || lead.length > 28) return null;
+  const rest = inlines.slice(1);
+  const next = rest[0]?.type === 'text' ? rest[0].text : '';
+  if (!/^\s+(is|are|lets|means|—|–)\b/i.test(next)) return null;
+  const trimmed =
+    rest[0]?.type === 'text'
+      ? [{ ...rest[0], text: rest[0].text.replace(/^\s+/, '') }, ...rest.slice(1)]
+      : rest;
+  return { lead, inlines: trimmed };
+}
 
 function Block({ tokens, block }) {
   if (block.type === 'heading') {
@@ -66,12 +81,23 @@ function Block({ tokens, block }) {
     return <View style={[styles.hr, { backgroundColor: tokens.BORDER }]} />;
   }
 
+  const lead = splitLead(block.inlines);
+  const paraStyle = [styles.paragraph, { color: tokens.FG, fontFamily: tokens.font.primary }];
+  if (!lead) {
+    return <InlineText tokens={tokens} inlines={block.inlines} style={paraStyle} />;
+  }
+
   return (
-    <InlineText
-      tokens={tokens}
-      inlines={block.inlines}
-      style={[styles.paragraph, { color: tokens.FG, fontFamily: tokens.font.primary }]}
-    />
+    <View>
+      <View style={[styles.leadChip, { backgroundColor: tokens.ACCENT_SOFT }]}>
+        <Text style={[styles.leadText, { color: tokens.ACCENT, fontFamily: tokens.font.mono }]}>
+          {lead.lead}
+        </Text>
+      </View>
+      {lead.inlines.length ? (
+        <InlineText tokens={tokens} inlines={lead.inlines} style={paraStyle} />
+      ) : null}
+    </View>
   );
 }
 
@@ -90,6 +116,14 @@ export function MarkdownBody({ tokens, text }) {
 const styles = StyleSheet.create({
   stack: { gap: 10 },
   heading: { fontWeight: '600', letterSpacing: -0.3, marginTop: 6 },
+  leadChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  leadText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.4 },
   paragraph: { fontSize: 16, lineHeight: 23, letterSpacing: -0.15 },
   bullets: { gap: 8, paddingLeft: 2 },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
