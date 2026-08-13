@@ -1,11 +1,21 @@
 /**
- * Vercel catch-all. Keep this file tiny.
+ * Vercel catch-all. Never require('opendome') — that loads useOpenDome → React
+ * and crashes every route (Cannot find module 'react').
  *
- * Never require('opendome') here — package main loads useOpenDome → React,
- * and React is not on the Lambda module path (crash: Cannot find module 'react').
- * Firestore / Circle / GenAI are traced via nft-server-sdks.js (lazy fns).
+ * Firestore / Circle MUST be top-level requires (see load-*.js). Lazy
+ * `() => require(...)` is invisible to NFT, which is why check-username
+ * still 500'd with Cannot find module '@google-cloud/firestore'.
  */
-require('./nft-server-sdks');
+try {
+  require('./load-firestore');
+} catch (e) {
+  console.warn('[api boot] firestore:', e.message);
+}
+try {
+  require('./load-circle');
+} catch (e) {
+  console.warn('[api boot] circle:', e.message);
+}
 
 const { createRequestHandler } = require('@expo/server/adapter/vercel');
 

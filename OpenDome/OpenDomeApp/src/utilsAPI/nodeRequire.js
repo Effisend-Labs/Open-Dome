@@ -3,39 +3,73 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * Load heavy Node SDKs at runtime from node_modules.
- * Metro mangles packages like @google-cloud/firestore / google-gax when
- * bundling API routes (constructSettings / loggingUtils.log).
- *
- * On Vercel cwd is /var/task — try several roots because NFT places
- * traced modules next to api/index.js, not always next to package.json.
+ * Runtime require for Node SDKs Metro must not bundle (Firestore / Circle).
+ * Vercel cwd is /var/task and the app may be nested at OpenDome/OpenDomeApp.
  */
-function buildLoaders() {
-  const files = [
-    path.join(process.cwd(), 'package.json'),
-    path.join(process.cwd(), 'api', 'index.js'),
-    path.join(process.cwd(), 'dist', 'server', 'package.json'),
-  ];
-  const loaders = [];
-  for (const file of files) {
-    if (fs.existsSync(file)) loaders.push(createRequire(file));
+function exists(file) {
+  try {
+    return fs.existsSync(file);
+  } catch {
+    return false;
   }
-  if (!loaders.length) {
-    loaders.push(createRequire(path.join(process.cwd(), 'package.json')));
-  }
-  return loaders;
 }
 
-const loaders = buildLoaders();
+function packageJsonFor(id) {
+  const bare = id.startsWith('@')
+    ? id.split('/').slice(0, 2).join('/')
+    : id.split('/')[0];
+  return path.join('node_modules', ...bare.split('/'), 'package.json');
+}
+
+function collectRoots() {
+  const cwd = process.cwd();
+  const task = process.env.LAMBDA_TASK_ROOT || cwd;
+  const roots = new Set([cwd, task]);
+
+  let dir = cwd;
+  for (let i = 0; i < 8; i++) {
+    roots.add(dir);
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  roots.add(path.join(cwd, 'OpenDome', 'OpenDomeApp'));
+  roots.add(path.join(task, 'OpenDome', 'OpenDomeApp'));
+  roots.add(path.join(cwd, 'api'));
+  roots.add(path.join(cwd, 'dist', 'server'));
+
+  return [...roots].filter(exists);
+}
+
+function collectRequireFiles(id) {
+  const files = [];
+  const relPkg = packageJsonFor(id);
+  for (const root of collectRoots()) {
+    for (const file of [
+      path.join(root, 'package.json'),
+      path.join(root, 'api', 'index.js'),
+      path.join(root, 'api', 'load-firestore.js'),
+      path.join(root, relPkg),
+    ]) {
+      if (exists(file)) files.push(file);
+    }
+  }
+  return [...new Set(files)];
+}
 
 export function nodeRequire(id) {
+  const files = collectRequireFiles(id);
   let lastErr;
-  for (const req of loaders) {
+  for (const file of files) {
     try {
-      return req(id);
+      return createRequire(file)(id);
     } catch (err) {
       lastErr = err;
     }
   }
-  throw lastErr;
+
+  const err = lastErr || new Error(`Cannot find module '${id}'`);
+  err.message = `${err.message} (cwd=${process.cwd()}; tried ${files.length || 0} roots)`;
+  throw err;
 }
