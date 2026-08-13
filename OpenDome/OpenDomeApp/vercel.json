@@ -5,7 +5,7 @@
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/OpenDome/OpenDomeApp :/open-dome-lib 2>/dev/null || exit 1",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{dist/server/**,api/vendor/**,node_modules/{viem,ox,ethers,protobufjs,google-*}/**,node_modules/@{google*,circle-fin,grpc,noble,adraffy}/**}",
+      "includeFiles": "{dist/server/**,api/vendor/**}",
       "maxDuration": 30
     }
   },
