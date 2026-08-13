@@ -499,6 +499,41 @@ export async function addTickets(address, ticketIds, amounts, meta = {}) {
 }
 
 /**
+ * Decrement indexed pass units after an on-chain scanPass burn.
+ * Oldest rows first. Deletes a row when its remaining amount hits 0.
+ */
+export async function consumeTickets(address, tokenId, amount) {
+  const burn = Math.floor(Number(amount));
+  if (!address || tokenId == null || !Number.isFinite(burn) || burn < 1) {
+    return { updated: 0 };
+  }
+
+  const rows = (await getTicketsByAddress(address))
+    .filter((row) => String(row.ticketId) === String(tokenId))
+    .sort((a, b) => (a.assignedAt || 0) - (b.assignedAt || 0));
+
+  let remaining = burn;
+  const batch = db.batch();
+  let updated = 0;
+
+  for (const row of rows) {
+    if (remaining <= 0) break;
+    const current = Math.max(0, Math.floor(Number(row.amount) || 0));
+    if (current <= 0) continue;
+    const take = Math.min(current, remaining);
+    const next = current - take;
+    const ref = adminTicketsCol.doc(row.id);
+    if (next <= 0) batch.delete(ref);
+    else batch.update(ref, { amount: next, lastScannedAt: Date.now() });
+    remaining -= take;
+    updated += 1;
+  }
+
+  if (updated) await batch.commit();
+  return { updated, leftover: remaining };
+}
+
+/**
  * Ensure @altaga exists as GOD in AdminUsers AND in app Users (passkey DB).
  * Production Users docs are never deleted — only upserted.
  */

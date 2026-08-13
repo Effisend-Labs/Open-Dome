@@ -2,7 +2,7 @@ export const COLORS = {
   bg: '#0A0A0A',
   surface: '#141414',
   elevated: '#1A1A1A',
-  border: '#262626',
+  border: '#1F1F1F',
   fg: '#F5F5F5',
   muted: '#737373',
   secondary: '#A3A3A3',

@@ -5,10 +5,10 @@ import ScannerDashboard from '../components/ScannerDashboard';
 import { isStaffUser, getStaffRoleFromUser, normalizeUsername } from '../core/staffAccess';
 
 const COLORS = {
-  bg: '#09090b',
-  fg: '#fafafa',
-  muted: '#a1a1aa',
-  primary: '#2563eb',
+  bg: '#0A0A0A',
+  fg: '#F5F5F5',
+  muted: '#737373',
+  primary: '#0052FF',
 };
 
 function ScannerGate({ appId, appToken }) {

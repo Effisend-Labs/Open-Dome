@@ -52,6 +52,8 @@ function collectRequireFiles(id) {
       path.join(root, 'api', 'load-firestore.js'),
       path.join(root, 'api', 'load-opendome.js'),
       path.join(root, 'api', 'load-genai.js'),
+      path.join(root, 'api', 'load-viem.js'),
+      path.join(root, 'api', 'load-ethers.js'),
       path.join(root, relPkg),
     ]) {
       if (exists(file)) files.push(file);

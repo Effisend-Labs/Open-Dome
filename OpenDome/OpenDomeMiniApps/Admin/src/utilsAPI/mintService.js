@@ -4,7 +4,7 @@
  */
 
 import { addTickets } from './adminDb';
-import { nodeRequire } from './nodeRequire';
+import { loadEthers } from './loadEthers';
 
 const RPC_URLS = {
   base: 'https://mainnet.base.org',
@@ -99,7 +99,7 @@ export async function mintPassesToAddress({
   const { chain, rpcUrl } = resolveRpc(network);
   const { merchantKey, address } = requireMerchantConfig(contractAddress);
 
-  const ethers = nodeRequire('ethers');
+  const ethers = loadEthers();
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const wallet = new ethers.Wallet(merchantKey, provider);
   const contract = new ethers.Contract(address, MINT_ABI, wallet);

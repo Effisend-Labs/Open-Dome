@@ -11,9 +11,15 @@ exports.getUsdcDomain = getUsdcDomain;
 exports.splitEip712Signature = splitEip712Signature;
 exports.usdcAmountToAtomic = usdcAmountToAtomic;
 var _crypto = _interopRequireDefault(require("crypto"));
-var _viem = require("viem");
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 const USDC_BASE = exports.USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+function getAddress(value) {
+  const addr = String(value || '').trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) {
+    throw new Error(`Invalid address: ${value}`);
+  }
+  return `0x${addr.slice(2)}`;
+}
 const AUTH_FIELDS = [{
   name: 'from',
   type: 'address'
@@ -82,8 +88,8 @@ function buildEip3009Payload({
 }) {
   const now = Math.floor(Date.now() / 1000);
   return {
-    from: (0, _viem.getAddress)(from),
-    to: (0, _viem.getAddress)(to),
+    from: getAddress(from),
+    to: getAddress(to),
     value: String(value),
     validAfter: '0',
     validBefore: String(now + 3600),

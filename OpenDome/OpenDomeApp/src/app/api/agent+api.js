@@ -135,7 +135,7 @@ export async function POST(req) {
 
     // Per-prompt x402 is OpenAgent only. Dome consultant and Wallet Circle chat are free.
     if (isOpenAgent) {
-      const { OpenDomeSeller, OpenDomeFacilitator } = nodeRequire('opendome/dist/x402.js');
+      const { OpenDomeSeller } = nodeRequire('opendome/dist/x402Challenge.js');
       const merchantAddress = process.env.MERCHANT_ADDRESS;
       if (!merchantAddress) {
         return Response.json({ error: 'MERCHANT_ADDRESS is not set' }, { status: 500 });
@@ -160,6 +160,7 @@ export async function POST(req) {
         return Response.json({ error: err.message }, { status: 400 });
       }
 
+      const { OpenDomeFacilitator } = nodeRequire('opendome/dist/x402.js');
       const facilitator = new OpenDomeFacilitator(
         process.env.MERCHANT_PRIVATE_KEY,
       );

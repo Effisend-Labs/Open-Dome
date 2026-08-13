@@ -11,24 +11,30 @@ function shortAddr(addr, head = 8, tail = 4) {
 
 export default function GuestProfileCard({ profile, passCount, onClear }) {
   if (!profile) return null;
+  const label = profile.username ? `@${profile.username}` : 'Wallet guest';
 
   return (
     <View style={s.card}>
       <View style={s.top}>
         <View style={s.avatar}>
-          <Ionicons name="person" size={22} color={COLORS.cyan} />
+          <Ionicons name="person" size={20} color={COLORS.cyan} />
         </View>
         <View style={s.meta}>
           <Text style={s.name} numberOfLines={1}>
-            {profile.username ? `@${profile.username}` : 'Wallet guest'}
+            {label}
           </Text>
           <Text style={s.sub}>
             {passCount} pass{passCount === 1 ? '' : 'es'} ready to verify
           </Text>
         </View>
         {onClear ? (
-          <TouchableOpacity style={s.clear} onPress={onClear} hitSlop={10}>
-            <Ionicons name="close" size={18} color={COLORS.muted} />
+          <TouchableOpacity
+            style={s.clear}
+            onPress={onClear}
+            hitSlop={10}
+            accessibilityLabel="Clear guest"
+          >
+            <Ionicons name="close" size={16} color={COLORS.muted} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -71,15 +77,15 @@ const s = StyleSheet.create({
   },
   top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: 'rgba(34, 211, 238, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   meta: { flex: 1, minWidth: 0 },
-  name: { color: COLORS.fg, fontSize: 17, fontWeight: '700' },
+  name: { color: COLORS.fg, fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
   sub: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
   clear: {
     width: 32,
@@ -97,7 +103,7 @@ const s = StyleSheet.create({
     backgroundColor: COLORS.elevated,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 9,
   },
   label: {
     color: COLORS.cyan,

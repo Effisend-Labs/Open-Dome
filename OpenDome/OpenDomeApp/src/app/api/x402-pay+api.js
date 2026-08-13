@@ -80,7 +80,7 @@ export async function POST(request) {
       return Response.json({ error: 'Solana x402 not supported on host yet' }, { status: 400 });
     }
 
-    const { OpenDomeBuyer } = await import('opendome/dist/x402.js');
+    const { OpenDomeBuyer } = await import('opendome/dist/x402Challenge.js');
 
     console.log(`[x402 Host] Fetching 402 challenge from ${serviceUrl}...`);
     let challengeRes;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import { parseScanQuery, scannerFetch } from '../../core/scannerApi';
+import { formatPublicError } from '../../core/formatPublicError';
 import {
   loadRecentScans,
   pushRecentScan,
@@ -10,19 +11,11 @@ const DEFAULT_CONTRACT =
   process.env.EXPO_PUBLIC_CONTRACT_ADDRESS ||
   '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
 
-function confirmUse(passName) {
-  return new Promise((resolve) => {
-    const title = 'Use pass?';
-    const message = `Burn one unit of "${passName}" on-chain? This cannot be undone.`;
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.confirm) {
-      resolve(window.confirm(`${title}\n\n${message}`));
-      return;
-    }
-    Alert.alert(title, message, [
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-      { text: 'Use', style: 'destructive', onPress: () => resolve(true) },
-    ]);
-  });
+function clampBurnAmount(pass, amount) {
+  const max = Math.max(1, Math.floor(Number(pass?.amount) || 1));
+  const n = Math.floor(Number(amount));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, max);
 }
 
 export default function useGuestLookup(hostToken) {
@@ -81,7 +74,7 @@ export default function useGuestLookup(hostToken) {
         setFlash(
           nextPasses.length
             ? `${nextPasses.length} pass${nextPasses.length === 1 ? '' : 'es'} found`
-            : 'Guest found — no passes on record'
+            : 'Guest found — no passes on record',
         );
         const label = nextProfile?.username
           ? `@${nextProfile.username}`
@@ -96,23 +89,22 @@ export default function useGuestLookup(hostToken) {
         setRecent(nextRecent);
         return true;
       } catch (e) {
-        setError(e.message || 'Lookup failed');
+        setError(formatPublicError(e.message, 'Lookup failed'));
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [hostToken, query]
+    [hostToken, query],
   );
 
   const usePass = useCallback(
-    async (pass) => {
+    async (pass, amount = 1) => {
       if (!profile?.evmAddress) {
         setError('Pass holder needs an EVM address to verify on-chain');
-        return;
+        return false;
       }
-      const ok = await confirmUse(pass.name || `Pass #${pass.tokenId}`);
-      if (!ok) return;
+      const burnAmount = clampBurnAmount(pass, amount);
 
       setUsingId(String(pass.tokenId));
       setError('');
@@ -124,28 +116,44 @@ export default function useGuestLookup(hostToken) {
           body: {
             action: 'scanPass',
             network: 'base',
-            contractAddress: DEFAULT_CONTRACT,
+            contractAddress: pass.contractAddress || DEFAULT_CONTRACT,
             tokenId: pass.tokenId,
-            amount: 1,
+            amount: burnAmount,
             account: profile.evmAddress,
           },
         });
-        setStats((s) => ({ ...s, used: s.used + 1 }));
-        setFlash(`Verified · ${data.txHash?.slice(0, 12) || 'ok'}…`);
-        const refreshed = await scannerFetch('/api/lookup', {
-          token: hostToken,
-          method: 'POST',
-          body: { query: query.trim() },
-        });
-        setPasses(Array.isArray(refreshed.passes) ? refreshed.passes : []);
-        setProfile(refreshed.profile || profile);
+        setStats((s) => ({ ...s, used: s.used + burnAmount }));
+        const shortTx = data.txHash ? `${data.txHash.slice(0, 10)}…` : 'ok';
+        setFlash(`Verified · burned ${burnAmount} · ${shortTx}`);
+        setPasses((prev) =>
+          prev
+            .map((row) => {
+              if (String(row.tokenId) !== String(pass.tokenId)) return row;
+              const next = Math.max(0, (Number(row.amount) || 1) - burnAmount);
+              return next <= 0 ? null : { ...row, amount: next };
+            })
+            .filter(Boolean),
+        );
+        try {
+          const refreshed = await scannerFetch('/api/lookup', {
+            token: hostToken,
+            method: 'POST',
+            body: { query: query.trim() },
+          });
+          setPasses(Array.isArray(refreshed.passes) ? refreshed.passes : []);
+          setProfile(refreshed.profile || profile);
+        } catch {
+          // Keep optimistic remaining count if refresh fails.
+        }
+        return true;
       } catch (e) {
-        setError(e.message || 'Use failed');
+        setError(formatPublicError(e.message, 'Use failed'));
+        return false;
       } finally {
         setUsingId(null);
       }
     },
-    [hostToken, profile, query]
+    [hostToken, profile, query],
   );
 
   const pasteClipboard = useCallback(async () => {

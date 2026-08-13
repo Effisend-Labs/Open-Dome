@@ -17,6 +17,16 @@ try {
   console.warn('[api boot] circle:', e.message);
 }
 try {
+  require('./load-viem');
+} catch (e) {
+  console.warn('[api boot] viem:', e.message);
+}
+try {
+  require('./load-ethers');
+} catch (e) {
+  console.warn('[api boot] ethers:', e.message);
+}
+try {
   require('./load-opendome');
 } catch (e) {
   console.warn('[api boot] opendome:', e.message);
