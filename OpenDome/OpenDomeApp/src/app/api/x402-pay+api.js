@@ -7,20 +7,6 @@ BigInt.prototype.toJSON = function () {
   return this.toString();
 };
 
-/** Testing — skip Circle USDC settlement without touching .env. Never for OpenAgent. */
-const FORCE_SKIP_X402 = true;
-
-function isOpenAgentPayment(payload) {
-  try {
-    const raw = payload?.fetchOptions?.body;
-    const body = typeof raw === 'string' ? JSON.parse(raw) : raw || {};
-    if (body.mode === 'openagent' || body.app === 'openagent') return true;
-  } catch {
-    // ignore
-  }
-  return false;
-}
-
 function formatX402Error(err) {
   if (!err) return 'Unknown payment error';
   const parts = [];
@@ -68,27 +54,6 @@ export async function POST(request) {
     }
 
     console.log(`[x402 Host] Payment intent for ${serviceUrl} from @${decoded.username}`);
-
-    const openAgentPay = isOpenAgentPayment(payload);
-    // OpenAgent is always real x402. Wallet/demo may still skip Circle.
-    if (!openAgentPay && (FORCE_SKIP_X402 || process.env.OD_BYPASS_X402 === 'true')) {
-      console.warn('[x402 Host] SKIP_X402 — no Circle settlement (code flag or env)');
-      const { BYPASS_HEADER } = await import('opendome/dist/devBypass.js');
-      const response = await fetch(serviceUrl, {
-        ...fetchOptions,
-        headers: {
-          ...(fetchOptions?.headers || {}),
-          Authorization: `Bearer ${token}`,
-          [BYPASS_HEADER]: '1',
-        },
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Bypass payment failed: ${response.status} - ${errorText}`);
-      }
-      const data = await response.json();
-      return Response.json({ success: true, data, bypassX402: true });
-    }
 
     const walletDoc = await Wallets.doc(decoded.userId).get();
     if (!walletDoc.exists) {
@@ -199,19 +164,6 @@ export async function POST(request) {
     return Response.json({ success: true, data });
   } catch (err) {
     const message = formatX402Error(err);
-    const relaxed =
-      process.env.OD_RELAX_X402_ERRORS === 'true' &&
-      (message.includes('Payment settlement failed') ||
-        message.includes('Internal Server Error'));
-
-    if (relaxed) {
-      console.warn(`[x402 Host] Relaxed mode: ${message}`);
-      return Response.json({
-        success: true,
-        data: { response: 'Payment signature verified (relaxed mode).' },
-      });
-    }
-
     console.error('[x402 Host] Error:', message);
     return Response.json({ error: message || 'Payment failed' }, { status: 500 });
   }

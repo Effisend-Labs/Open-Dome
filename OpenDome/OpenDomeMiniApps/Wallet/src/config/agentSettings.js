@@ -53,17 +53,6 @@ export const AGENT_API_URL = 'http://localhost:8082/api/agent';
 /** @deprecated use getCheckoutApiUrl() */
 export const CHECKOUT_API_URL = 'http://localhost:8082/api/checkout';
 
-/**
- * Testing only — skip USDC / Circle x402 settlement (no .env change).
- * Set false to restore real payments.
- */
-export const SKIP_X402_PAYMENT = true;
-
-/** Testing — quote the day at a couple of cents instead of catalog prices. */
-export const TEST_QUOTE_PRICING = true;
-
-export const TEST_QUOTE_UNIT_USD = 0.02;
-
 /** Chat picker — only models the host /api/agent actually routes. */
 export const GEMINI_CHAT_MODELS = [
   {

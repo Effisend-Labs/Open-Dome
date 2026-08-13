@@ -1,19 +1,11 @@
 import {
   formatQuotePriceForX402,
   buildFulfillmentFromQuote,
+  settlementUsdForQuote,
 } from 'opendome/dist/quote.js';
-import {
-  isX402BypassEnabled,
-  isBlockchainBypassEnabled,
-  fakeTxHash,
-  BYPASS_HEADER,
-} from 'opendome/dist/devBypass.js';
 import { mintPassesAsPlatform } from 'opendome/dist/platformMint.js';
 import { assignTicketsAsPlatform } from '../../utilsAPI/ticketsDb.js';
 import { mintPlanFromQuote } from '../../utilsAPI/mintPlanFromQuote.js';
-
-/** Testing — skip USDC settlement without touching .env */
-const FORCE_SKIP_X402 = true;
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -22,13 +14,14 @@ export async function OPTIONS() {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers':
-        `Content-Type, Authorization, payment-signature, x-payment-network, ${BYPASS_HEADER}`,
+        'Content-Type, Authorization, payment-signature, x-payment-network',
     },
   });
 }
 
 /**
  * Agent checkout on OpenDomeApp — platform pay + mint + assign tickets.
+ * UI quote shows catalog prices; x402 charges $0.02 per NFT.
  */
 export async function POST(req) {
   try {
@@ -39,12 +32,7 @@ export async function POST(req) {
       return Response.json({ error: 'Invalid quote payload' }, { status: 400 });
     }
 
-    const bypassX402 =
-      FORCE_SKIP_X402 ||
-      isX402BypassEnabled() ||
-      req.headers.get(BYPASS_HEADER) === '1';
-    const bypassChain = isBlockchainBypassEnabled();
-    const price = formatQuotePriceForX402(quote.totalUsd);
+    const price = formatQuotePriceForX402(settlementUsdForQuote(quote));
     const { OpenDomeSeller, OpenDomeFacilitator } = await import('opendome/dist/x402.js');
     const merchantAddress = process.env.MERCHANT_ADDRESS;
     if (!merchantAddress) {
@@ -53,38 +41,31 @@ export async function POST(req) {
     const seller = new OpenDomeSeller(merchantAddress);
     const paymentSignatureBase64 = req.headers.get('payment-signature');
 
-    let parsedPayment = null;
-    let paymentTxHash = null;
+    if (!paymentSignatureBase64) {
+      return new Response(null, {
+        status: 402,
+        headers: { 'x402-challenge': seller.generateChallenge(price) },
+      });
+    }
 
-    if (bypassX402) {
-      console.warn('[Host Checkout API] SKIP_X402 — no facilitator settlement');
-      paymentTxHash = fakeTxHash('x402');
-      parsedPayment = { from: toAddress || null };
-    } else {
-      if (!paymentSignatureBase64) {
-        return new Response(null, {
-          status: 402,
-          headers: { 'x402-challenge': seller.generateChallenge(price) },
-        });
-      }
+    let parsedPayment;
+    try {
+      parsedPayment = seller.parseAndValidateSignature(paymentSignatureBase64, price);
+    } catch (err) {
+      return Response.json({ error: err.message }, { status: 400 });
+    }
 
-      try {
-        parsedPayment = seller.parseAndValidateSignature(paymentSignatureBase64, price);
-      } catch (err) {
-        return Response.json({ error: err.message }, { status: 400 });
-      }
-
-      const facilitator = new OpenDomeFacilitator(process.env.MERCHANT_PRIVATE_KEY);
-      try {
-        paymentTxHash = await facilitator.verifyAndRelay(
-          parsedPayment.payload,
-          parsedPayment.signature,
-        );
-        console.log(`[Host Checkout API] x402 settled. Hash: ${paymentTxHash}`);
-      } catch (relayErr) {
-        console.error('[Host Checkout API] Facilitator relay failed:', relayErr.message);
-        return Response.json({ error: relayErr.message }, { status: 500 });
-      }
+    const facilitator = new OpenDomeFacilitator(process.env.MERCHANT_PRIVATE_KEY);
+    let paymentTxHash;
+    try {
+      paymentTxHash = await facilitator.verifyAndRelay(
+        parsedPayment.payload,
+        parsedPayment.signature,
+      );
+      console.log(`[Host Checkout API] x402 settled ${price} USDC (${settlementUsdForQuote(quote)} catalog demo rate). Hash: ${paymentTxHash}`);
+    } catch (relayErr) {
+      console.error('[Host Checkout API] Facilitator relay failed:', relayErr.message);
+      return Response.json({ error: relayErr.message }, { status: 500 });
     }
 
     const recipient = String(toAddress || parsedPayment?.from || '')
@@ -108,28 +89,13 @@ export async function POST(req) {
     let mintResult = null;
     if (mintPlan.ids.length && recipient) {
       try {
-        if (bypassChain) {
-          console.warn('[Host Checkout API] OD_BYPASS_BLOCKCHAIN — skip chain mint; platform assigns tickets');
-          mintResult = {
-            success: true,
-            txHash: fakeTxHash('mint'),
-            to: recipient,
-            ids: mintPlan.ids,
-            amounts: mintPlan.amounts,
-            contractAddress:
-              process.env.CONTRACT_ADDRESS ||
-              '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF',
-            signedBy: 'platform-bypass',
-          };
-        } else {
-          mintResult = await mintPassesAsPlatform({
-            to: recipient,
-            ids: mintPlan.ids,
-            amounts: mintPlan.amounts,
-            network: 'base',
-          });
-          console.log(`[Host Checkout API] Platform mint OK. Hash: ${mintResult.txHash}`);
-        }
+        mintResult = await mintPassesAsPlatform({
+          to: recipient,
+          ids: mintPlan.ids,
+          amounts: mintPlan.amounts,
+          network: 'base',
+        });
+        console.log(`[Host Checkout API] Platform mint OK. Hash: ${mintResult.txHash}`);
 
         await assignTicketsAsPlatform(recipient, mintResult.ids, mintResult.amounts, {
           mintTxHash: mintResult.txHash,
@@ -163,12 +129,9 @@ export async function POST(req) {
     return Response.json({
       success: true,
       confirmation,
-      bypass: { x402: bypassX402, blockchain: bypassChain },
+      settledUsd: Number(price),
       signedBy: mintResult?.signedBy || null,
-      message:
-        bypassX402 || bypassChain
-          ? 'Checkout completed (dev bypass). Platform assigned tickets.'
-          : 'Payment verified. Platform minted and assigned tickets.',
+      message: 'Payment verified. Platform minted and assigned tickets.',
     });
   } catch (error) {
     console.error('[Host Checkout API]', error);

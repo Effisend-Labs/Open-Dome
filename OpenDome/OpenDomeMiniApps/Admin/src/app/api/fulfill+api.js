@@ -1,6 +1,4 @@
 import { mintPassesToAddress } from '../../utilsAPI/mintService';
-import { addTickets } from '../../utilsAPI/adminDb';
-import { isBlockchainBypassEnabled } from 'opendome/dist/devBypass.js';
 
 const SERVICE_TOKEN = process.env.ADMIN_SCANNER_TOKEN;
 
@@ -11,10 +9,6 @@ function authorizeService(request) {
     '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   return token && token === SERVICE_TOKEN;
-}
-
-function fakeMintHash() {
-  return `0xbypass${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
 }
 
 /**
@@ -40,7 +34,6 @@ export async function POST(request) {
       paymentTxHash,
       quoteId,
       mintTxHash,
-      bypassBlockchain: bodyBypass,
     } = body;
 
     if (!to) {
@@ -59,32 +52,6 @@ export async function POST(request) {
     }
 
     const resolvedAmounts = amounts || ids.map(() => 1);
-    const bypass = bodyBypass === true || isBlockchainBypassEnabled();
-
-    if (bypass) {
-      console.warn('[Admin fulfill] HOTFIX bypass — indexing tickets only');
-      const txHash = mintTxHash || fakeMintHash();
-      const { explorer } = await addTickets(to, ids, resolvedAmounts, {
-        mintTxHash: txHash,
-        paymentTxHash,
-        assignedBy: 'admin-hotfix',
-      });
-      return Response.json({
-        success: true,
-        mode: 'hotfix',
-        bypassBlockchain: true,
-        txHash,
-        to,
-        ids,
-        amounts: resolvedAmounts,
-        orderId,
-        paymentTxHash,
-        quoteId,
-        explorer,
-        signedBy: 'admin',
-        message: 'Hotfix: tickets indexed (blockchain bypassed)',
-      });
-    }
 
     console.warn('[Admin fulfill] HOTFIX — Admin signing recovery mint');
     const result = await mintPassesToAddress({

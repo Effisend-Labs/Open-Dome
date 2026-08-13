@@ -21,6 +21,23 @@ export function amenityPassTokenId(amenityId) {
 const DEFAULT_TICKET_USD = 48;
 const DEFAULT_AMENITY_USD = 20;
 
+/** Demo settlement only — UI still shows catalog prices. */
+export const DEMO_SETTLEMENT_USD_PER_NFT = 0.02;
+
+export function countQuoteNfts(quote) {
+  const amounts = quote?.amounts;
+  if (Array.isArray(amounts) && amounts.length) {
+    return amounts.reduce((sum, n) => sum + (Number(n) || 0), 0);
+  }
+  return Array.isArray(quote?.lineItems) ? quote.lineItems.length : 0;
+}
+
+/** USDC the backend actually charges (not the catalog total shown in UI). */
+export function settlementUsdForQuote(quote) {
+  const n = countQuoteNfts(quote);
+  return Math.max(n, 1) * DEMO_SETTLEMENT_USD_PER_NFT;
+}
+
 function amenityPrice(amenityId) {
   return getCatalogPriceUsd('amenity', amenityId) ?? DEFAULT_AMENITY_USD;
 }
@@ -50,15 +67,13 @@ export function formatQuotePriceForX402(totalUsd) {
 
 /**
  * Build a checkout quote from an itinerary proposal.
+ * Line items / totals are catalog prices for the UI.
+ * Backend x402 uses settlementUsdForQuote() ($0.02 per NFT).
  * @param {Object} proposal
- * @param {{ testUnitPriceUsd?: number }} [options] — dev-only: e.g. 0.001 per pass/NFT line
  * @returns {Object|null}
  */
-export function quoteItineraryProposal(proposal, options = {}) {
+export function quoteItineraryProposal(proposal) {
   if (!proposal?.stops?.length) return null;
-
-  const testUnit = options.testUnitPriceUsd;
-  const testPricing = testUnit != null && testUnit > 0;
 
   const lineItems = [];
   const reservations = [];
@@ -67,8 +82,7 @@ export function quoteItineraryProposal(proposal, options = {}) {
 
   for (const stop of proposal.stops) {
     if (stop.kind === 'anchor') {
-      let price = eventTicketPrice(stop);
-      if (testPricing) price = testUnit;
+      const price = eventTicketPrice(stop);
       lineItems.push({
         id: `ticket-${stop.id}`,
         type: 'ticket',
@@ -91,8 +105,7 @@ export function quoteItineraryProposal(proposal, options = {}) {
     }
 
     const amenityId = stop.amenityId || stop.id;
-    let price = amenityPrice(amenityId);
-    if (testPricing) price = testUnit;
+    const price = amenityPrice(amenityId);
     const tokenId = amenityPassTokenId(amenityId);
     lineItems.push({
       id: `amenity-${amenityId}`,
@@ -128,8 +141,6 @@ export function quoteItineraryProposal(proposal, options = {}) {
     amounts,
     totalUsd,
     totalLabel: formatUsd(totalUsd),
-    testPricing,
-    testUnitPriceUsd: testPricing ? testUnit : undefined,
     createdAt: Date.now(),
   };
 }
@@ -192,7 +203,6 @@ export async function fulfillPassesViaAdminBridge({
   quote,
   paymentTxHash,
   orderId,
-  bypassBlockchain = false,
 }) {
   if (!quote?.tokenIds?.length) {
     return { skipped: true };
@@ -213,7 +223,6 @@ export async function fulfillPassesViaAdminBridge({
       orderId,
       paymentTxHash,
       quoteId: quote.id,
-      bypassBlockchain,
     }),
   });
 

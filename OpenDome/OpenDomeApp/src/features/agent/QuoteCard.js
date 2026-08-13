@@ -15,9 +15,7 @@ export function QuoteCard({ quote, tokens, onSign, t, ctaLabel }) {
     <View style={[styles.card, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
       <View style={[styles.badge, { backgroundColor: tokens.USDC_SOFT }]}>
         <Text style={[styles.badgeText, { color: tokens.USDC, fontFamily: tokens.font.mono }]}>
-          {quote.testPricing
-            ? (t?.agent?.quoteTestBadge || 'TEST QUOTE · $0.001/NFT')
-            : (t?.agent?.quoteBadge || 'CHECKOUT QUOTE')}
+          {t?.agent?.quoteBadge || 'CHECKOUT QUOTE'}
         </Text>
       </View>
 

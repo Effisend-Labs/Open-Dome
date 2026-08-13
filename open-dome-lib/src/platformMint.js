@@ -109,7 +109,6 @@ export async function hotfixMintViaAdmin({
   quote,
   paymentTxHash,
   orderId,
-  bypassBlockchain = false,
 }) {
   const base = String(bridgeUrl || 'http://localhost:8090').replace(/\/$/, '');
   const res = await fetch(`${base}/api/fulfill`, {
@@ -127,7 +126,6 @@ export async function hotfixMintViaAdmin({
       orderId,
       paymentTxHash,
       quoteId: quote.id,
-      bypassBlockchain,
     }),
   });
   const data = await res.json().catch(() => ({}));

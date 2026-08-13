@@ -118,8 +118,7 @@ async function hotfixMintViaAdmin({
   to,
   quote,
   paymentTxHash,
-  orderId,
-  bypassBlockchain = false
+  orderId
 }) {
   const base = String(bridgeUrl || 'http://localhost:8090').replace(/\/$/, '');
   const res = await fetch(`${base}/api/fulfill`, {
@@ -136,8 +135,7 @@ async function hotfixMintViaAdmin({
       network: 'base',
       orderId,
       paymentTxHash,
-      quoteId: quote.id,
-      bypassBlockchain
+      quoteId: quote.id
     })
   });
   const data = await res.json().catch(() => ({}));

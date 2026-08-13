@@ -12,7 +12,6 @@ import {
 } from 'opendome/src/planner';
 import { isPlanningIntent } from 'opendome/src/itinerary';
 import { quoteItineraryProposal } from 'opendome/src/quote';
-import { TEST_QUOTE_PRICING, TEST_QUOTE_UNIT_USD } from './plannerConfig';
 import { isConfirmBookingIntent } from './fulfillmentDrama';
 
 function agentMsg(overrides) {
@@ -122,9 +121,7 @@ export function routeAgentTurn(text, session, { t } = {}) {
       return { messages, sessionPatch, checkoutQuote };
     }
 
-    const quote = quoteItineraryProposal(proposal, {
-      ...(TEST_QUOTE_PRICING ? { testUnitPriceUsd: TEST_QUOTE_UNIT_USD } : {}),
-    });
+    const quote = quoteItineraryProposal(proposal);
     sessionPatch.quote = quote;
     checkoutQuote = quote;
 

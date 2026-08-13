@@ -66,10 +66,6 @@ class CommunicationAPI {
    * @param {Object} config - { appId, host, port, username, password, jwt, protocol, path }
    */
   connect(config) {
-    if (this.client && this.client.connected) {
-      console.log('[Open-Dome Communication] Already connected.');
-      return this.client;
-    }
     const {
       appId,
       host = 'mqtt.effisend.dpdns.org',
@@ -79,18 +75,37 @@ class CommunicationAPI {
       jwt,
       protocol = 'wss',
       path = '/'
-    } = config;
+    } = config || {};
     if (appId) this.appId = appId;
-    const url = `${protocol}://${host}${port === 443 ? '' : `:${port}`}${path === '/' ? '' : path}`;
+    if (this.client && this.client.connected) {
+      console.log('[Open-Dome Communication] Already connected.');
+      return this.client;
+    }
+
+    // Drop a stale/failed client so reconnects don't stack listeners.
+    if (this.client) {
+      try {
+        this.client.removeAllListeners();
+        this.client.end(true);
+      } catch (e) {
+        // ignore teardown races
+      }
+      this.client = null;
+    }
+    const normalizedPath = path && path !== '/' ? path : '/';
+    const url = `${protocol}://${host}:${port}${normalizedPath}`;
     const mqttUsername = username || (jwt ? 'opendome_mini_apps' : undefined);
+    const mqttPassword = jwt || password;
     console.log(`[Open-Dome Communication] Connecting to ${url} as ${mqttUsername}, appId="${this.appId}"...`);
     this.client = _mqtt.default.connect(url, {
       username: mqttUsername,
-      password: jwt || password,
-      clientId: `opendome_mini_app_${Math.random().toString(16).slice(2, 6)}`,
+      password: mqttPassword ? String(mqttPassword) : undefined,
+      clientId: `opendome_mini_app_${Math.random().toString(16).slice(2, 8)}`,
       rejectUnauthorized: false,
       protocolVersion: 4,
       connectTimeout: 20000,
+      reconnectPeriod: 5000,
+      clean: true,
       wsOptions: {
         protocol: 'mqtt'
       }

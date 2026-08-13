@@ -19,17 +19,12 @@ import {
 } from './fulfillmentDrama';
 import { PLAN_DAY_PROMPT } from './PlanDayButton';
 import { bookingIntroLine, councilIntroLine } from './dayPlanCopy';
-import { TEST_QUOTE_PRICING, TEST_QUOTE_UNIT_USD } from './plannerConfig';
 import { usePlannerSession } from './usePlannerSession';
 import { askDomeConsultant, checkoutDayPlan } from './plannerCheckout';
 import { evmAddressFromToken } from './jwtProfile';
 
 function uid(prefix = '') {
   return `${prefix}${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-}
-
-function quoteOpts() {
-  return TEST_QUOTE_PRICING ? { testUnitPriceUsd: TEST_QUOTE_UNIT_USD } : {};
 }
 
 export function useDomeChat({ token } = {}) {
@@ -102,7 +97,7 @@ export function useDomeChat({ token } = {}) {
         },
       });
 
-      const quote = quoteItineraryProposal(proposal, quoteOpts());
+      const quote = quoteItineraryProposal(proposal);
       patchSession({
         selectedEvent: event,
         proposal,
@@ -129,7 +124,7 @@ export function useDomeChat({ token } = {}) {
     if (!session?.awaitingConfirm || isTyping || !agentId) return;
     const next = adoptCouncilCandidate(session.proposal, agentId);
     if (!next?.stops?.length) return;
-    const quote = quoteItineraryProposal(next, quoteOpts());
+    const quote = quoteItineraryProposal(next);
     const winnerName = next.council?.winner?.name;
     const chosenName = next.council?.candidates?.find((c) => c.id === agentId)?.name || winnerName;
     const overridden = agentId !== next.council?.winner?.id;
@@ -180,7 +175,7 @@ export function useDomeChat({ token } = {}) {
     if (isTyping || fulfillLockRef.current) return;
     const proposal = session?.proposal;
     const quote =
-      (proposal ? quoteItineraryProposal(proposal, quoteOpts()) : null) ||
+      (proposal ? quoteItineraryProposal(proposal) : null) ||
       quoteArg ||
       session?.quote;
     if (!quote || !proposal) return;
