@@ -5,7 +5,7 @@
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/OpenDome/OpenDomeApp :/open-dome-lib 2>/dev/null || exit 1",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{dist/server/**,api/vendor/**,node_modules/@google-cloud/firestore/**,node_modules/google-gax/**,node_modules/google-auth-library/**,node_modules/protobufjs/**,node_modules/@grpc/**,node_modules/@google/genai/**,node_modules/@circle-fin/**,node_modules/viem/**,node_modules/ox/**,node_modules/abitype/**,node_modules/isows/**,node_modules/@noble/**,node_modules/ethers/**,node_modules/aes-js/**,node_modules/@adraffy/**}",
+      "includeFiles": "{dist/server/**,api/vendor/**,node_modules/{viem,ox,ethers,protobufjs,google-*}/**,node_modules/@{google*,circle-fin,grpc,noble,adraffy}/**}",
       "maxDuration": 30
     }
   },
