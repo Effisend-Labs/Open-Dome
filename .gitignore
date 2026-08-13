@@ -140,6 +140,13 @@ dist
 
 test/
 tester/
+
+# Local one-off dumps — never commit (leaked Circle/merchant scripts lived here)
+**/scratch/
+**/scratch_*.js
+**/scratch_*.mjs
+
 # Sensitive credentials
 credential.json
+*.pem
 .vercel/
