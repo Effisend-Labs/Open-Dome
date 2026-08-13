@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import { bindKeyboardInset, visibleViewportBottom } from './keyboardInset';
 
 const GAP = 16;
-
-function visibleBottom() {
-  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
-  if (!vv) return 0;
-  return vv.offsetTop + vv.height;
-}
 
 /**
  * Lift a focused field just enough that the keyboard does not cover it.
@@ -31,18 +26,15 @@ export function useKeyboardDodge() {
       if (!el?.getBoundingClientRect) return;
       const rect = el.getBoundingClientRect();
       const bottom = rect.bottom + shiftRef.current;
-      const need = Math.max(0, Math.ceil(bottom - visibleBottom() + GAP));
+      const need = Math.max(0, Math.ceil(bottom - visibleViewportBottom() + GAP));
       if (Math.abs(need - shiftRef.current) > 2) setShift(need);
     };
 
     dodge();
-    const vv = window.visualViewport;
-    vv?.addEventListener('resize', dodge);
-    vv?.addEventListener('scroll', dodge);
     const later = setTimeout(dodge, 280);
+    const unbind = bindKeyboardInset(dodge);
     return () => {
-      vv?.removeEventListener('resize', dodge);
-      vv?.removeEventListener('scroll', dodge);
+      unbind();
       clearTimeout(later);
     };
   }, [focused]);

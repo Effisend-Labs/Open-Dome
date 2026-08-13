@@ -8,6 +8,7 @@ import { ChatView } from './features/chat/ChatView';
 import { AccountView } from './features/account/AccountView';
 import { ModelPicker } from './features/chat/ModelPicker';
 import { AppHeader } from './features/shell/AppHeader';
+import { useKeyboardInset } from './features/shell/useKeyboardInset';
 import { CreditsBadge } from './features/credits/CreditsBadge';
 import { useUsdcCredits } from './features/credits/useUsdcCredits';
 import { openBaseScan, usdcExplorerUrl } from './features/explorer/baseScan';
@@ -22,6 +23,7 @@ export default function App({ appId, appToken }) {
   const themeType = (context?.theme || 'dark').toLowerCase();
   const isDark = !['light', 'pastel', 'alpine'].includes(themeType);
   const tokens = MINI_APP_THEMES[themeType] || MINI_APP_THEMES.dark;
+  const keyboardInset = useKeyboardInset();
   const [screen, setScreen] = useState('CHAT');
   const [modelId, setModelId] = useState(GEMINI_CHAT_MODELS[1].id);
   const credits = useUsdcCredits();
@@ -37,7 +39,7 @@ export default function App({ appId, appToken }) {
   if (isLocked) return <OpenDomeLockScreen />;
 
   return (
-    <View style={[styles.root, { backgroundColor: tokens.BG }]}>
+    <View style={[styles.root, { backgroundColor: tokens.BG, paddingBottom: keyboardInset }]}>
       <AppHeader
         tokens={tokens}
         left={
@@ -95,7 +97,7 @@ export default function App({ appId, appToken }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, minHeight: 0 },
   boot: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   back: { width: 36, height: 36, justifyContent: 'center' },
   right: { flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -525,7 +525,7 @@ export default function IframeContainer({
           <Text style={styles.loadingText}>Connecting to Mini App...</Text>
         </View>
       )}
-      <View style={[{ flex: 1 }, isLoading && { opacity: 0 }]}>
+      <View style={[{ flex: 1, minHeight: 0 }, isLoading && { opacity: 0 }]}>
         <iframe
           ref={iframeRef}
           src={iframeSrc}
@@ -543,6 +543,7 @@ export default function IframeContainer({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
     position: 'relative',
     borderRadius: radii.md,
     overflow: 'hidden',

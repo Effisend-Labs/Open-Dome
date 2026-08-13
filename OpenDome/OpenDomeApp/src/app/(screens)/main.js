@@ -53,7 +53,8 @@ const defaultFont = Platform.select({
 });
 
 export default function Main() {
-  const { normalize: n } = useSmartSize();
+  const { normalize: n, keyboardInset } = useSmartSize();
+  const keyboardOpen = keyboardInset > 80;
   const { themeId, wallpaperId, colors: theme, language, isLoaded } = useTheme();
   const insets = useSafeAreaInsets();
   const t = locales[language]?.os || locales.en.os;
@@ -438,7 +439,12 @@ export default function Main() {
             ) : null}
 
             {/* D. System Dock */}
-            <View style={s.dockWrapper}>
+            <View
+              style={[
+                s.dockWrapper,
+                keyboardOpen && { opacity: 0, pointerEvents: 'none' },
+              ]}
+            >
               <View style={[s.dock, glassStyles]}>
                 <Pressable style={s.dockBtn} onPress={() => { setActiveTab('home'); closeApp(); }}>
                   <Ionicons name="home" size={n(24)} color={theme.text.primary} style={activeTab === 'home' ? {} : { opacity: 0.6 }} />
@@ -890,6 +896,7 @@ const useStyles = (n, theme) => StyleSheet.create({
   /* Mini App Canvas */
   canvasWrap: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: theme.bg.canvas,
     zIndex: 999,
   },

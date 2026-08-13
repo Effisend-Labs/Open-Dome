@@ -16,7 +16,7 @@ const defaultFont = Platform.select({
 });
 
 export default function DomeAgentView({ verifiedToken }) {
-  const { normalize: n } = useSmartSize();
+  const { normalize: n, keyboardInset } = useSmartSize();
   const { colors: theme, language } = useTheme();
   const copy = locales[language]?.os || locales.en.os;
   const tokens = themeToAgentTokens(theme);
@@ -49,7 +49,7 @@ export default function DomeAgentView({ verifiedToken }) {
         onViewPlan={chat.setSheetProposal}
       />
 
-      <View style={{ paddingBottom: n(108), zIndex: 4 }}>
+      <View style={{ paddingBottom: keyboardInset > 80 ? n(12) : n(108), zIndex: 4 }}>
         <DomeAgentComposer
           theme={theme}
           n={n}

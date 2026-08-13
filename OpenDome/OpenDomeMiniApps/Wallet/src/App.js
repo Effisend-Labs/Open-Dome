@@ -10,6 +10,7 @@ import PassesView from './components/PassesView';
 import AgentView from './components/AgentView';
 import UserView from './components/UserView';
 import { AgentConversationProvider } from './features/agent/AgentConversationContext';
+import { useKeyboardInset } from './features/shell/useKeyboardInset';
 import { Ionicons } from '@expo/vector-icons';
 
 const TABS = [
@@ -35,6 +36,7 @@ export default function App({ appId, appToken }) {
   const isDark = !['light', 'pastel', 'alpine'].includes(themeType);
   const tokens = MINI_APP_THEMES[themeType] || MINI_APP_THEMES.dark;
 
+  const keyboardInset = useKeyboardInset();
   const [activeTab, setActiveTab] = useState('WALLET');
   const slideAnim = useRef(new Animated.Value(0)).current;
   const underlineX = useRef(new Animated.Value(0)).current;
@@ -136,7 +138,7 @@ export default function App({ appId, appToken }) {
 
   return (
     <AgentConversationProvider>
-    <View style={[styles.container, { backgroundColor: tokens.BG }]}>
+    <View style={[styles.container, { backgroundColor: tokens.BG, paddingBottom: keyboardInset }]}>
       {/* Minimal Top Bar */}
       <View style={[styles.topBar, { borderBottomColor: tokens.BORDER }]}>
         <Text style={[styles.appName, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
@@ -199,7 +201,7 @@ export default function App({ appId, appToken }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, minHeight: 0 },
 
   loadingContainer: {
     flex: 1,

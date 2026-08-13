@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { Dimensions, Keyboard, PixelRatio, Platform, View } from "react-native";
 import { Toaster } from "react-native-sonner";
+import { bindKeyboardInset, readKeyboardInset } from "../features/shell/keyboardInset";
 
 // DONT CHANGE THIS VALUES (Its fixed)
 const frameWidthRatio = 0.4566;
@@ -22,13 +23,6 @@ const SmartSizeContext = createContext({
   normalize: (size) => size,
   keyboardInset: 0,
 });
-
-function readWebKeyboardInset(layoutHeight) {
-  if (typeof window === "undefined" || !window.visualViewport) return 0;
-  const vv = window.visualViewport;
-  const base = layoutHeight || window.innerHeight;
-  return Math.max(0, base - vv.height - vv.offsetTop);
-}
 
 export const useSmartSize = () => useContext(SmartSizeContext);
 
@@ -75,18 +69,9 @@ export default function SmartProvider({ children }) {
     };
 
     if (Platform.OS === "web") {
-      if (typeof window === "undefined" || !window.visualViewport) return undefined;
-      const vv = window.visualViewport;
-      const onChange = () => applyInset(readWebKeyboardInset(layoutHeightRef.current));
-      onChange();
-      vv.addEventListener("resize", onChange);
-      vv.addEventListener("scroll", onChange);
-      window.addEventListener("resize", onChange);
-      return () => {
-        vv.removeEventListener("resize", onChange);
-        vv.removeEventListener("scroll", onChange);
-        window.removeEventListener("resize", onChange);
-      };
+      return bindKeyboardInset(() =>
+        applyInset(readKeyboardInset(layoutHeightRef.current)),
+      );
     }
 
     const show = Keyboard.addListener("keyboardDidShow", (e) => {
@@ -194,7 +179,7 @@ export default function SmartProvider({ children }) {
                   justifyContent: "center",
                   backgroundColor: "black",
                 }
-              : { flex: 1, backgroundColor: "black" }
+              : { flex: 1, minHeight: 0, backgroundColor: "black" }
           }
         >
           <View
@@ -208,17 +193,32 @@ export default function SmartProvider({ children }) {
                     overflow: "hidden",
                     borderRadius: internalSize.normalize(50),
                   }
-                : { flex: 1 }
+                : { flex: 1, minHeight: 0 }
             }
           >
-            {children}
-            <Toaster
-              {...toasterOptions}
-              containerStyle={{
-                width: internalSize.width * 0.9,
-                alignSelf: "center",
+            <View
+              style={{
+                flex: 1,
+                minHeight: 0,
+                paddingBottom: keyboardInset,
+                ...Platform.select({
+                  web: {
+                    transitionProperty: "padding-bottom",
+                    transitionDuration: "200ms",
+                  },
+                  default: {},
+                }),
               }}
-            />
+            >
+              {children}
+              <Toaster
+                {...toasterOptions}
+                containerStyle={{
+                  width: internalSize.width * 0.9,
+                  alignSelf: "center",
+                }}
+              />
+            </View>
           </View>
           {isWebMobileView ? (
             <Image
