@@ -152,3 +152,9 @@ credential.json
 
 # Local cursor: last commit SHA reviewed for credential leaks (never commit)
 creds.log
+
+# App-local scripts (tests, smoke, sweeps — often hold keys). Keep CI bump helpers.
+OpenDome/**/scripts/**
+!OpenDome/**/scripts/update-packages.js
+!OpenDome/**/scripts/update-version.js
+Landing/scripts/**

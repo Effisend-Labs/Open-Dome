@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local test/ops scripts (smoke, sweeps, keys). Keep CI bump helpers.
+scripts/**
+!scripts/update-packages.js
+!scripts/update-version.js

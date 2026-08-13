@@ -5,6 +5,7 @@ const {
   readLastReviewedSha,
   isGitIgnored,
   isForbiddenFilename,
+  isLocalAppScript,
   scanText,
   scanGitDiff,
   formatFindings,
@@ -160,7 +161,12 @@ function handleBeforeShell(input) {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .filter((file) => isForbiddenFilename(file) || /(^|\/)creds\.log$/i.test(file));
+    .filter(
+      (file) =>
+        isForbiddenFilename(file) ||
+        isLocalAppScript(file) ||
+        /(^|\/)creds\.log$/i.test(file),
+    );
   if (forbidden.length) {
     deny(
       `Blocked git command: do not stage credential files (${forbidden.join(', ')}).`,

@@ -39,3 +39,8 @@ app-example
 
 # Generated on Vercel install from open-dome-lib/dist
 api/vendor/
+
+# Local test/ops scripts (smoke, sweeps, keys). Keep CI bump helpers.
+scripts/**
+!scripts/update-packages.js
+!scripts/update-version.js

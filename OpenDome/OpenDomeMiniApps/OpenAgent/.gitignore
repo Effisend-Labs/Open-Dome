@@ -20,3 +20,8 @@ yarn-error.*
 .tsbuildinfo
 /ios
 /android
+
+# Local test/ops scripts (smoke, sweeps, keys). Keep CI bump helpers.
+scripts/**
+!scripts/update-packages.js
+!scripts/update-version.js

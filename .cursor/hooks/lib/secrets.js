@@ -76,6 +76,14 @@ function isForbiddenFilename(filePath) {
   return false;
 }
 
+function isLocalAppScript(filePath) {
+  const normalized = String(filePath).replace(/\\/g, '/');
+  if (/\/scripts\/update-(packages|version)\.js$/i.test(normalized)) return false;
+  return /(?:^|\/)(?:Landing|OpenDome\/OpenDomeApp|OpenDome\/OpenDomeSandbox|OpenDome\/OpenDomeMiniApps\/[^/]+)\/scripts\//i.test(
+    normalized,
+  );
+}
+
 function looksLikePlaceholder(value) {
   const v = String(value).trim();
   if (PLACEHOLDER.test(v)) return true;
@@ -141,6 +149,7 @@ module.exports = {
   readLastReviewedSha,
   isGitIgnored,
   isForbiddenFilename,
+  isLocalAppScript,
   scanText,
   scanGitDiff,
   formatFindings,
