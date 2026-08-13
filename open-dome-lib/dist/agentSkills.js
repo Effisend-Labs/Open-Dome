@@ -143,15 +143,18 @@ const WALLET_CIRCLE_TOOLS = exports.WALLET_CIRCLE_TOOLS = [{
     }
   }, {
     name: 'get_wallet_nft_balance',
-    description: 'NFT balances for a wallet.',
+    description: 'NFTs for one Circle wallet, or all of the signed-in user wallets (one Circle call per chain). Paginates and includes unmonitored collections.',
     parameters: {
       type: 'OBJECT',
       properties: {
         walletId: {
           type: 'STRING'
+        },
+        blockchain: {
+          type: 'STRING',
+          description: 'BASE, SOL, ETH, OP, ARB, MATIC, AVAX. Omit with no walletId to list every chain.'
         }
-      },
-      required: ['walletId']
+      }
     }
   }, {
     name: 'list_transactions',

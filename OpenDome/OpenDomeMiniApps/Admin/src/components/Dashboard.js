@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { adminFetch, setHostJwt } from '../core/adminApi';
 import { getClientRuntimeLabel } from '../core/runtimeLabel';
+import MintPassPicker from '../features/mint/MintPassPicker';
 
 const COLORS = {
   bg: '#09090b',
@@ -39,14 +40,8 @@ const HOME_TILES = [
   {
     id: 'mint',
     title: 'Mint',
-    subtitle: 'Select users and batch-mint ERC-1155 passes',
+    subtitle: 'Pick an event or amenity, select guests, mint passes',
     icon: 'ticket-outline',
-  },
-  {
-    id: 'bridge',
-    title: 'Bridge',
-    subtitle: 'Session, environment, and scanner notes',
-    icon: 'git-network-outline',
   },
 ];
 
@@ -115,7 +110,8 @@ export default function Dashboard({ currentUser, hostToken }) {
   const [bulkRole, setBulkRole] = useState('USER');
   const [savingRoles, setSavingRoles] = useState(false);
   const [ticketId, setTicketId] = useState('');
-  const [amount, setAmount] = useState('');
+  const [selectedPass, setSelectedPass] = useState(null);
+  const [amount, setAmount] = useState('1');
   const [network, setNetwork] = useState('base');
   const [isAssigning, setIsAssigning] = useState(false);
   const [status, setStatus] = useState('');
@@ -130,7 +126,8 @@ export default function Dashboard({ currentUser, hostToken }) {
       setLoadingUsers(true);
       setLoadError('');
       try {
-        const res = await adminFetch('/api/users', { token: hostToken });
+        const scope = screen === 'mint' ? 'mint' : 'roles';
+        const res = await adminFetch(`/api/users?scope=${scope}`, { token: hostToken });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw new Error(data.error || `Failed to load users (${res.status})`);
@@ -145,7 +142,7 @@ export default function Dashboard({ currentUser, hostToken }) {
         setLoadingUsers(false);
       }
     },
-    [hostToken]
+    [hostToken, screen],
   );
 
   useEffect(() => {
@@ -180,6 +177,7 @@ export default function Dashboard({ currentUser, hostToken }) {
     setScreen('home');
     setStatus('');
     setSelectedUsers([]);
+    setSelectedPass(null);
   };
 
   const setDraftRole = (id, role) => {
@@ -290,7 +288,12 @@ export default function Dashboard({ currentUser, hostToken }) {
   };
 
   const handleAssign = async () => {
-    if (!selectedUsers.length || !ticketId || !amount) return;
+    const tokenId = selectedPass?.tokenId ?? (ticketId ? parseInt(ticketId, 10) : null);
+    const qty = parseInt(amount, 10);
+    if (!selectedUsers.length || !tokenId || !Number.isFinite(qty) || qty < 1) {
+      setStatus('Select guests, a pass, and an amount ≥ 1');
+      return;
+    }
     setIsAssigning(true);
     setStatus('');
     try {
@@ -300,17 +303,19 @@ export default function Dashboard({ currentUser, hostToken }) {
         token: hostToken,
         body: JSON.stringify({
           userIds: selectedUsers,
-          ticketIds: [parseInt(ticketId, 10)],
-          amounts: [parseInt(amount, 10)],
+          ticketIds: [tokenId],
+          amounts: [qty],
           network,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Assign failed');
-      setStatus(`Minted on ${network}: ${data.results?.[0]?.txHash || 'ok'}`);
+      const label = selectedPass?.label || `token ${tokenId}`;
+      setStatus(`Minted ${label} ×${qty} on ${network}: ${data.results?.[0]?.txHash || 'ok'}`);
       setSelectedUsers([]);
+      setSelectedPass(null);
       setTicketId('');
-      setAmount('');
+      setAmount('1');
       fetchUsers();
     } catch (e) {
       setStatus(e.message);
@@ -375,7 +380,7 @@ export default function Dashboard({ currentUser, hostToken }) {
         <View style={s.homeHeader}>
           <View style={s.titleRow}>
             <Ionicons name="finger-print" size={22} color={COLORS.primary} />
-            <Text style={s.title}>Server Bridge</Text>
+            <Text style={s.title}>Admin</Text>
             <View style={[s.envBadge, isDev ? s.envDev : s.envProd]}>
               <Text style={[s.envBadgeText, isDev ? s.envDevText : s.envProdText]}>
                 {runtimeLabel}
@@ -383,7 +388,7 @@ export default function Dashboard({ currentUser, hostToken }) {
             </View>
           </View>
           <Text style={s.subtitle}>
-            {currentUser.name} · {currentUser.role}
+            {currentUser.name} · {currentUser.role} · {isDev ? 'DevUsers' : 'Users'}
           </Text>
         </View>
 
@@ -405,42 +410,6 @@ export default function Dashboard({ currentUser, hostToken }) {
               <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
             </TouchableOpacity>
           ))}
-        </View>
-      </ScrollView>
-    );
-  }
-
-  if (screen === 'bridge') {
-    return (
-      <ScrollView style={s.root} contentContainerStyle={s.content}>
-        <ScreenHeader
-          title="Bridge"
-          onBack={goHome}
-          runtimeLabel={runtimeLabel}
-          isDev={isDev}
-        />
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Session</Text>
-          <Text style={s.hint}>{currentUser.name}</Text>
-          <Text style={s.hint}>Role: {currentUser.role}</Text>
-          <Text style={s.hint}>
-            Mode: {runtimeLabel} · Firestore {isDev ? 'Dev*' : 'production'}
-          </Text>
-        </View>
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Mint</Text>
-          <Text style={s.hint}>
-            Batch mint is GOD-only. Use Mint in this app, or open-dome-lib
-            mintBatch/mintPass with the host JWT for @altaga. Core mint logic
-            lives in mintService for future internal server calls.
-          </Text>
-        </View>
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Scanner</Text>
-          <Text style={s.hint}>
-            Hardware / venue scanners use POST /api/scanner with ADMIN_SCANNER_TOKEN.
-            Scanner token cannot mint.
-          </Text>
         </View>
       </ScrollView>
     );
@@ -510,6 +479,13 @@ export default function Dashboard({ currentUser, hostToken }) {
         ) : (
           <View style={s.bulkBar}>
             <Text style={s.bulkLabel}>{selectedUsers.length} selected for mint</Text>
+            <MintPassPicker
+              selected={selectedPass}
+              onSelect={(pass) => {
+                setSelectedPass(pass);
+                setTicketId(String(pass.tokenId));
+              }}
+            />
             <TextInput
               style={s.input}
               placeholder="Network (base…)"
@@ -518,24 +494,14 @@ export default function Dashboard({ currentUser, hostToken }) {
               onChangeText={setNetwork}
               autoCapitalize="none"
             />
-            <View style={s.rowInputs}>
-              <TextInput
-                style={[s.input, s.inputHalf]}
-                placeholder="Ticket ID"
-                placeholderTextColor={COLORS.muted}
-                value={ticketId}
-                onChangeText={setTicketId}
-                keyboardType="number-pad"
-              />
-              <TextInput
-                style={[s.input, s.inputHalf]}
-                placeholder="Amount"
-                placeholderTextColor={COLORS.muted}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="number-pad"
-              />
-            </View>
+            <TextInput
+              style={s.input}
+              placeholder="Amount"
+              placeholderTextColor={COLORS.muted}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="number-pad"
+            />
             <TouchableOpacity
               style={[s.primaryBtn, isAssigning && { opacity: 0.6 }]}
               disabled={isAssigning}

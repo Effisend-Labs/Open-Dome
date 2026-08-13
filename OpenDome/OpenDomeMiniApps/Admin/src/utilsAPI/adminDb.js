@@ -158,11 +158,11 @@ export async function getAllPasskeyUsers() {
   });
 }
 
-export async function searchPasskeyUsers(query) {
+export async function searchPasskeyUsers(query, { includeGod = false } = {}) {
   const q = String(query || '').trim().toLowerCase().replace(/^@/, '');
   const god = getGodUsernameLower();
-  // Never list GOD (@altaga) — not manageable from Admin UI
   const all = (await getAllPasskeyUsers()).filter((u) => {
+    if (includeGod) return true;
     if (u.role === 'GOD') return false;
     return normalizeUsername(u.username || u.name) !== god;
   });

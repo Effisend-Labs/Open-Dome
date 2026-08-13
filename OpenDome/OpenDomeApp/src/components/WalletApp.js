@@ -21,9 +21,9 @@ const THUMB_CROP_ZOOM = 564 / (564 - 31 - 32);
 
 function ensurePassCoverCss() {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-  if (document.getElementById('od-pass-cover-css-v4')) return;
+  if (document.getElementById('od-pass-cover-css-v5')) return;
   const style = document.createElement('style');
-  style.id = 'od-pass-cover-css-v4';
+  style.id = 'od-pass-cover-css-v5';
   style.textContent = `
     .od-pass-cover {
       overflow: hidden !important;
@@ -33,6 +33,13 @@ function ensurePassCoverCss() {
     .od-pass-cover--fill {
       width: 100% !important;
       aspect-ratio: 1 / 1 !important;
+    }
+    .od-pass-cover--cover {
+      width: 100% !important;
+      height: 100% !important;
+      aspect-ratio: auto !important;
+      position: absolute !important;
+      inset: 0 !important;
     }
     .od-pass-cover > img {
       position: absolute !important;
@@ -51,29 +58,32 @@ function ensurePassCoverCss() {
   document.head.appendChild(style);
 }
 
-/** Square pass art — web uses raw img + zoom to crop baked-in JPEG letterbox. */
-function PassCoverImage({ uri, style, fill = true }) {
+/** Pass art — web uses raw img + zoom to crop baked-in JPEG letterbox. */
+function PassCoverImage({ uri, style, variant = 'square' }) {
   const [side, setSide] = useState(0);
+  const cover = variant === 'cover';
 
   useEffect(() => {
     ensurePassCoverCss();
   }, []);
 
+  const box = cover
+    ? { width: '100%', height: '100%' }
+    : { width: '100%', aspectRatio: 1 };
+
   if (!uri) {
-    return (
-      <View
-        style={[{ width: '100%', aspectRatio: 1, backgroundColor: '#111' }, style]}
-      />
-    );
+    return <View style={[{ backgroundColor: '#111' }, box, style]} />;
   }
 
   if (Platform.OS === 'web') {
-    const className = 'od-pass-cover od-pass-cover--fill';
+    const className = cover
+      ? 'od-pass-cover od-pass-cover--cover'
+      : 'od-pass-cover od-pass-cover--fill';
     return React.createElement(
       'div',
       {
         className,
-        style: { width: '100%', ...(style ? StyleSheet.flatten(style) : {}) },
+        style: { ...(style ? StyleSheet.flatten(style) : {}) },
       },
       React.createElement('img', {
         src: String(uri),
@@ -89,13 +99,12 @@ function PassCoverImage({ uri, style, fill = true }) {
     <View
       style={[
         {
-          width: '100%',
-          aspectRatio: 1,
           overflow: 'hidden',
           backgroundColor: '#111',
           alignItems: 'center',
           justifyContent: 'center',
         },
+        box,
         style,
       ]}
       onLayout={(e) => {
@@ -145,30 +154,28 @@ function passSubtitle(nft) {
   return nft?.chain || 'Base';
 }
 
-function PassArt({ nft, theme, n }) {
-  if (nft?.image) return <PassCoverImage uri={String(nft.image)} />;
+function PassArt({ nft, theme, n, variant = 'square' }) {
+  const cover = variant === 'cover';
+  const box = cover
+    ? { width: '100%', height: '100%' }
+    : { width: '100%', aspectRatio: 1 };
+
+  if (nft?.image) {
+    return <PassCoverImage uri={String(nft.image)} variant={variant} />;
+  }
   const fallback = fallbackCoverForEvent({
     category: nft?.category,
     placeName: nft?.placeName,
   });
   if (fallback) {
-    return (
-      <Image
-        source={fallback}
-        style={{ width: '100%', aspectRatio: 1 }}
-        contentFit="cover"
-      />
-    );
+    return <Image source={fallback} style={box} contentFit="cover" />;
   }
   return (
     <View
-      style={{
-        width: '100%',
-        aspectRatio: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#111',
-      }}
+      style={[
+        box,
+        { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111' },
+      ]}
     >
       <Ionicons name="ticket-outline" size={n(24)} color={theme.text.secondary} />
     </View>
@@ -258,6 +265,7 @@ export default function WalletApp({ verifiedToken }) {
     nftImageSlot: {
       position: 'relative',
       width: '100%',
+      aspectRatio: 4 / 3,
       overflow: 'hidden',
       backgroundColor: '#111',
     },
@@ -338,9 +346,11 @@ export default function WalletApp({ verifiedToken }) {
       width: '100%',
       paddingHorizontal: '5%',
       paddingTop: '3%',
+      alignItems: 'center',
     },
     imageWrap: {
-      width: '100%',
+      width: '68%',
+      maxWidth: n(220),
       aspectRatio: 1,
       borderRadius: n(16),
       overflow: 'hidden',
@@ -489,7 +499,7 @@ export default function WalletApp({ verifiedToken }) {
                     onPress={() => setSelected(nft)}
                   >
                     <View style={s.nftImageSlot}>
-                      <PassArt nft={nft} theme={theme} n={n} />
+                      <PassArt nft={nft} theme={theme} n={n} variant="cover" />
                       {renderAmount(nft)}
                     </View>
                     <View style={s.nftInfo}>
@@ -516,12 +526,12 @@ export default function WalletApp({ verifiedToken }) {
         <View style={s.overlayHost} pointerEvents="box-none">
           <Pressable style={s.overlayBackdrop} onPress={() => setSelected(null)} />
           <Pressable style={s.sheet} onPress={(e) => e.stopPropagation?.()}>
-            <Pressable style={s.closeBtn} onPress={() => setSelected(null)} hitSlop={10}>
-              <Ionicons name="close" size={n(16)} color="#fff" />
-            </Pressable>
             <View style={s.imageSection}>
               <View style={s.imageWrap}>
-                <PassArt nft={selected} theme={theme} n={n} />
+                <Pressable style={s.closeBtn} onPress={() => setSelected(null)} hitSlop={10}>
+                  <Ionicons name="close" size={n(16)} color="#fff" />
+                </Pressable>
+                <PassArt nft={selected} theme={theme} n={n} variant="cover" />
               </View>
             </View>
             <View style={s.body}>

@@ -6,6 +6,7 @@ import {
   CIRCLE_WALLET_SET_ID,
   BASE_USDC_TOKEN_ID,
 } from './circle-tools.js';
+import { listNftsForWallet } from './circleNftBalance.js';
 
 function fail(err) {
   return { error: err.response?.data?.message || err.message || String(err) };
@@ -29,8 +30,9 @@ export async function runCircleAgentTool(name, args = {}) {
       return res.data || res;
     }
     if (name === 'get_wallet_nft_balance') {
-      const res = await client.getWalletNFTBalance({ id: args.walletId });
-      return res.data || res;
+      if (!args.walletId) return { error: 'walletId is required' };
+      const nfts = await listNftsForWallet(client, args.walletId);
+      return { nfts, count: nfts.length };
     }
     if (name === 'list_transactions') {
       // Circle rejects `blockchain` when `walletIds` is set.

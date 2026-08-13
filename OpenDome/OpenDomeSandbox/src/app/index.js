@@ -734,7 +734,9 @@ export default function App() {
               ? '/api/scan-pass'
               : action === 'transfer'
                 ? '/api/transfer'
-                : null;
+                : action === 'listNfts'
+                  ? '/api/nfts'
+                  : null;
         if (!path) {
           event.source.postMessage({
             type: 'OPENDOME_HOST_RESPONSE',
@@ -746,7 +748,7 @@ export default function App() {
         const body =
           action === 'scanLookup'
             ? { query: hostPayload.query }
-            : action === 'transfer'
+            : action === 'transfer' || action === 'listNfts'
               ? { amount: hostPayload.amount, destination: hostPayload.destination }
               : {
                   action: hostPayload.scanAction || 'scanPass',

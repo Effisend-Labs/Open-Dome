@@ -39,6 +39,10 @@ export async function runHostRequest(payload, token) {
     });
   }
 
+  if (action === 'listNfts') {
+    return hostPost('/api/nfts', token, {});
+  }
+
   throw new Error(`Unknown host action: ${action}`);
 }
 

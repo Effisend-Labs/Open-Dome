@@ -104,9 +104,11 @@ if (!apiKey || !entitySecret) {
 }
 
 const require = createRequire(path.join(appRoot, 'package.json'));
+const odRequire = createRequire(path.join(root, 'open-dome-lib/package.json'));
 const { initiateDeveloperControlledWalletsClient } =
   require('@circle-fin/developer-controlled-wallets');
 const { ethers } = require('ethers');
+const { sponsorUsdcTransfer, OpenDomeFacilitator } = odRequire('./dist/x402.js');
 
 const client = initiateDeveloperControlledWalletsClient({ apiKey, entitySecret });
 
@@ -217,6 +219,13 @@ const userWallet =
 
 ok(Boolean(userWallet), `resolved user wallet ${shortAddr(userWallet?.address)} ${userWallet?.blockchain || ''}`);
 
+const solWallet =
+  wallets.find(
+    (w) =>
+      /sol/i.test(String(w.blockchain || '')) &&
+      String(w.address || '').toLowerCase() !== String(userWallet?.address || '').toLowerCase(),
+  ) || wallets.find((w) => /sol/i.test(String(w.blockchain || '')));
+
 if (!userWallet) {
   console.log(`\n${passed} passed, ${failed} failed\n`);
   process.exit(1);
@@ -259,6 +268,24 @@ let usdcTokenId = userUsdc?.token?.id || userUsdc?.tokenId || USDC_TOKEN_ID;
 const nativeTokenId = userNative?.token?.id || userNative?.tokenId;
 
 note(`user USDC=${userUsdcAmt} ETH=${userEth}`);
+
+if (solWallet) {
+  try {
+    const solTokens = await balancesFor(solWallet.id);
+    ok(Array.isArray(solTokens), `get_wallet_token_balance SOL (${solTokens.length} tokens)`);
+    const solUsdc = tokenAmt(
+      pickToken(solTokens, (r) => /usdc/i.test(r.token?.symbol || r.symbol || '')),
+    );
+    const solNative = tokenAmt(
+      pickToken(solTokens, (r) => r.token?.isNative || /sol/i.test(r.token?.symbol || '')),
+    );
+    note(`sol ${shortAddr(solWallet.address)} USDC=${solUsdc} SOL=${solNative}`);
+  } catch (err) {
+    ok(false, `get_wallet_token_balance SOL (${err.response?.data?.message || err.message})`);
+  }
+} else {
+  note('no Solana wallet in set — skip SOL balance');
+}
 
 // ── 4. get_wallet_nft_balance ────────────────────────────────────────────────
 try {
@@ -413,9 +440,21 @@ try {
   ok(false, `estimate_transfer_fee (${err.response?.data?.message || err.message})`);
 }
 
-// ── Gas top-up if source is dry ──────────────────────────────────────────────
-if (sourceEth < MIN_GAS_ETH) {
-  await fundGasIfNeeded(source.address, sourceEth);
+ok(true, 'estimate_transfer_fee agent short-circuit (Base USDC userFee=0, facilitator pays gas)');
+
+async function checkReceive(dest) {
+  const destWallet = wallets.find(
+    (w) => String(w.address).toLowerCase() === String(dest || '').toLowerCase(),
+  );
+  if (!destWallet) {
+    note(`destination ${shortAddr(dest)} is not a Circle wallet in this set — on-chain receive only`);
+    return;
+  }
+  const destTokens = await balancesFor(destWallet.id);
+  const destUsdc = tokenAmt(
+    pickToken(destTokens, (r) => /usdc/i.test(r.token?.symbol || r.symbol || '')),
+  );
+  ok(true, `receive wallet USDC now ${destUsdc} at ${shortAddr(destWallet.address)}`);
 }
 
 if (!destAddr) {
@@ -423,52 +462,82 @@ if (!destAddr) {
 } else if (sourceUsdc < Number(SEND_USDC)) {
   note('skipping create_transaction — no wallet has 0.01 USDC');
 } else {
-  // ── 11. create_transaction (send 1¢) ───────────────────────────────────────
+  // ── 11. create_transaction (agent path: EIP-3009 sponsor, then Circle fallback)
   note(`SEND ${SEND_USDC} USDC  ${shortAddr(source.address)} → ${destLabel}`);
-  try {
-    const response = await client.createTransaction({
-      walletId: source.id,
-      tokenId: usdcTokenId,
-      destinationAddress: destAddr,
-      amounts: [SEND_USDC],
-      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
-      idempotencyKey: randomUUID(),
-    });
-    const txId = response.data?.id || response.data?.transaction?.id;
-    ok(Boolean(txId), `create_transaction returned id`, txId ? String(txId).slice(0, 12) : '');
-    if (txId) {
-      const finalTx = await waitForTx(txId);
-      const state = String(finalTx?.state || finalTx?.status || '').toUpperCase();
+  let sent = false;
+  if (merchantKey) {
+    try {
+      const facilitator = new OpenDomeFacilitator(merchantKey, { rpcUrl });
+      const sponsored = await sponsorUsdcTransfer({
+        from: source.address,
+        to: destAddr,
+        amount: SEND_USDC,
+        facilitator,
+        signTypedData: async (typedData) => {
+          const res = await client.signTypedData({
+            walletId: source.id,
+            data: JSON.stringify(typedData, (_k, v) =>
+              typeof v === 'bigint' ? v.toString() : v,
+            ),
+            idempotencyKey: randomUUID(),
+          });
+          const sig = res.data?.signature;
+          ok(Boolean(sig), 'sign_typed_data (EIP-3009 transferWithAuthorization)');
+          return sig;
+        },
+      });
       ok(
-        ['COMPLETE', 'CONFIRMED', 'COMPLETED'].includes(state),
-        `1¢ USDC send ${state}`,
-        finalTx?.txHash ? String(finalTx.txHash).slice(0, 18) : '',
+        Boolean(sponsored?.success && sponsored?.txHash),
+        `create_transaction sponsored ${SEND_USDC} USDC`,
+        sponsored?.txHash ? String(sponsored.txHash).slice(0, 18) : '',
       );
-      try {
-        const res = await client.getTransaction({ id: txId });
-        const tx = res.data?.transaction || res.data;
-        ok(tx?.id === txId || Boolean(tx?.state), `get_transaction after send (${tx?.state})`);
-      } catch (err) {
-        ok(false, `get_transaction after send (${err.response?.data?.message || err.message})`);
-      }
-
-      // Receive check: destination USDC balance (Circle wallet only)
-      const destWallet = wallets.find(
-        (w) => String(w.address).toLowerCase() === String(destAddr).toLowerCase(),
-      );
-      if (destWallet) {
-        const destTokens = await balancesFor(destWallet.id);
-        const destUsdc = tokenAmt(
-          pickToken(destTokens, (r) => /usdc/i.test(r.token?.symbol || r.symbol || '')),
-        );
-        ok(true, `receive wallet USDC now ${destUsdc} at ${shortAddr(destWallet.address)}`);
-      } else {
-        note(`destination ${shortAddr(destAddr)} is not a Circle wallet in this set — on-chain receive only`);
-      }
+      sent = Boolean(sponsored?.success);
+      if (sent) await checkReceive(destAddr);
+    } catch (err) {
+      const detail = err.response?.data?.message || err.message;
+      ok(false, `create_transaction sponsored (${detail})`);
+      note('falling back to Circle createTransaction (user pays gas)');
     }
-  } catch (err) {
-    const detail = err.response?.data?.message || err.response?.data?.code || err.message;
-    ok(false, `create_transaction (${detail})`);
+  } else {
+    note('no MERCHANT_PRIVATE_KEY — skip sponsored path');
+  }
+
+  if (!sent) {
+    if (sourceEth < MIN_GAS_ETH) {
+      await fundGasIfNeeded(source.address, sourceEth);
+    }
+    try {
+      const response = await client.createTransaction({
+        walletId: source.id,
+        tokenId: usdcTokenId,
+        destinationAddress: destAddr,
+        amounts: [SEND_USDC],
+        fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+        idempotencyKey: randomUUID(),
+      });
+      const txId = response.data?.id || response.data?.transaction?.id;
+      ok(Boolean(txId), `create_transaction returned id`, txId ? String(txId).slice(0, 12) : '');
+      if (txId) {
+        const finalTx = await waitForTx(txId);
+        const state = String(finalTx?.state || finalTx?.status || '').toUpperCase();
+        ok(
+          ['COMPLETE', 'CONFIRMED', 'COMPLETED'].includes(state),
+          `1¢ USDC send ${state}`,
+          finalTx?.txHash ? String(finalTx.txHash).slice(0, 18) : '',
+        );
+        try {
+          const res = await client.getTransaction({ id: txId });
+          const tx = res.data?.transaction || res.data;
+          ok(tx?.id === txId || Boolean(tx?.state), `get_transaction after send (${tx?.state})`);
+        } catch (err) {
+          ok(false, `get_transaction after send (${err.response?.data?.message || err.message})`);
+        }
+        await checkReceive(destAddr);
+      }
+    } catch (err) {
+      const detail = err.response?.data?.message || err.response?.data?.code || err.message;
+      ok(false, `create_transaction (${detail})`);
+    }
   }
 }
 

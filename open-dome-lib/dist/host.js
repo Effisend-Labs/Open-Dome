@@ -32,7 +32,7 @@ class HostAPI {
   }
 
   /**
-   * @param {'scanLookup' | 'scanPass'} action
+   * @param {'scanLookup' | 'scanPass' | 'transfer' | 'listNfts'} action
    * @param {object} payload
    * @param {{ timeoutMs?: number }} [options]
    */
@@ -40,7 +40,7 @@ class HostAPI {
     if (typeof window === 'undefined' || window.parent === window) {
       throw new Error('Host.request must run inside the OpenDome iframe');
     }
-    const timeoutMs = options.timeoutMs ?? (action === 'scanPass' ? 90000 : 20000);
+    const timeoutMs = options.timeoutMs ?? (action === 'scanPass' ? 90000 : action === 'listNfts' ? 45000 : 20000);
     return new Promise((resolve, reject) => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const timer = setTimeout(() => {
@@ -79,6 +79,11 @@ class HostAPI {
   transfer(payload) {
     return this.request('transfer', payload, {
       timeoutMs: 60000
+    });
+  }
+  listNfts() {
+    return this.request('listNfts', {}, {
+      timeoutMs: 45000
     });
   }
 }

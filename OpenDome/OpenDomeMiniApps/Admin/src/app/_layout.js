@@ -6,7 +6,7 @@ export default function RootLayout() {
   return (
     <>
       <Head>
-        <title>OpenDome Admin — Server Bridge</title>
+        <title>OpenDome Admin</title>
       </Head>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
