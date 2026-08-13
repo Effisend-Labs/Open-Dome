@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .cursor/hooks/secret-guard.js",
+        "timeout": 20
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "node .cursor/hooks/secret-guard.js",
+        "matcher": "Write|StrReplace",
+        "failClosed": true,
+        "timeout": 10
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "node .cursor/hooks/secret-guard.js",
+        "matcher": "git\\s+(commit|add)",
+        "failClosed": true,
+        "timeout": 15
+      }
+    ]
+  }
+}

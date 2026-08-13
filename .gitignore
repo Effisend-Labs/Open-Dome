@@ -149,3 +149,6 @@ dist
 credential.json
 *.pem
 .vercel/
+
+# Local cursor: last commit SHA reviewed for credential leaks (never commit)
+creds.log
