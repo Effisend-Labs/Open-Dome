@@ -7,23 +7,37 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { Dimensions, PixelRatio, Platform, View } from "react-native";
+import { Dimensions, Keyboard, PixelRatio, Platform, View } from "react-native";
 import { Toaster } from "react-native-sonner";
 
 // DONT CHANGE THIS VALUES (Its fixed)
-const frameWidthRatio = 0.4566; 
-const frameHeightRatio = 0.9726;  
+const frameWidthRatio = 0.4566;
+const frameHeightRatio = 0.9726;
+const KEYBOARD_HEIGHT_DELTA = 80;
 
-// 1. Create the Context
 const SmartSizeContext = createContext({
   width: 0,
   height: 0,
   scale: 1,
   normalize: (size) => size,
+  keyboardInset: 0,
 });
 
-// 2. Export the Hook
+function readWebKeyboardInset(layoutHeight) {
+  if (typeof window === "undefined" || !window.visualViewport) return 0;
+  const vv = window.visualViewport;
+  const base = layoutHeight || window.innerHeight;
+  return Math.max(0, base - vv.height - vv.offsetTop);
+}
+
 export const useSmartSize = () => useContext(SmartSizeContext);
+
+function isKeyboardResize(prev, next) {
+  if (!prev || !next) return false;
+  const sameWidth = Math.round(prev.width) === Math.round(next.width);
+  const heightDelta = Math.abs(prev.height - next.height);
+  return sameWidth && heightDelta >= KEYBOARD_HEIGHT_DELTA;
+}
 
 export default function SmartProvider({ children }) {
   const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
@@ -31,22 +45,65 @@ export default function SmartProvider({ children }) {
     Dimensions.get("window"),
   );
   const [isMounted, setIsMounted] = useState(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  const layoutHeightRef = React.useRef(windowDimensions.height);
+  layoutHeightRef.current = windowDimensions.height;
 
   useEffect(() => {
     setIsMounted(true);
     const subscription = Dimensions.addEventListener("change", ({ window }) => {
-      setWindowDimensions(window);
+      setWindowDimensions((prev) => {
+        // Mobile keyboard shrinks window height only. Treating that as a
+        // layout/orientation change remounts the whole app (looks like a crash).
+        if (isKeyboardResize(prev, window)) return prev;
+        if (
+          Math.round(prev.width) === Math.round(window.width) &&
+          Math.round(prev.height) === Math.round(window.height)
+        ) {
+          return prev;
+        }
+        return window;
+      });
     });
     return () => subscription?.remove();
   }, []);
 
+  useEffect(() => {
+    const applyInset = (next) => {
+      const value = Math.max(0, Math.round(next || 0));
+      setKeyboardInset((prev) => (Math.abs(prev - value) < 8 ? prev : value));
+    };
+
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined" || !window.visualViewport) return undefined;
+      const vv = window.visualViewport;
+      const onChange = () => applyInset(readWebKeyboardInset(layoutHeightRef.current));
+      onChange();
+      vv.addEventListener("resize", onChange);
+      vv.addEventListener("scroll", onChange);
+      window.addEventListener("resize", onChange);
+      return () => {
+        vv.removeEventListener("resize", onChange);
+        vv.removeEventListener("scroll", onChange);
+        window.removeEventListener("resize", onChange);
+      };
+    }
+
+    const show = Keyboard.addListener("keyboardDidShow", (e) => {
+      applyInset(e.endCoordinates?.height || 0);
+    });
+    const hide = Keyboard.addListener("keyboardDidHide", () => applyInset(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   const ratio = windowDimensions.height / windowDimensions.width;
-  // Ensure the frame is only added after the component has mounted on the client.
-  // This prevents hydration mismatches (React error #418) between the server and the first render.
+  // Frame only after client mount to avoid SSR hydration mismatch (#418).
+  // Landscape web (desktop) gets the phone bezel; portrait phones do not.
   const isWebMobileView = isMounted ? Platform.OS === "web" && ratio < 1 : false;
 
-  // 3. Calculate the internal "smartphone" dimensions
-  // These are the dimensions the children actually see
   const internalSize = useMemo(() => {
     let width, height;
     if (!isWebMobileView) {
@@ -54,15 +111,12 @@ export default function SmartProvider({ children }) {
       height = windowDimensions.height;
     } else {
       width = frameSize.height * frameWidthRatio;
-      height = frameSize.height * frameHeightRatio; 
+      height = frameSize.height * frameHeightRatio;
     }
 
-    // Scale primarily based on width to avoid height-distortion on vertical screens.
     const baseScale = width / 375;
-    // Apply a moderation factor (0 = no scale, 1 = full linear scale) to prevent extreme sizes
-    const factor = 0.4; // Adjust this value (0 to 1) to fine-tune the moderation
+    const factor = 0.4;
     const moderateScale = 1 + (baseScale - 1) * factor;
-    // Clamp the scale to a safe range to prevent undersizing on tiny screens or oversizing on tablets
     const clampedScale = Math.max(0.85, Math.min(1.2, moderateScale));
     const normalize = (size) => PixelRatio.roundToNearestPixel(size * clampedScale);
 
@@ -74,9 +128,13 @@ export default function SmartProvider({ children }) {
     };
   }, [frameSize, windowDimensions, isWebMobileView]);
 
+  const providerValue = useMemo(
+    () => ({ ...internalSize, keyboardInset }),
+    [internalSize, keyboardInset],
+  );
+
   const handleLayout = (event) => {
     const { width, height } = event.nativeEvent.layout;
-    // Optimization: Only update if the integer value changed (prevents loops)
     setFrameSize((prev) => {
       if (
         Math.round(prev.width) === Math.round(width) &&
@@ -96,7 +154,6 @@ export default function SmartProvider({ children }) {
         borderColor: "#000000",
         backgroundColor: "#F9F9F6",
         padding: 12,
-        // Hard shadows for brutalist look
         shadowColor: "#000000",
         shadowOffset: { width: 4, height: 4 },
         shadowOpacity: 1,
@@ -115,58 +172,45 @@ export default function SmartProvider({ children }) {
     },
   };
 
+  // Same View tree in both modes so flipping the bezel never remounts routes.
   return (
-    <SmartSizeContext.Provider value={internalSize}>
-      {isWebMobileView ? (
-        <View style={{ flex: 1, backgroundColor: "black", justifyContent: "center", alignItems: "center" }}>
-          <View
-            style={{
-              position: "absolute",
-              width: `100%`,
-              height: `100%`,
-              alignSelf: "center",
-              justifyContent: "center",
-              backgroundColor: "black",
-            }}
-          >
-            <View
-              style={{
-                width: internalSize.width,
-                height: `${frameHeightRatio * 100}%`,
-                alignSelf: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-                borderRadius: internalSize.normalize(50),
-              }}
-            >
-              {children}
-              <Toaster
-                {...toasterOptions}
-                containerStyle={{
-                  width: internalSize.width * 0.9,
+    <SmartSizeContext.Provider value={providerValue}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "black",
+          justifyContent: isWebMobileView ? "center" : undefined,
+          alignItems: isWebMobileView ? "center" : undefined,
+        }}
+      >
+        <View
+          style={
+            isWebMobileView
+              ? {
+                  position: "absolute",
+                  width: "100%",
+                  height: "100%",
                   alignSelf: "center",
-                }}
-              />
-            </View>
-          <Image
-            source={frame}
-            onLayout={handleLayout}
-            contentFit="contain"
-            pointerEvents={Platform.OS !== 'web' ? 'none' : undefined}
-            style={[{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              zIndex: 10,
-              backgroundColor: "transparent",
-            }, Platform.OS === 'web' && { pointerEvents: "none" }]}
-          />
-          </View>
-        </View>
-      ) : (
-          <View style={{ flex: 1, backgroundColor: "black" }}>
+                  justifyContent: "center",
+                  backgroundColor: "black",
+                }
+              : { flex: 1, backgroundColor: "black" }
+          }
+        >
+          <View
+            style={
+              isWebMobileView
+                ? {
+                    width: internalSize.width,
+                    height: `${frameHeightRatio * 100}%`,
+                    alignSelf: "center",
+                    justifyContent: "center",
+                    overflow: "hidden",
+                    borderRadius: internalSize.normalize(50),
+                  }
+                : { flex: 1 }
+            }
+          >
             {children}
             <Toaster
               {...toasterOptions}
@@ -176,7 +220,28 @@ export default function SmartProvider({ children }) {
               }}
             />
           </View>
-      )}
+          {isWebMobileView ? (
+            <Image
+              source={frame}
+              onLayout={handleLayout}
+              contentFit="contain"
+              pointerEvents={Platform.OS !== "web" ? "none" : undefined}
+              style={[
+                {
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  zIndex: 10,
+                  backgroundColor: "transparent",
+                },
+                Platform.OS === "web" && { pointerEvents: "none" },
+              ]}
+            />
+          ) : null}
+        </View>
+      </View>
     </SmartSizeContext.Provider>
   );
 }

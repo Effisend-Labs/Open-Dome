@@ -2,8 +2,7 @@ require("@nomicfoundation/hardhat-ethers");
 const fs = require("fs");
 const path = require("path");
 
-function loadAdminEnv() {
-  const envPath = path.join(__dirname, "..", "OpenDome", "OpenDomeAdminApp", ".env");
+function loadEnvFile(envPath) {
   if (!fs.existsSync(envPath)) return {};
   const env = {};
   for (const line of fs.readFileSync(envPath, "utf8").split(/\r?\n/)) {
@@ -24,7 +23,13 @@ function loadAdminEnv() {
   return env;
 }
 
-const adminEnv = loadAdminEnv();
+const repoRoot = path.join(__dirname, "..");
+const adminEnv = {
+  ...loadEnvFile(path.join(repoRoot, "OpenDome", "OpenDomeApp", ".env")),
+  ...loadEnvFile(
+    path.join(repoRoot, "OpenDome", "OpenDomeMiniApps", "Admin", ".env"),
+  ),
+};
 const privateKey =
   process.env.DEPLOYER_PRIVATE_KEY ||
   process.env.MERCHANT_PRIVATE_KEY ||

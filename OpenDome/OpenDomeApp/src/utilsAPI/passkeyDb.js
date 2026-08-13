@@ -188,3 +188,87 @@ export async function getUserPasskeys(userId) {
     .get();
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 }
+
+async function firstUserWhere(field, value) {
+  if (!value) return null;
+  try {
+    const snap = await collections()
+      .Users.where(field, '==', value)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const doc = snap.docs[0];
+    return { id: doc.id, ...doc.data() };
+  } catch (e) {
+    console.warn(`[Passkey DB] query Users.${field} failed:`, e.message);
+    return null;
+  }
+}
+
+async function userFromWalletField(field, value) {
+  if (!value) return null;
+  try {
+    const snap = await collections()
+      .Wallets.where(field, '==', value)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const userId = snap.docs[0].data()?.userId;
+    return userId ? getUserById(userId) : null;
+  } catch (e) {
+    console.warn(`[Passkey DB] query Wallets.${field} failed:`, e.message);
+    return null;
+  }
+}
+
+/** Case-insensitive EVM lookup (evmAddressLower, legacy checksum, Wallets). */
+export async function getUserByEvmAddress(address) {
+  const raw = String(address || '').trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(raw)) return null;
+  const lower = raw.toLowerCase();
+
+  const indexed = await firstUserWhere('evmAddressLower', lower);
+  if (indexed) return indexed;
+
+  for (const value of [lower, raw]) {
+    const hit =
+      (await firstUserWhere('evmAddress', value)) ||
+      (await firstUserWhere('address', value)) ||
+      (await userFromWalletField('address', value));
+    if (hit) return hit;
+  }
+
+  try {
+    const snap = await collections().Users.limit(400).get();
+    for (const doc of snap.docs) {
+      const data = doc.data() || {};
+      const evm = String(data.evmAddress || data.address || '').toLowerCase();
+      if (evm === lower) return { id: doc.id, ...data };
+    }
+  } catch (e) {
+    console.warn('[Passkey DB] EVM fallback scan failed:', e.message);
+  }
+  return null;
+}
+
+/** Solana addresses are base58 and case-sensitive. */
+export async function getUserBySolanaAddress(address) {
+  const raw = String(address || '').trim();
+  if (!raw) return null;
+
+  const hit =
+    (await firstUserWhere('solanaAddress', raw)) ||
+    (await userFromWalletField('solanaAddress', raw));
+  if (hit) return hit;
+
+  try {
+    const snap = await collections().Users.limit(400).get();
+    for (const doc of snap.docs) {
+      const data = doc.data() || {};
+      if (data.solanaAddress === raw) return { id: doc.id, ...data };
+    }
+  } catch (e) {
+    console.warn('[Passkey DB] Solana fallback scan failed:', e.message);
+  }
+  return null;
+}

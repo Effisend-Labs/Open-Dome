@@ -7,3 +7,12 @@ export function getDayPlanHeadline(proposal) {
   if (raw && /^your day at /i.test(raw)) return raw;
   return 'Your day at Tokyo Dome City';
 }
+
+export function councilIntroLine() {
+  return "Four Gemini planners will draft the day around that show. I'll pick a winner — you can still change it before we book.";
+}
+
+export function bookingIntroLine(chosenName) {
+  const who = chosenName ? `${chosenName}'s` : 'that';
+  return `Booking ${who} day now — holding each stop, then minting your passes.`;
+}

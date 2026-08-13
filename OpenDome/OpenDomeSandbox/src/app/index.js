@@ -1026,7 +1026,7 @@ export default function App() {
                         transition: 'opacity 0.25s ease-in-out'
                       }}
                       title="Compatibility Test"
-                      allow="geolocation"
+                      allow="geolocation; camera; clipboard-write; clipboard-read"
                     />
                     {!(sdkStatus.detected && (sdkStatus.status === 'AUTHORIZED' || sdkStatus.status === 'UNAUTHENTICATED' || sdkStatus.status === 'UNAUTHORIZED')) && (
                       <View style={styles.loadingOverlay}>

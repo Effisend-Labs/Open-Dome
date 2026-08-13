@@ -3,13 +3,28 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.amenityPassTokenId = amenityPassTokenId;
 exports.buildFulfillmentFromQuote = buildFulfillmentFromQuote;
 exports.formatQuotePriceForX402 = formatQuotePriceForX402;
 exports.fulfillPassesViaAdminBridge = fulfillPassesViaAdminBridge;
 exports.quoteItineraryProposal = quoteItineraryProposal;
+var _amenities = _interopRequireDefault(require("./dbs/amenities.json"));
 var _pricing = require("./pricing");
 var _explorer = require("./explorer");
 var _passContract = require("./blockchain/passContract.js");
+function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
+const AMENITY_TOKEN_BASE = 900000;
+function amenityPassTokenId(amenityId) {
+  const row = _amenities.default.find(a => a.id === amenityId);
+  if (row?.tokenId != null) return Number(row.tokenId);
+  let h = 2166136261;
+  const s = String(amenityId || '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return AMENITY_TOKEN_BASE + (h >>> 0) % 99999 + 1;
+}
 const DEFAULT_TICKET_USD = 48;
 const DEFAULT_AMENITY_USD = 20;
 function amenityPrice(amenityId) {
@@ -77,17 +92,21 @@ function quoteItineraryProposal(proposal, options = {}) {
     }
     const amenityId = stop.amenityId || stop.id;
     let price = amenityPrice(amenityId);
-    if (testPricing) price = 0;
+    if (testPricing) price = testUnit;
+    const tokenId = amenityPassTokenId(amenityId);
     lineItems.push({
       id: `amenity-${amenityId}`,
       type: 'amenity',
       amenityId,
+      tokenId,
       title: stop.title,
       subtitle: `${stop.startTime} – ${stop.endTime} · ${stop.placeName}`,
       quantity: 1,
       unitPriceUsd: price,
       totalUsd: price
     });
+    tokenIds.push(tokenId);
+    amounts.push(1);
     reservations.push({
       type: 'amenity',
       title: stop.title,

@@ -147,6 +147,7 @@ export const POST = async (request) => {
       await Users.doc(user.id).update({
         currentChallenge: null,
         evmAddress,
+        evmAddressLower: String(evmAddress).toLowerCase(),
         solanaAddress,
         role,
       });

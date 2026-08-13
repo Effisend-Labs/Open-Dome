@@ -72,7 +72,7 @@ export async function mintPassesAsPlatform({
   const address =
     contractAddress ||
     process.env.CONTRACT_ADDRESS ||
-    '0x40c39F091a7c85D10B8C46762b59Df3eCd77630C';
+    '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
 
   const { ethers } = await import('ethers');
   const provider = new ethers.JsonRpcProvider(rpc);

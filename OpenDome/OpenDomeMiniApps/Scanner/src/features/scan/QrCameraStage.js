@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../theme';
+import { openCameraStream, onCameraCrash, stopStream } from './openCameraStream';
 
 /**
  * Web-only QR capture via getUserMedia + BarcodeDetector.
@@ -21,7 +22,12 @@ export default function QrCameraStage({ active, onDetected, onClose }) {
   const onDetectedRef = useRef(onDetected);
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
+  const [facing, setFacing] = useState('environment');
   const lastHit = useRef('');
+  const facingRef = useRef('environment');
+  const unwatchRef = useRef(null);
+  const recoveredRef = useRef(false);
+  const bindRef = useRef(null);
 
   useEffect(() => {
     onDetectedRef.current = onDetected;
@@ -40,21 +46,54 @@ export default function QrCameraStage({ active, onDetected, onClose }) {
           setError('Camera not available in this browser');
           return;
         }
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false,
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        const video = videoRef.current;
-        if (video) {
-          video.srcObject = stream;
-          await video.play();
-          setReady(true);
-        }
+
+        const startCamera = async (prefer) => {
+          unwatchRef.current?.();
+          stopStream(streamRef.current);
+          streamRef.current = null;
+          try {
+            return await openCameraStream(prefer);
+          } catch (err) {
+            const other = prefer === 'environment' ? 'user' : 'environment';
+            return openCameraStream(other).catch(() => {
+              throw err;
+            });
+          }
+        };
+
+        const bind = async (prefer) => {
+          const { stream, facing: actual } = await startCamera(prefer);
+          if (cancelled) {
+            stopStream(stream);
+            return null;
+          }
+          streamRef.current = stream;
+          const next = actual === 'user' ? 'user' : 'environment';
+          facingRef.current = next;
+          setFacing(next);
+          const video = videoRef.current;
+          if (video) {
+            video.srcObject = stream;
+            await video.play();
+            setReady(true);
+          }
+          unwatchRef.current = onCameraCrash(stream, () => {
+            if (cancelled || recoveredRef.current) {
+              if (!cancelled) setError('Camera stopped');
+              return;
+            }
+            recoveredRef.current = true;
+            const other = facingRef.current === 'environment' ? 'user' : 'environment';
+            bind(other).catch((err) => {
+              if (!cancelled) setError(err?.message || 'Camera stopped');
+            });
+          });
+          return stream;
+        };
+        bindRef.current = bind;
+
+        await bind('environment');
+        if (cancelled) return;
 
         const Detector = window.BarcodeDetector;
         if (!Detector) {
@@ -87,8 +126,11 @@ export default function QrCameraStage({ active, onDetected, onClose }) {
 
     return () => {
       cancelled = true;
+      bindRef.current = null;
+      unwatchRef.current?.();
+      unwatchRef.current = null;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      streamRef.current?.getTracks?.().forEach((t) => t.stop());
+      stopStream(streamRef.current);
       streamRef.current = null;
     };
   }, [active]);
@@ -147,12 +189,28 @@ export default function QrCameraStage({ active, onDetected, onClose }) {
       {error ? <Text style={s.error}>{error}</Text> : (
         <Text style={s.hint}>Align guest OpenDome / wallet QR inside the frame</Text>
       )}
-      {onClose ? (
-        <TouchableOpacity style={s.close} onPress={onClose}>
-          <Ionicons name="close" size={16} color={COLORS.fg} />
-          <Text style={s.closeText}>Close camera</Text>
+      <View style={s.actions}>
+        <TouchableOpacity
+          style={s.close}
+          onPress={() => {
+            recoveredRef.current = false;
+            setError('');
+            const next = facing === 'environment' ? 'user' : 'environment';
+            bindRef.current?.(next).catch((err) => {
+              setError(err?.message || 'Could not switch camera');
+            });
+          }}
+        >
+          <Ionicons name="camera-reverse-outline" size={16} color={COLORS.fg} />
+          <Text style={s.closeText}>Flip camera</Text>
         </TouchableOpacity>
-      ) : null}
+        {onClose ? (
+          <TouchableOpacity style={s.close} onPress={onClose}>
+            <Ionicons name="close" size={16} color={COLORS.fg} />
+            <Text style={s.closeText}>Close camera</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -216,8 +274,14 @@ const s = StyleSheet.create({
   hint: { color: COLORS.muted, fontSize: 12, marginTop: 10, textAlign: 'center' },
   error: { color: COLORS.warn, fontSize: 12, marginTop: 10, textAlign: 'center' },
   fallback: { color: COLORS.secondary, textAlign: 'center', lineHeight: 20, fontSize: 14 },
-  close: {
+  actions: {
     marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  close: {
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',

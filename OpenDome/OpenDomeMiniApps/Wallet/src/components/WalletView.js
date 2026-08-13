@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Linking, Animated } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { useOpenDome } from 'opendome';
+import { copyText } from '../features/receive/copyText';
 import { GLOBAL_STYLES } from '../theme';
 import SendModal from './SendModal';
 import ReceiveModal from './ReceiveModal';
 import { AuthRequiredPanel } from '../features/auth/AuthRequiredPanel';
+import { getTransferApiUrl } from '../config/agentSettings';
 
 // Chain logos
 import imgBase from '../assets/base.png';
@@ -234,7 +235,7 @@ const NetworkRow = ({ chainKey, balanceData, address, tokens, isDark, onCopy, co
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) {
-  const { blockchain, user, isAuthorized } = useOpenDome();
+  const { blockchain, user, isAuthorized, token } = useOpenDome();
   const [balances, setBalances] = useState({});
   const [loading, setLoading] = useState(true);
   const [copiedKey, setCopiedKey] = useState(null);
@@ -299,11 +300,11 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
   const handleCopy = async (key, address) => {
     if (!address) return;
     try {
-      await Clipboard.setStringAsync(address);
+      await copyText(address);
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(null), 2000);
-    } catch (e) {
-      // silent
+    } catch {
+      setCopiedKey(null);
     }
   };
 
@@ -476,7 +477,10 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
         visible={showSendModal} 
         onClose={() => setShowSendModal(false)} 
         tokens={tokens} 
-        isDark={isDark} 
+        isDark={isDark}
+        authToken={token}
+        transferApiUrl={getTransferApiUrl()}
+        solanaAddress={solAddr}
       />
 
       <ReceiveModal

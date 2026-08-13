@@ -11,6 +11,8 @@ export * from './pricing';
 export * from './communication';
 export * from './agent';
 export * from './agentTariff';
+export * from './openAgentPrompt';
+export * from './agentSkills';
 export * from './x402';
 export * from './devBypass';
 export * from './platformMint';

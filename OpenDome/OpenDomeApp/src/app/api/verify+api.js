@@ -100,6 +100,7 @@ export async function POST(request) {
     let username = null;
     let evmAddress = null;
     let solanaAddress = null;
+    let role = null;
     let tokenToVerify = token;
 
     const JWT_SECRET = process.env.JWT_SECRET;
@@ -112,6 +113,7 @@ export async function POST(request) {
         const decoded = jwt.verify(tokenToVerify, JWT_SECRET);
         userId = decoded.userId;
         username = decoded.username || null;
+        role = decoded.role || null;
         authenticated = true;
         console.log(
           `[Verify API] JWT decoded: userId="${userId}", username="${username}"`
@@ -127,6 +129,7 @@ export async function POST(request) {
             if (userItem.username) username = userItem.username;
             if (userItem.evmAddress) evmAddress = userItem.evmAddress;
             if (userItem.solanaAddress) solanaAddress = userItem.solanaAddress;
+            if (userItem.role) role = userItem.role;
             if (decoded.evm && !evmAddress) evmAddress = decoded.evm;
             if (decoded.solana && !solanaAddress) solanaAddress = decoded.solana;
           } else {
@@ -197,6 +200,7 @@ export async function POST(request) {
         wsJwt: wsJwt,
         hostJwt: hostJwt,
         username: username,
+        role: role,
         evmAddress: evmAddress,
         solanaAddress: solanaAddress,
         timestamp: Date.now(),

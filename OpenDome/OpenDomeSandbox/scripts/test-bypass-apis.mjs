@@ -27,7 +27,7 @@ process.env.MERCHANT_PRIVATE_KEY =
 process.env.ADMIN_BRIDGE_URL = process.env.ADMIN_BRIDGE_URL || 'http://localhost:8090';
 process.env.ADMIN_SCANNER_TOKEN = process.env.ADMIN_SCANNER_TOKEN || 'admin-session-token-123';
 process.env.CONTRACT_ADDRESS =
-  process.env.CONTRACT_ADDRESS || '0x40c39F091a7c85D10B8C46762b59Df3eCd77630C';
+  process.env.CONTRACT_ADDRESS || '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
 
 let passed = 0;
 let failed = 0;

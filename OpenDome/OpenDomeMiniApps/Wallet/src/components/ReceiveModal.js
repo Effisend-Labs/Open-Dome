@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Modal, TouchableOpacity, Image, ScrollView } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { boxShadow } from '../utils/styleCompat';
+import { copyText } from '../features/receive/copyText';
 
 export default function ReceiveModal({ visible, onClose, tokens, isDark, evmAddress, solanaAddress }) {
   const [activeTab, setActiveTab] = useState('EVM');
@@ -18,10 +18,13 @@ export default function ReceiveModal({ visible, onClose, tokens, isDark, evmAddr
   const qrUrl = activeAddress ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${activeAddress}` : null;
 
   const handleCopy = async () => {
-    if (activeAddress) {
-      await Clipboard.setStringAsync(activeAddress);
+    if (!activeAddress) return;
+    try {
+      await copyText(activeAddress);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
     }
   };
 

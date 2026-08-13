@@ -40,6 +40,13 @@ export function getCheckoutApiUrl() {
   );
 }
 
+export function getTransferApiUrl() {
+  return (
+    (typeof process !== 'undefined' && process.env.EXPO_PUBLIC_OD_TRANSFER_URL) ||
+    `${getHostBaseUrl()}/api/transfer`
+  );
+}
+
 /** @deprecated use getAgentApiUrl() — kept for any static imports */
 export const AGENT_API_URL = 'http://localhost:8082/api/agent';
 
@@ -52,13 +59,10 @@ export const CHECKOUT_API_URL = 'http://localhost:8082/api/checkout';
  */
 export const SKIP_X402_PAYMENT = true;
 
-/** Dev-only: quote anchor pass/NFT at micro-USDC (e.g. 0.001) for x402 checkout tests. */
-export const TEST_QUOTE_PRICING =
-  process.env.EXPO_PUBLIC_OD_TEST_QUOTE_PRICING === 'true';
+/** Testing — quote the day at a couple of cents instead of catalog prices. */
+export const TEST_QUOTE_PRICING = true;
 
-export const TEST_QUOTE_UNIT_USD = Number(
-  process.env.EXPO_PUBLIC_OD_TEST_QUOTE_UNIT_USD || '0.001',
-);
+export const TEST_QUOTE_UNIT_USD = 0.02;
 
 /** Chat picker — only models the host /api/agent actually routes. */
 export const GEMINI_CHAT_MODELS = [

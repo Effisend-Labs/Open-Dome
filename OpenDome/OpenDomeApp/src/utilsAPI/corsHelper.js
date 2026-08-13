@@ -34,7 +34,8 @@ export function getCorsHeaders(request) {
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key, X-Timestamp, X-Signature',
+    'Access-Control-Allow-Headers':
+      'Content-Type, Authorization, X-OpenDome-Jwt, X-API-Key, X-Timestamp, X-Signature',
   };
 }
 

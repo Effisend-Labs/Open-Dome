@@ -146,6 +146,28 @@ Object.keys(_agentTariff).forEach(function (key) {
     }
   });
 });
+var _openAgentPrompt = require("./openAgentPrompt");
+Object.keys(_openAgentPrompt).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (key in exports && exports[key] === _openAgentPrompt[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _openAgentPrompt[key];
+    }
+  });
+});
+var _agentSkills = require("./agentSkills");
+Object.keys(_agentSkills).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (key in exports && exports[key] === _agentSkills[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _agentSkills[key];
+    }
+  });
+});
 var _x = require("./x402");
 Object.keys(_x).forEach(function (key) {
   if (key === "default" || key === "__esModule") return;

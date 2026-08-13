@@ -23,6 +23,7 @@ import StoreApp from '../../components/StoreApp';
 import { enrichStoreApp } from '../../core/storeAppIcons';
 import MapApp from '../../components/MapApp';
 import { isAltagaGodToken, isStaffToken } from '../../core/godAccess';
+import DomeAgentView from '../../features/agent/DomeAgentView';
 
 
 const CORE_APPS = [
@@ -320,17 +321,27 @@ export default function Main() {
               )}
             </View>
 
+            <View
+              collapsable={false}
+              pointerEvents={activeTab === 'agent' ? 'auto' : 'none'}
+              style={[s.tabKeep, activeTab !== 'agent' && s.tabHidden]}
+            >
+              <DomeAgentView verifiedToken={verifiedToken} />
+            </View>
+
             {activeTab === 'person' ? (
-              <UserApp 
-                verifiedToken={verifiedToken} 
-                onAuthSuccess={(token) => handleUserAuthChanged({ token })}
-                onLogout={() => handleUserAuthChanged(null)}
-              />
+              <View style={s.tabKeep}>
+                <UserApp 
+                  verifiedToken={verifiedToken} 
+                  onAuthSuccess={(token) => handleUserAuthChanged({ token })}
+                  onLogout={() => handleUserAuthChanged(null)}
+                />
+              </View>
             ) : activeTab === 'passes' ? (
               <WalletApp verifiedToken={verifiedToken} />
             ) : activeTab === 'qr' ? (
               <QRApp verifiedToken={verifiedToken} />
-            ) : (
+            ) : activeTab === 'home' ? (
               <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
               
               {/* B. Smart Widgets */}
@@ -424,13 +435,16 @@ export default function Main() {
               </View>
               
             </ScrollView>
-            )}
+            ) : null}
 
             {/* D. System Dock */}
             <View style={s.dockWrapper}>
               <View style={[s.dock, glassStyles]}>
                 <Pressable style={s.dockBtn} onPress={() => { setActiveTab('home'); closeApp(); }}>
                   <Ionicons name="home" size={n(24)} color={theme.text.primary} style={activeTab === 'home' ? {} : { opacity: 0.6 }} />
+                </Pressable>
+                <Pressable style={s.dockBtn} onPress={() => { setActiveTab('agent'); closeApp(); }}>
+                  <Ionicons name="sparkles" size={n(24)} color={theme.text.primary} style={activeTab === 'agent' ? {} : { opacity: 0.6 }} />
                 </Pressable>
                 <Pressable style={s.dockBtn} onPress={() => { setActiveTab('passes'); closeApp(); }}>
                   <Ionicons name="ticket" size={n(24)} color={theme.text.primary} style={activeTab === 'passes' ? {} : { opacity: 0.6 }} />
@@ -506,10 +520,12 @@ export default function Main() {
 const useStyles = (n, theme) => StyleSheet.create({
   desktopWrapper: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: '#000', // Deep black for desktop letterboxing
   },
   root: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: theme.bg.root,
     position: 'relative',
   },
@@ -526,6 +542,8 @@ const useStyles = (n, theme) => StyleSheet.create({
   },
   osShell: {
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
     zIndex: 1,
   },
   
@@ -587,6 +605,14 @@ const useStyles = (n, theme) => StyleSheet.create({
   },
 
   /* Content */
+  tabKeep: {
+    flex: 1,
+    minHeight: 0,
+    position: 'relative',
+  },
+  tabHidden: {
+    display: 'none',
+  },
   scrollContent: {
     paddingHorizontal: n(20),
     paddingTop: n(32),
@@ -841,6 +867,8 @@ const useStyles = (n, theme) => StyleSheet.create({
     left: n(20),
     right: n(20),
     alignItems: 'center',
+    zIndex: 20,
+    pointerEvents: 'box-none',
   },
   dock: {
     flexDirection: 'row',
@@ -850,7 +878,7 @@ const useStyles = (n, theme) => StyleSheet.create({
     maxWidth: n(400),
     borderRadius: n(32),
     paddingVertical: n(16),
-    paddingHorizontal: n(24),
+    paddingHorizontal: n(16),
   },
   dockBtn: {
     width: n(44),

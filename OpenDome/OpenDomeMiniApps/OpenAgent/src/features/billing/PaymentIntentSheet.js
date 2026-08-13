@@ -58,63 +58,65 @@ export function PaymentIntentSheet({
         <Text style={[styles.fieldLabel, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
           Source network
         </Text>
-        <TouchableOpacity
-          activeOpacity={0.75}
-          onPress={() => setOpen((v) => !v)}
-          style={[
-            styles.select,
-            {
-              backgroundColor: tokens.SURFACE_ELEVATED,
-              borderColor: open ? tokens.ACCENT : tokens.BORDER,
-            },
-          ]}
-        >
-          <Text style={[styles.selectText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-            {selectedNetwork}
-          </Text>
-          <Text style={{ color: tokens.MUTED, fontSize: 12 }}>{open ? '▲' : '▼'}</Text>
-        </TouchableOpacity>
+        <View style={styles.selectWrap}>
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => setOpen((v) => !v)}
+            style={[
+              styles.select,
+              {
+                backgroundColor: tokens.SURFACE_ELEVATED,
+                borderColor: open ? tokens.ACCENT : tokens.BORDER,
+              },
+            ]}
+          >
+            <Text style={[styles.selectText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+              {selectedNetwork}
+            </Text>
+            <Text style={{ color: tokens.MUTED, fontSize: 12 }}>{open ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
 
-        {open ? (
-          <View style={[styles.menu, { backgroundColor: tokens.SURFACE_ELEVATED, borderColor: tokens.BORDER }]}>
-            <ScrollView nestedScrollEnabled style={{ maxHeight: 140 }} showsVerticalScrollIndicator={false}>
-              {NETWORKS.map((net, idx) => {
-                const active = selectedNetwork === net;
-                return (
-                  <TouchableOpacity
-                    key={net}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      onSelectNetwork?.(net);
-                      setOpen(false);
-                    }}
-                    style={[
-                      styles.menuItem,
-                      {
-                        borderBottomColor: tokens.BORDER,
-                        borderBottomWidth: idx < NETWORKS.length - 1 ? StyleSheet.hairlineWidth : 0,
-                        backgroundColor: active ? tokens.ACCENT_SOFT : 'transparent',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        color: active ? tokens.ACCENT : tokens.FG,
-                        fontFamily: tokens.font.primary,
-                        fontSize: 14,
-                        fontWeight: active ? '600' : '400',
-                        textTransform: 'capitalize',
+          {open ? (
+            <View style={[styles.menu, { backgroundColor: tokens.SURFACE_ELEVATED, borderColor: tokens.BORDER }]}>
+              <ScrollView nestedScrollEnabled style={{ maxHeight: 140 }} showsVerticalScrollIndicator={false}>
+                {NETWORKS.map((net, idx) => {
+                  const active = selectedNetwork === net;
+                  return (
+                    <TouchableOpacity
+                      key={net}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        onSelectNetwork?.(net);
+                        setOpen(false);
                       }}
+                      style={[
+                        styles.menuItem,
+                        {
+                          borderBottomColor: tokens.BORDER,
+                          borderBottomWidth: idx < NETWORKS.length - 1 ? StyleSheet.hairlineWidth : 0,
+                          backgroundColor: active ? tokens.ACCENT_SOFT : 'transparent',
+                        },
+                      ]}
                     >
-                      {net}
-                    </Text>
-                    {active ? <Text style={{ color: tokens.ACCENT, fontSize: 14 }}>✓</Text> : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        ) : null}
+                      <Text
+                        style={{
+                          color: active ? tokens.ACCENT : tokens.FG,
+                          fontFamily: tokens.font.primary,
+                          fontSize: 14,
+                          fontWeight: active ? '600' : '400',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {net}
+                      </Text>
+                      {active ? <Text style={{ color: tokens.ACCENT, fontSize: 14 }}>✓</Text> : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
 
         <TouchableOpacity
           activeOpacity={0.85}
@@ -142,7 +144,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  card: { width: '100%', maxWidth: 340, borderRadius: 16, padding: 22, borderWidth: StyleSheet.hairlineWidth },
+  card: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 16,
+    padding: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'visible',
+  },
   kicker: { fontSize: 10, fontWeight: '600', letterSpacing: 1.4, marginBottom: 16 },
   amount: { fontSize: 32, fontWeight: '500', letterSpacing: -1.2 },
   subtitle: { fontSize: 14, marginTop: 6, marginBottom: 16 },
@@ -157,7 +166,14 @@ const styles = StyleSheet.create({
   metaLabel: { fontSize: 13 },
   metaValue: { fontSize: 12, flexShrink: 1, textAlign: 'right' },
   fieldLabel: { fontSize: 12, marginTop: 14, marginBottom: 8 },
+  selectWrap: {
+    width: '100%',
+    position: 'relative',
+    zIndex: 20,
+    marginBottom: 8,
+  },
   select: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -165,10 +181,20 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 8,
   },
   selectText: { fontSize: 14, fontWeight: '500', textTransform: 'capitalize' },
-  menu: { borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, marginBottom: 8, overflow: 'hidden' },
+  menu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    zIndex: 30,
+    elevation: 8,
+  },
   menuItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',

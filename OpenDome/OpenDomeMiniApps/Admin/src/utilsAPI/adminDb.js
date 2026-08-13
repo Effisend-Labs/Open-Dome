@@ -230,13 +230,21 @@ export async function resolvePasskeyUserForScan(rawQuery) {
     if (snap.empty) {
       const all = await getAllPasskeyUsers();
       const hit = all.find((u) => u.solanaAddress === solana);
-      if (!hit) return null;
+      if (hit) {
+        return {
+          id: hit.id,
+          username: hit.username || null,
+          evmAddress: hit.evmAddress || hit.address || null,
+          solanaAddress: hit.solanaAddress || solana,
+          role: hit.role,
+        };
+      }
       return {
-        id: hit.id,
-        username: hit.username || null,
-        evmAddress: hit.evmAddress || hit.address || null,
-        solanaAddress: hit.solanaAddress || solana,
-        role: hit.role,
+        id: null,
+        username: null,
+        evmAddress: null,
+        solanaAddress: solana,
+        role: 'USER',
       };
     }
   }
@@ -461,7 +469,7 @@ export async function addTickets(address, ticketIds, amounts, meta = {}) {
   const contractAddress =
     meta.contractAddress ||
     process.env.CONTRACT_ADDRESS ||
-    '0x40c39F091a7c85D10B8C46762b59Df3eCd77630C';
+    '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
   const mintTxHash = meta.mintTxHash || null;
   const paymentTxHash = meta.paymentTxHash || null;
   const explorer = {

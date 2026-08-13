@@ -8,45 +8,7 @@ import os from 'node:os';
  * GenAI is lazy-initialized only after payment settles.
  */
 
-/** Testing — skip USDC settlement without touching .env. Never for OpenAgent. */
-const FORCE_SKIP_X402 = true;
-
 const rateLimitStore = new Map();
-
-const circleAgentTools = [
-  {
-    functionDeclarations: [
-      {
-        name: 'create_agent_wallet',
-        description: 'Creates a new MPC developer-controlled wallet.',
-        parameters: {
-          type: 'OBJECT',
-          properties: {
-            blockchains: {
-              type: 'ARRAY',
-              items: { type: 'STRING' },
-              description: 'List of blockchains (e.g., ["ETH", "BASE", "MATIC"])',
-            },
-          },
-          required: ['blockchains'],
-        },
-      },
-      {
-        name: 'execute_nanopayment',
-        description: 'Executes a USDC payment via Circle.',
-        parameters: {
-          type: 'OBJECT',
-          properties: {
-            amount: { type: 'STRING' },
-            destination: { type: 'STRING' },
-            tokenId: { type: 'STRING' },
-          },
-          required: ['amount', 'destination', 'tokenId'],
-        },
-      },
-    ],
-  },
-];
 
 function ensureGcpCredentials() {
   const gcpCredsPath = path.join(os.tmpdir(), 'opendome-app-gcp-creds.json');
@@ -126,10 +88,19 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const isOpenAgent = body.mode === 'openagent' || body.app === 'openagent';
-    const defaultPrompt = isOpenAgent
-      ? 'You are OpenAgent, a Gemini assistant inside OpenDome. Be helpful, concise, and accurate. Answer the user directly. Do not claim you charged a card or moved funds unless a tool actually ran.'
-      : 'You are the OpenDome AI Agent. You manage MPC wallets using Circle. If asked, you can create a wallet or send nanopayments.';
+    const { nodeRequire } = await import('../../utilsAPI/nodeRequire.js');
+    const skills = nodeRequire('opendome/dist/agentSkills.js');
+    const { OPEN_AGENT_SYSTEM_PROMPT, buildOpenAgentContents } = nodeRequire(
+      'opendome/dist/openAgentPrompt.js',
+    );
+    const mode = skills.resolveAgentMode(body);
+    const isOpenAgent = mode === 'openagent';
+    const defaultPrompt =
+      mode === 'openagent'
+        ? OPEN_AGENT_SYSTEM_PROMPT
+        : mode === 'wallet'
+          ? skills.WALLET_CIRCLE_PROMPT
+          : skills.DOME_CONSULTANT_PROMPT;
     const userPrompt = body.prompt || body.message || defaultPrompt;
 
     if (userPrompt.length > 1000) {
@@ -154,7 +125,6 @@ export async function POST(req) {
       rateLimitStore.set(decoded.userId, recent);
     }
 
-    const { nodeRequire } = await import('../../utilsAPI/nodeRequire.js');
     const { quotePromptTariff } = nodeRequire('opendome/dist/agentTariff.js');
     const tariff = quotePromptTariff(userPrompt, body.modelId);
     const targetModel = tariff.apiModel;
@@ -163,9 +133,8 @@ export async function POST(req) {
 
     let paymentTxHash = null;
 
-    // OpenAgent always settles x402. JWT must not skip the 402 challenge.
-    const requireX402 = isOpenAgent || !decoded;
-    if (requireX402) {
+    // Per-prompt x402 is OpenAgent only. Dome consultant and Wallet Circle chat are free.
+    if (isOpenAgent) {
       const { OpenDomeSeller, OpenDomeFacilitator } = nodeRequire('opendome/dist/x402.js');
       const merchantAddress = process.env.MERCHANT_ADDRESS;
       if (!merchantAddress) {
@@ -191,84 +160,74 @@ export async function POST(req) {
         return Response.json({ error: err.message }, { status: 400 });
       }
 
-      const skipRelay =
-        !isOpenAgent && (FORCE_SKIP_X402 || process.env.OD_BYPASS_X402 === 'true');
-      if (skipRelay) {
-        console.warn('[Host Agent] SKIP_X402 — skip on-chain relay (code flag or env)');
-      } else {
-        const facilitator = new OpenDomeFacilitator(
-          process.env.MERCHANT_PRIVATE_KEY,
+      const facilitator = new OpenDomeFacilitator(
+        process.env.MERCHANT_PRIVATE_KEY,
+      );
+      try {
+        paymentTxHash = await facilitator.verifyAndRelay(
+          parsedPayment.payload,
+          parsedPayment.signature,
         );
-        try {
-          paymentTxHash = await facilitator.verifyAndRelay(
-            parsedPayment.payload,
-            parsedPayment.signature,
-          );
-          console.log(`[Host Agent] x402 settled. Hash: ${paymentTxHash}`);
-        } catch (err) {
-          console.error('[Host Agent] Facilitator relay failed:', err.message);
-          return Response.json({ error: err.message }, { status: 500 });
-        }
+        console.log(`[Host Agent] x402 settled. Hash: ${paymentTxHash}`);
+      } catch (err) {
+        console.error('[Host Agent] Facilitator relay failed:', err.message);
+        return Response.json({ error: err.message }, { status: 500 });
       }
 
       if (!decoded) decoded = { userId: 'x402-user', username: 'x402 Payer' };
     }
 
     const ai = await getAI();
+    const tools =
+      mode === 'openagent'
+        ? skills.GOOGLE_SEARCH_TOOLS
+        : mode === 'wallet'
+          ? skills.WALLET_CIRCLE_TOOLS
+          : skills.DOME_CONSULTANT_TOOLS;
     const config = {
-      tools: isOpenAgent ? undefined : circleAgentTools,
+      tools,
       temperature: 0.7,
       systemInstruction: defaultPrompt,
     };
 
-    const response = await ai.models.generateContent({
-      model: targetModel,
-      contents: userPrompt,
-      config,
-    });
+    const geminiContents = buildOpenAgentContents(userPrompt, body.messages);
+    const { geminiText, runGeminiWithTools } = await import(
+      '../../utilsAPI/geminiToolLoop.js'
+    );
 
-    if (response.functionCalls?.length > 0) {
-      const call = response.functionCalls[0];
-      const modelPart = response.candidates?.[0]?.content?.parts?.find(
-        (p) => p.functionCall,
-      );
-      console.log(`[Host Agent] tool: ${call.name}`, call.args);
-
-      const {
-        createCircleAgentWallet,
-        executeCircleNanoPayment,
-      } = await import('../../utilsAPI/circleTools.js');
-
-      let toolResult = {};
-      if (call.name === 'create_agent_wallet') {
-        toolResult = await createCircleAgentWallet(call.args.blockchains);
-      } else if (call.name === 'execute_nanopayment') {
-        toolResult = await executeCircleNanoPayment(call.args);
-      } else {
-        toolResult = { error: 'Unknown tool requested' };
+    if (mode !== 'openagent') {
+      let circleCtx = {};
+      if (mode === 'wallet' && decoded?.userId) {
+        const { Wallets } = await import('../../utilsAPI/passkeyDb.js');
+        const snap = await Wallets.doc(decoded.userId).get();
+        const walletData = snap.exists ? snap.data() || {} : {};
+        const ids = walletData.walletIds || {};
+        circleCtx = {
+          walletId: ids.BASE || ids.ETH || walletData.evm?.id || null,
+          solWalletId: ids.SOL || ids.SOLANA || null,
+          walletIds: ids,
+        };
       }
 
-      const finalResponse = await ai.models.generateContent({
+      const { runCircleAgentTool } = await import(
+        '../../utilsAPI/circleAgentRuntime.js'
+      );
+      const ran = await runGeminiWithTools({
+        ai,
         model: targetModel,
-        contents: [
-          { role: 'user', parts: [{ text: userPrompt }] },
-          { role: 'model', parts: [modelPart || { functionCall: call }] },
-          {
-            role: 'user',
-            parts: [
-              {
-                functionResponse: { name: call.name, response: toolResult },
-              },
-            ],
-          },
-        ],
         config,
+        contents: geminiContents,
+        executeTool: async (name, args) => {
+          console.log(`[Host Agent] tool: ${name}`, args);
+          if (mode === 'dome') return skills.runDomeConsultantTool(name, args);
+          return runCircleAgentTool(name, args, circleCtx);
+        },
       });
 
       return Response.json({
-        response: `*(Tool executed: ${call.name})*\n\n${finalResponse.text}`,
-        tool_executed: call.name,
-        tool_result: toolResult,
+        response: ran.text || 'No response from the agent.',
+        tool_executed: ran.tools?.[0] || null,
+        tools: ran.tools,
         model: targetModel,
         modelLabel,
         tariff,
@@ -279,8 +238,14 @@ export async function POST(req) {
       });
     }
 
+    const response = await ai.models.generateContent({
+      model: targetModel,
+      contents: geminiContents,
+      config,
+    });
+
     return Response.json({
-      response: response.text,
+      response: geminiText(response) || response.text,
       model: targetModel,
       modelLabel,
       tariff,

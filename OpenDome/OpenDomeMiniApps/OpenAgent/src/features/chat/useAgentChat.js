@@ -3,23 +3,26 @@ import { Agent } from 'opendome';
 import { quotePromptTariff, GEMINI_CHAT_MODELS } from 'opendome/src/agentTariff.js';
 import { getAgentApiUrl } from '../../config/host';
 
-export function useAgentChat({ isAuthorized, onNeedAuth }) {
+export function useAgentChat({ isAuthorized, onNeedAuth, onPaid, modelId: modelIdProp, onChangeModel }) {
   const [messages, setMessages] = useState([]);
   const [prompt, setPrompt] = useState('');
-  const [modelId, setModelId] = useState(GEMINI_CHAT_MODELS[1].id);
+  const [modelIdInner, setModelIdInner] = useState(GEMINI_CHAT_MODELS[1].id);
+  const modelId = modelIdProp || modelIdInner;
+  const setModelId = onChangeModel || setModelIdInner;
   const [pending, setPending] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedNetwork, setSelectedNetwork] = useState('base');
 
   const liveQuote = quotePromptTariff(prompt, modelId);
 
-  const requestSend = useCallback(() => {
-    const text = prompt.trim();
+  const requestSend = useCallback((override) => {
+    const text = String(override ?? prompt).trim();
     if (!text || isTyping) return;
     if (!isAuthorized) {
       onNeedAuth?.();
       return;
     }
+    if (override != null) setPrompt(text);
     setPending({
       text,
       modelId,
@@ -52,6 +55,12 @@ export function useAgentChat({ isAuthorized, onNeedAuth }) {
           prompt: intent.text,
           modelId: intent.modelId,
           mode: 'openagent',
+          messages: [
+            ...messages
+              .filter((m) => m.role === 'user' || m.role === 'agent')
+              .map((m) => ({ role: m.role, content: m.content })),
+            { role: 'user', content: intent.text },
+          ],
         }),
       });
       const payload = res?.data || res;
@@ -63,7 +72,7 @@ export function useAgentChat({ isAuthorized, onNeedAuth }) {
           role: 'agent',
           content: payload?.response || res.response || JSON.stringify(res),
           model: payload?.modelLabel || intent.quote.modelLabel,
-          costLabel: intent.quote.totalLabel,
+          costLabel: `${intent.quote.totalLabel} USDC · Base`,
           tariff: payload?.tariff || intent.quote,
           paymentTxHash,
           explorerUrl:
@@ -72,6 +81,7 @@ export function useAgentChat({ isAuthorized, onNeedAuth }) {
             (paymentTxHash ? `https://basescan.org/tx/${paymentTxHash}` : null),
         },
       ]);
+      onPaid?.();
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -80,7 +90,7 @@ export function useAgentChat({ isAuthorized, onNeedAuth }) {
     } finally {
       setIsTyping(false);
     }
-  }, [pending, selectedNetwork]);
+  }, [pending, selectedNetwork, onPaid, messages]);
 
   return {
     messages,

@@ -69,7 +69,7 @@ export default function VectorBackground({ themeId, theme }) {
   );
 
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg.canvas, overflow: 'hidden', zIndex: 0 }]}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg.canvas, overflow: 'hidden', zIndex: 0 }]}>
       {themeId === THEMES.PASTEL && renderPastelKawaii()}
       {themeId === THEMES.SYNTHWAVE && renderSynthwave()}
       {themeId === THEMES.ALPINE && renderAlpineFrost()}

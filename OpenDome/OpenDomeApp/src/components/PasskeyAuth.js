@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, Text, TextInput, View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
+import { useKeyboardDodge } from '../features/shell/useKeyboardDodge';
 
 let startRegistration, startAuthentication;
 if (Platform.OS === 'web') {
@@ -28,6 +29,7 @@ async function readApiError(res) {
 export default function PasskeyAuth({ onAuthSuccess, addLog }) {
   const { normalize: n } = useSmartSize();
   const { colors: theme, isDark } = useTheme();
+  const { fieldRef, onFocus: onFieldFocus, onBlur: onFieldBlur, dodgeStyle } = useKeyboardDodge();
 
   const defaultFont = Platform.select({
     ios: 'System',
@@ -35,7 +37,7 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
     default: 'sans-serif',
   });
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       backgroundColor: theme.bg.card,
       borderRadius: theme.shape?.cardRadius ?? n(24),
@@ -100,13 +102,15 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
       borderRadius: n(12),
       paddingVertical: n(12),
       paddingHorizontal: n(16),
-      fontSize: n(16),
+      // iOS Safari zooms (and often remounts) inputs under 16px.
+      fontSize: Math.max(16, n(16)),
       fontFamily: theme.typography?.fontFamilyCode || 'monospace',
     },
     hintText: {
       fontSize: n(12),
       fontFamily: theme.typography?.fontFamily || defaultFont,
       marginTop: n(2),
+      minHeight: n(16),
     },
     hintOk: {
       color: theme.status?.success || '#34C759',
@@ -152,7 +156,7 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
     spinner: {
       marginVertical: n(12),
     },
-  });
+  }), [n, theme, isDark, defaultFont]);
 
   const [usernameInput, setUsernameInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -370,23 +374,36 @@ export default function PasskeyAuth({ onAuthSuccess, addLog }) {
               }}
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="username"
+              textContentType="username"
+              spellCheck={false}
+              blurOnSubmit={false}
               editable={!loading}
               accessibilityLabel="Username"
+              onFocus={(event) => {
+                onInputFocusChange?.(true);
+                const node = event?.target;
+                if (Platform.OS !== 'web' || !node?.scrollIntoView) return;
+                requestAnimationFrame(() => {
+                  node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                });
+              }}
+              onBlur={() => onInputFocusChange?.(false)}
             />
-            {usernameHint ? (
-              <Text
-                style={[
-                  styles.hintText,
-                  usernameStatus === 'available'
+            <Text
+              style={[
+                styles.hintText,
+                !usernameHint
+                  ? { opacity: 0 }
+                  : usernameStatus === 'available'
                     ? styles.hintOk
                     : usernameStatus === 'taken' || usernameStatus === 'invalid'
                       ? styles.hintBad
                       : styles.hintMuted,
-                ]}
-              >
-                {usernameHint}
-              </Text>
-            ) : null}
+              ]}
+            >
+              {usernameHint || ' '}
+            </Text>
           </View>
         )}
 

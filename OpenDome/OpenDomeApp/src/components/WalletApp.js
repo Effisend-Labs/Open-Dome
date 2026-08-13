@@ -14,6 +14,7 @@ import { Image } from 'expo-image';
 import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
 import { useNFTScanner } from '../hooks/useNFTScanner';
+import { fallbackCoverForEvent } from '../features/agent/eventCover';
 
 /** Tokyo Dome thumbs are 752×564 with ~31px white letterbox baked in. */
 const THUMB_CROP_ZOOM = 564 / (564 - 31 - 32);
@@ -144,6 +145,36 @@ function passSubtitle(nft) {
   return nft?.chain || 'Base';
 }
 
+function PassArt({ nft, theme, n }) {
+  if (nft?.image) return <PassCoverImage uri={String(nft.image)} />;
+  const fallback = fallbackCoverForEvent({
+    category: nft?.category,
+    placeName: nft?.placeName,
+  });
+  if (fallback) {
+    return (
+      <Image
+        source={fallback}
+        style={{ width: '100%', aspectRatio: 1 }}
+        contentFit="cover"
+      />
+    );
+  }
+  return (
+    <View
+      style={{
+        width: '100%',
+        aspectRatio: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#111',
+      }}
+    >
+      <Ionicons name="ticket-outline" size={n(24)} color={theme.text.secondary} />
+    </View>
+  );
+}
+
 /** Dock footprint — keep in sync with main.js dockWrapper + dock padding. */
 const dockFootprint = (n) => n(24) + n(32) + n(44);
 /** Extra scroll clearance for the passes list (dock + breathing room). */
@@ -162,7 +193,9 @@ export default function WalletApp({ verifiedToken }) {
     return null;
   }, [verifiedToken]);
 
-  const { nfts, isScanning } = useNFTScanner(userProfile?.evm);
+  const scanAddress =
+    userProfile?.evm || userProfile?.evmAddress || userProfile?.address || null;
+  const { nfts, isScanning } = useNFTScanner(scanAddress);
 
   const defaultFont = Platform.select({
     ios: 'System',
@@ -455,27 +488,10 @@ export default function WalletApp({ verifiedToken }) {
                     style={({ pressed }) => [s.nftCard, pressed && { opacity: 0.88 }]}
                     onPress={() => setSelected(nft)}
                   >
-                    {nft.image ? (
-                      <View style={s.nftImageSlot}>
-                        <PassCoverImage uri={nft.image} />
-                        {renderAmount(nft)}
-                      </View>
-                    ) : (
-                      <View style={s.nftImageSlot}>
-                        <View
-                          style={{
-                            width: '100%',
-                            aspectRatio: 1,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#111',
-                          }}
-                        >
-                          <Ionicons name="image-outline" size={n(24)} color={theme.text.secondary} />
-                        </View>
-                        {renderAmount(nft)}
-                      </View>
-                    )}
+                    <View style={s.nftImageSlot}>
+                      <PassArt nft={nft} theme={theme} n={n} />
+                      {renderAmount(nft)}
+                    </View>
                     <View style={s.nftInfo}>
                       <Text style={s.nftName} numberOfLines={1}>
                         {nft.name || 'Unnamed Pass'}
@@ -505,13 +521,7 @@ export default function WalletApp({ verifiedToken }) {
             </Pressable>
             <View style={s.imageSection}>
               <View style={s.imageWrap}>
-                {selected?.image ? (
-                  <PassCoverImage uri={selected.image} />
-                ) : (
-                  <View style={s.imageFallback}>
-                    <Ionicons name="ticket-outline" size={n(32)} color={theme.text.secondary} />
-                  </View>
-                )}
+                <PassArt nft={selected} theme={theme} n={n} />
               </View>
             </View>
             <View style={s.body}>

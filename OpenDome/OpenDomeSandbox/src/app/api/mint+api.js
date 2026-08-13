@@ -4,7 +4,7 @@ const MERCHANT_PRIVATE_KEY = process.env.MERCHANT_PRIVATE_KEY;
 const VALID_ADMIN_TOKEN = process.env.ADMIN_SCANNER_TOKEN;
 const DEFAULT_CONTRACT =
   process.env.CONTRACT_ADDRESS ||
-  '0x40c39F091a7c85D10B8C46762b59Df3eCd77630C';
+  '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
 
 const RPC_URLS = {
   base: process.env.RPC_URL || 'https://mainnet.base.org',

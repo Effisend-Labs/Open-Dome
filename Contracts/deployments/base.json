@@ -1,10 +1,10 @@
 {
   "network": "base",
   "chainId": 8453,
-  "contractAddress": "0x40c39F091a7c85D10B8C46762b59Df3eCd77630C",
-  "deployer": "0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f",
+  "contractAddress": "0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF",
+  "deployer": "0xd2D5196DbC7a285Fa96d193A91E40F5e4BB39C60",
   "uri": "https://admin.opendome.xyz/api/metadata/{id}.json",
-  "txHash": "0xd76bf6cef5d8a371c9fa48bbb6e8716613c284789a7f8f48e97a8fba102a6bee",
-  "blockNumber": 49852318,
-  "deployedAt": "2026-08-12T00:19:43.417Z"
+  "txHash": "0x9618a8b5d4f8bc2365238f60a7c0bf152ace253acdaffd45b5e8b178c52431bc",
+  "blockNumber": 49907359,
+  "deployedAt": "2026-08-13T06:54:23.664Z"
 }

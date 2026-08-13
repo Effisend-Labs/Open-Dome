@@ -13,6 +13,7 @@ export default function IframeContainer({
   gpsLocation
 }) {
   const iframeRef = useRef(null);
+  const pushedSessionRef = useRef(null);
   const [loadError, setLoadError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -20,6 +21,7 @@ export default function IframeContainer({
   useEffect(() => { 
     setLoadError(false); 
     setIsLoading(true);
+    pushedSessionRef.current = null;
   }, [activeUrl]);
 
   // Helper to extract the domain/origin of the loaded mini-app
@@ -248,35 +250,33 @@ export default function IframeContainer({
           if (!verifyRes.ok) throw new Error('Registration verification failed');
           
           const verifyResult = await verifyRes.json();
-          if (verifyResult.verified && verifyResult.token) {
-            onAddLog(`[Bridge] Delegated Registration complete. Dispatched Success.`);
-            const userProfile = await verifyTokenOnServer(verifyResult.token);
-            
-            const sourceWindow = event.source;
-            if (sourceWindow && userProfile) {
-              sourceWindow.postMessage({
-                type: 'OPENDOME_REGISTER_RESPONSE',
-                status: 'SUCCESS',
-                payload: { token: verifyResult.token },
-                user: {
-                  username: userProfile.username,
-                  evmAddress: userProfile.evmAddress,
-                  solanaAddress: userProfile.solanaAddress
-                },
-                context: { wsJwt: userProfile.wsJwt }
-              }, origin);
-
-              onUserAuthChanged({
-                token: verifyResult.token,
-                profile: {
-                  username: userProfile.username,
-                  evmAddress: userProfile.evmAddress,
-                  solanaAddress: userProfile.solanaAddress
-                },
-                jwt: userProfile.wsJwt
-              });
-            }
+          if (!verifyResult.verified || !verifyResult.token) {
+            throw new Error('Registration verification failed');
           }
+          onAddLog(`[Bridge] Delegated Registration complete. Dispatched Success.`);
+          const userProfile = await verifyTokenOnServer(verifyResult.token);
+          const sourceWindow = event.source;
+          if (!sourceWindow) throw new Error('Mini App window unavailable');
+          sourceWindow.postMessage({
+            type: 'OPENDOME_REGISTER_RESPONSE',
+            status: 'SUCCESS',
+            payload: { token: verifyResult.token },
+            user: {
+              username: userProfile?.username || null,
+              evmAddress: userProfile?.evmAddress || null,
+              solanaAddress: userProfile?.solanaAddress || null
+            },
+            context: { wsJwt: userProfile?.wsJwt || null }
+          }, origin);
+          onUserAuthChanged({
+            token: verifyResult.token,
+            profile: {
+              username: userProfile?.username || null,
+              evmAddress: userProfile?.evmAddress || null,
+              solanaAddress: userProfile?.solanaAddress || null
+            },
+            jwt: userProfile?.wsJwt || null
+          });
         } catch (err) {
           onAddLog(`[Bridge] Delegated REGISTER Failed: ${err.message}`);
           const sourceWindow = event.source;
@@ -313,35 +313,33 @@ export default function IframeContainer({
           if (!verifyRes.ok) throw new Error('Login verification failed');
           
           const verifyResult = await verifyRes.json();
-          if (verifyResult.verified && verifyResult.token) {
-            onAddLog(`[Bridge] Delegated Authentication complete. Dispatched Success.`);
-            const userProfile = await verifyTokenOnServer(verifyResult.token);
-            
-            const sourceWindow = event.source;
-            if (sourceWindow && userProfile) {
-              sourceWindow.postMessage({
-                type: 'OPENDOME_LOGIN_RESPONSE',
-                status: 'SUCCESS',
-                payload: { token: verifyResult.token },
-                user: {
-                  username: userProfile.username,
-                  evmAddress: userProfile.evmAddress,
-                  solanaAddress: userProfile.solanaAddress
-                },
-                context: { wsJwt: userProfile.wsJwt }
-              }, origin);
-
-              onUserAuthChanged({
-                token: verifyResult.token,
-                profile: {
-                  username: userProfile.username,
-                  evmAddress: userProfile.evmAddress,
-                  solanaAddress: userProfile.solanaAddress
-                },
-                jwt: userProfile.wsJwt
-              });
-            }
+          if (!verifyResult.verified || !verifyResult.token) {
+            throw new Error('Login verification failed');
           }
+          onAddLog(`[Bridge] Delegated Authentication complete. Dispatched Success.`);
+          const userProfile = await verifyTokenOnServer(verifyResult.token);
+          const sourceWindow = event.source;
+          if (!sourceWindow) throw new Error('Mini App window unavailable');
+          sourceWindow.postMessage({
+            type: 'OPENDOME_LOGIN_RESPONSE',
+            status: 'SUCCESS',
+            payload: { token: verifyResult.token },
+            user: {
+              username: userProfile?.username || null,
+              evmAddress: userProfile?.evmAddress || null,
+              solanaAddress: userProfile?.solanaAddress || null
+            },
+            context: { wsJwt: userProfile?.wsJwt || null }
+          }, origin);
+          onUserAuthChanged({
+            token: verifyResult.token,
+            profile: {
+              username: userProfile?.username || null,
+              evmAddress: userProfile?.evmAddress || null,
+              solanaAddress: userProfile?.solanaAddress || null
+            },
+            jwt: userProfile?.wsJwt || null
+          });
         } catch (err) {
           onAddLog(`[Bridge] Delegated LOGIN Failed: ${err.message}`);
           const sourceWindow = event.source;
@@ -365,13 +363,21 @@ export default function IframeContainer({
       if (type === 'OPENDOME_AI_PROMPT') {
         const { id, payload: aiPayload } = event.data;
         const promptText = aiPayload?.prompt || '';
-        onAddLog(`[Bridge] Received AI prompt: "${promptText.substring(0, 30)}..."`);
+        const agentMode = aiPayload?.mode || 'dome';
+        onAddLog(`[Bridge] Received AI prompt (${agentMode}): "${promptText.substring(0, 30)}..."`);
         
         try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (verifiedToken) headers.Authorization = `Bearer ${verifiedToken}`;
           const res = await fetch('/api/agent', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: promptText })
+            headers,
+            body: JSON.stringify({
+              prompt: promptText,
+              mode: agentMode,
+              modelId: aiPayload?.modelId,
+              messages: aiPayload?.messages,
+            })
           });
           
           const data = await res.json();
@@ -403,6 +409,41 @@ export default function IframeContainer({
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [activeUrl, verifiedToken, contextVariables]);
+
+  // After passkey login the host has a session; push it into the iframe even if
+  // LOGIN_RESPONSE was missed (Strict Mode dropped the mini-app listener).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !activeUrl || !verifiedToken || isLoading) return;
+    if (pushedSessionRef.current === verifiedToken) return;
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+
+    let cancelled = false;
+    (async () => {
+      const userRes = await verifyTokenOnServer(verifiedToken);
+      if (cancelled || !userRes?.authenticated) return;
+      pushedSessionRef.current = verifiedToken;
+      const contextObj = {};
+      (contextVariables || []).forEach((row) => {
+        if (row.key) contextObj[row.key] = row.value;
+      });
+      iframe.contentWindow.postMessage({
+        type: 'OPENDOME_HANDSHAKE',
+        status: 'VERIFIED',
+        payload: userRes.token || verifiedToken,
+        user: {
+          username: userRes.username,
+          evmAddress: userRes.evmAddress,
+          solanaAddress: userRes.solanaAddress,
+        },
+        context: { ...contextObj, wsJwt: userRes.wsJwt },
+      }, getMiniAppOrigin());
+      onAddLog('[Bridge] Pushed verified session into Mini App.');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [verifiedToken, isLoading, activeUrl]);
 
   // Sync GPS Location continuously down to the iframe
   useEffect(() => {
@@ -490,7 +531,7 @@ export default function IframeContainer({
           src={iframeSrc}
           style={styles.iframe}
           title="Open-Dome Active Mini App"
-          allow="geolocation"
+          allow="geolocation; camera; clipboard-write; clipboard-read"
           onLoad={() => setIsLoading(false)}
           onError={() => setLoadError(true)}
         />

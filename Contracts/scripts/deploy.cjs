@@ -51,7 +51,7 @@ async function main() {
   console.log("  address:", address);
   console.log("  tx:", out.txHash);
   console.log("  wrote:", file);
-  console.log("\nNext: set CONTRACT_ADDRESS=" + address + " in OpenDomeAdminApp .env / Vercel");
+  console.log("\nNext: set CONTRACT_ADDRESS=" + address + " in App / Sandbox / Admin .env and Vercel");
 }
 
 main().catch((err) => {

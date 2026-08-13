@@ -13,6 +13,7 @@ import {
 } from '../../../utilsAPI/circleTools';
 import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
+import { jwtRoleFromUser } from '../../../utilsAPI/staffAuth';
 
 const getDynamicRpID = (req) => {
   try {
@@ -144,16 +145,17 @@ export const POST = async (request) => {
         user.solanaAddress = solanaAddress;
       }
 
-      const role =
-        user.role === 'god' ||
-        String(user.usernameLower || user.username || '')
-          .toLowerCase()
-          .replace(/^@/, '') === 'altaga'
-          ? 'god'
-          : 'user';
-
-      if (role === 'god' && user.role !== 'god') {
-        await Users.doc(user.id).update({ role: 'god' });
+      const role = jwtRoleFromUser(user);
+      const evmLower = user.evmAddress
+        ? String(user.evmAddress).toLowerCase()
+        : '';
+      const userPatch = {};
+      if (role === 'god' && user.role !== 'god') userPatch.role = 'god';
+      if (evmLower && user.evmAddressLower !== evmLower) {
+        userPatch.evmAddressLower = evmLower;
+      }
+      if (Object.keys(userPatch).length) {
+        await Users.doc(user.id).update(userPatch);
       }
 
       const token = jwt.sign(

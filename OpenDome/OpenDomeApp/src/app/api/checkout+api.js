@@ -10,6 +10,7 @@ import {
 } from 'opendome/dist/devBypass.js';
 import { mintPassesAsPlatform } from 'opendome/dist/platformMint.js';
 import { assignTicketsAsPlatform } from '../../utilsAPI/ticketsDb.js';
+import { mintPlanFromQuote } from '../../utilsAPI/mintPlanFromQuote.js';
 
 /** Testing — skip USDC settlement without touching .env */
 const FORCE_SKIP_X402 = true;
@@ -58,7 +59,7 @@ export async function POST(req) {
     if (bypassX402) {
       console.warn('[Host Checkout API] SKIP_X402 — no facilitator settlement');
       paymentTxHash = fakeTxHash('x402');
-      parsedPayment = { from: toAddress || merchantAddress };
+      parsedPayment = { from: toAddress || null };
     } else {
       if (!paymentSignatureBase64) {
         return new Response(null, {
@@ -86,31 +87,45 @@ export async function POST(req) {
       }
     }
 
-    const recipient = (toAddress || parsedPayment?.from || '').toLowerCase();
+    const recipient = String(toAddress || parsedPayment?.from || '')
+      .trim()
+      .toLowerCase();
+    if (!recipient || !recipient.startsWith('0x')) {
+      return Response.json(
+        { error: 'Sign in required to mint passes (missing wallet address).' },
+        { status: 401 },
+      );
+    }
     const orderId = `OD-${Date.now().toString(36).toUpperCase()}`;
 
+    const mintPlan = mintPlanFromQuote(quote);
+    const quoteForMint = {
+      ...quote,
+      tokenIds: mintPlan.ids,
+      amounts: mintPlan.amounts,
+    };
+
     let mintResult = null;
-    if (quote.tokenIds?.length && recipient) {
+    if (mintPlan.ids.length && recipient) {
       try {
-        const amounts = quote.amounts || quote.tokenIds.map(() => 1);
         if (bypassChain) {
           console.warn('[Host Checkout API] OD_BYPASS_BLOCKCHAIN — skip chain mint; platform assigns tickets');
           mintResult = {
             success: true,
             txHash: fakeTxHash('mint'),
             to: recipient,
-            ids: quote.tokenIds,
-            amounts,
+            ids: mintPlan.ids,
+            amounts: mintPlan.amounts,
             contractAddress:
               process.env.CONTRACT_ADDRESS ||
-              '0x40c39F091a7c85D10B8C46762b59Df3eCd77630C',
+              '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF',
             signedBy: 'platform-bypass',
           };
         } else {
           mintResult = await mintPassesAsPlatform({
             to: recipient,
-            ids: quote.tokenIds,
-            amounts,
+            ids: mintPlan.ids,
+            amounts: mintPlan.amounts,
             network: 'base',
           });
           console.log(`[Host Checkout API] Platform mint OK. Hash: ${mintResult.txHash}`);
@@ -120,8 +135,11 @@ export async function POST(req) {
           mintTxHash: mintResult.txHash,
           paymentTxHash,
           contractAddress: mintResult.contractAddress,
+          lineItems: quote.lineItems,
         });
-        console.log('[Host Checkout API] Platform assigned tickets');
+        console.log(
+          `[Host Checkout API] Platform assigned tickets → ${recipient} ids=${JSON.stringify(mintResult.ids)}`,
+        );
       } catch (mintErr) {
         console.error('[Host Checkout API] Platform mint/assign failed:', mintErr.message);
         return Response.json(
@@ -135,7 +153,7 @@ export async function POST(req) {
       }
     }
 
-    const confirmation = buildFulfillmentFromQuote(quote, {
+    const confirmation = buildFulfillmentFromQuote(quoteForMint, {
       paymentTxHash,
       mintResult,
       toAddress: recipient,

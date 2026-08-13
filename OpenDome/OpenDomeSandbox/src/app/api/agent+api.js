@@ -1,7 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
-import { createCircleAgentWallet, executeCircleNanoPayment } from '../../api-utils/circle-tools.js';
+import { runCircleAgentTool } from '../../api-utils/circleAgentRuntime.js';
 import jwt from 'jsonwebtoken';
-import { createGatewayMiddleware } from '@circle-fin/x402-batching/server';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -38,51 +37,6 @@ const ai = new GoogleGenAI({
   }
 });
 
-// Define the exact Circle tool schema expected by the Gemini API
-const circleAgentTools = [{
-  functionDeclarations: [
-    {
-      name: 'create_agent_wallet',
-      description: 'Creates a new MPC developer-controlled wallet.',
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          blockchains: {
-            type: 'ARRAY',
-            items: { type: 'STRING' },
-            description: 'List of blockchains to provision (e.g., ["ETH", "BASE", "MATIC"])'
-          }
-        },
-        required: ['blockchains']
-      }
-    },
-    {
-      name: 'execute_nanopayment',
-      description: 'Executes a USDC payment via Circle.',
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          amount: { type: 'STRING' },
-          destination: { type: 'STRING' },
-          tokenId: { type: 'STRING' }
-        },
-        required: ['amount', 'destination', 'tokenId']
-      }
-    },
-    {
-      name: 'calculate_sum',
-      description: 'Calculates the sum of two numbers. Use this whenever the user asks to add or sum numbers.',
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          a: { type: 'NUMBER', description: 'The first number to add' },
-          b: { type: 'NUMBER', description: 'The second number to add' }
-        },
-        required: ['a', 'b']
-      }
-    }
-  ]
-}];
 
 export async function OPTIONS(request) {
   return new Response(null, {
@@ -118,10 +72,18 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const isOpenAgent = body.mode === 'openagent' || body.app === 'openagent';
-    const defaultPrompt = isOpenAgent
-      ? 'You are OpenAgent, a Gemini assistant inside OpenDome. Be helpful, concise, and accurate. Answer the user directly. Do not claim you charged a card or moved funds unless a tool actually ran.'
-      : 'You are the OpenDome AI Agent. You manage MPC wallets using Circle. If asked, you can create a wallet or send nanopayments. You must execute tools when asked to.';
+    const skills = await import('opendome/dist/agentSkills.js');
+    const { OPEN_AGENT_SYSTEM_PROMPT, buildOpenAgentContents } = await import(
+      'opendome/dist/openAgentPrompt.js'
+    );
+    const mode = skills.resolveAgentMode(body);
+    const isOpenAgent = mode === 'openagent';
+    const defaultPrompt =
+      mode === 'openagent'
+        ? OPEN_AGENT_SYSTEM_PROMPT
+        : mode === 'wallet'
+          ? skills.WALLET_CIRCLE_PROMPT
+          : skills.DOME_CONSULTANT_PROMPT;
     const userPrompt = body.prompt || body.message || defaultPrompt;
 
     // --- GUARDRAIL 1: Input Overload Protection ---
@@ -151,8 +113,10 @@ export async function POST(req) {
     const targetModel = tariff.apiModel;
     const price = tariff.x402Amount;
 
-    // --- x402 CLASSIC FACILITATOR MIDDLEWARE ---
-    if (!decoded) {
+    let paymentTxHash = null;
+
+    // Per-prompt x402 is OpenAgent only.
+    if (isOpenAgent) {
       const { OpenDomeSeller, OpenDomeFacilitator } = await import('opendome/dist/x402.js');
       const merchantAddress = process.env.MERCHANT_ADDRESS;
       if (!merchantAddress) {
@@ -180,54 +144,48 @@ export async function POST(req) {
         return Response.json({ error: err.message }, { status: 400 });
       }
 
-      console.log(`[x402 Facilitator] Signature format valid. Handing over to OpenDomeFacilitator to verify and sponsor transaction for ${parsedPayment.from}...`);
-
-      if (process.env.OD_BYPASS_X402 === 'true') {
-        console.warn('[x402 Facilitator] OD_BYPASS_X402 — skipping on-chain relay');
-      } else {
-        // 2. Verify mathematically and relay transaction to Base Mainnet
-        const facilitator = new OpenDomeFacilitator(process.env.MERCHANT_PRIVATE_KEY);
-        
-        try {
-          const txHash = await facilitator.verifyAndRelay(parsedPayment.payload, parsedPayment.signature);
-          console.log(`[x402 Facilitator] Transaction confirmed! Payment settled. Hash: ${txHash}`);
-        } catch (err) {
-          console.error('[x402 Facilitator] Error relaying transaction:', err.message);
-          return Response.json({ error: err.message }, { status: 500 });
-        }
+      const facilitator = new OpenDomeFacilitator(process.env.MERCHANT_PRIVATE_KEY);
+      try {
+        paymentTxHash = await facilitator.verifyAndRelay(parsedPayment.payload, parsedPayment.signature);
+        console.log(`[x402 Facilitator] Transaction confirmed! Payment settled. Hash: ${paymentTxHash}`);
+      } catch (err) {
+        console.error('[x402 Facilitator] Error relaying transaction:', err.message);
+        return Response.json({ error: err.message }, { status: 500 });
       }
 
-      decoded = { userId: 'x402-user', username: 'x402 Payer' };
+      if (!decoded) decoded = { userId: 'x402-user', username: 'x402 Payer' };
     }
 
+    const tools =
+      mode === 'openagent'
+        ? skills.GOOGLE_SEARCH_TOOLS
+        : mode === 'wallet'
+          ? skills.WALLET_CIRCLE_TOOLS
+          : skills.DOME_CONSULTANT_TOOLS;
     const config = {
-      tools: isOpenAgent ? undefined : circleAgentTools,
+      tools,
       temperature: 0.7,
       systemInstruction: defaultPrompt
     };
 
+    const geminiContents = buildOpenAgentContents(userPrompt, body.messages);
+
     const response = await ai.models.generateContent({
       model: targetModel,
-      contents: userPrompt,
+      contents: geminiContents,
       config
     });
     
-    // Check if Gemini wants to call a Circle tool
-    if (response.functionCalls && response.functionCalls.length > 0) {
+    if (mode !== 'openagent' && response.functionCalls && response.functionCalls.length > 0) {
       const call = response.functionCalls[0];
       const modelPart = response.candidates[0].content.parts.find(p => p.functionCall);
       console.log(`Agent invoked tool: ${call.name}`, call.args);
       
-      let toolResult = {};
-      if (call.name === 'create_agent_wallet') {
-        toolResult = await createCircleAgentWallet(call.args.blockchains);
-      } else if (call.name === 'execute_nanopayment') {
-        toolResult = await executeCircleNanoPayment(call.args);
-      } else if (call.name === 'calculate_sum') {
-        const sum = call.args.a + call.args.b;
-        toolResult = { result: sum };
-      } else {
-        toolResult = { error: 'Unknown tool requested' };
+      let toolResult = { error: 'Unknown tool requested' };
+      if (mode === 'dome') {
+        toolResult = skills.runDomeConsultantTool(call.name, call.args);
+      } else if (mode === 'wallet') {
+        toolResult = await runCircleAgentTool(call.name, call.args);
       }
 
       // Automatically synthesize the final response based on the tool result
@@ -248,15 +206,22 @@ export async function POST(req) {
         model: targetModel,
         modelLabel: tariff.modelLabel,
         tariff,
+        paymentTxHash,
+        explorerUrl: paymentTxHash
+          ? `https://basescan.org/tx/${paymentTxHash}`
+          : null,
       });
     }
 
-    // Standard text response
     return Response.json({
       response: response.text,
       model: targetModel,
       modelLabel: tariff.modelLabel,
       tariff,
+      paymentTxHash,
+      explorerUrl: paymentTxHash
+        ? `https://basescan.org/tx/${paymentTxHash}`
+        : null,
     });
 
   } catch (error) {

@@ -1,0 +1,21 @@
+{
+  "name": "opendome-tests",
+  "version": "1.0.0",
+  "description": "Enterprise unit tests for the OpenDome infrastructure",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test --test-reporter spec",
+    "test:firestore": "node --test --test-reporter spec tests/firestore.test.js",
+    "test:circle": "node --test --test-reporter spec tests/circle.test.js",
+    "test:rate-limit": "node --test --test-reporter spec tests/rate-limit.test.js",
+    "test:blockchain": "node --test --test-reporter spec tests/blockchain-logic.test.js",
+    "test:passkey": "node --test --test-reporter spec tests/passkey-logic.test.js",
+    "test:agent": "node --test --test-reporter spec tests/agent.test.js"
+  },
+  "dependencies": {
+    "@circle-fin/developer-controlled-wallets": "^10.8.0",
+    "@google-cloud/firestore": "^8.7.0",
+    "@google/genai": "^2.13.0",
+    "google-auth-library": "^10.9.1"
+  }
+}

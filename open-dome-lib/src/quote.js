@@ -1,6 +1,22 @@
+import amenitiesData from './dbs/amenities.json';
 import { getCatalogPriceUsd } from './pricing';
 import { attachExplorerToPass, buildPassExplorerLinks } from './explorer';
 import { OPENDOME_PASS_ADDRESS } from './blockchain/passContract.js';
+
+const AMENITY_TOKEN_BASE = 900000;
+
+export function amenityPassTokenId(amenityId) {
+  const row = amenitiesData.find((a) => a.id === amenityId);
+  if (row?.tokenId != null) return Number(row.tokenId);
+
+  let h = 2166136261;
+  const s = String(amenityId || '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return AMENITY_TOKEN_BASE + ((h >>> 0) % 99999) + 1;
+}
 
 const DEFAULT_TICKET_USD = 48;
 const DEFAULT_AMENITY_USD = 20;
@@ -76,17 +92,21 @@ export function quoteItineraryProposal(proposal, options = {}) {
 
     const amenityId = stop.amenityId || stop.id;
     let price = amenityPrice(amenityId);
-    if (testPricing) price = 0;
+    if (testPricing) price = testUnit;
+    const tokenId = amenityPassTokenId(amenityId);
     lineItems.push({
       id: `amenity-${amenityId}`,
       type: 'amenity',
       amenityId,
+      tokenId,
       title: stop.title,
       subtitle: `${stop.startTime} – ${stop.endTime} · ${stop.placeName}`,
       quantity: 1,
       unitPriceUsd: price,
       totalUsd: price,
     });
+    tokenIds.push(tokenId);
+    amounts.push(1);
     reservations.push({
       type: 'amenity',
       title: stop.title,

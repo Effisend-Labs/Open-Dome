@@ -31,7 +31,7 @@ export const locales = {
     },
     agent: {
       workspace: "Agent Workspace",
-      poweredBy: "Pick a Gemini model for chat. Day plans run as a four-agent council.",
+      poweredBy: "Circle wallets, USDC, and transfers. Pick a Gemini model to chat.",
       helpText: "How can I help you today?",
       placeholder: "Ask anything...",
       thinking: "Thinking...",
@@ -47,7 +47,7 @@ export const locales = {
     },
     authRequired: {
       title: "Sign in to continue",
-      description: "Your passkey unlocks balances, NFTs, and payments. Planning tools still work without signing in.",
+      description: "Your passkey unlocks Circle wallets, USDC balances, and transfers.",
       cta: "Go to Account · Sign in",
       hint: "Account tab → Register or Sign in with Passkey",
       portfolio: "Authenticate to view your multi-chain portfolio and send funds.",
@@ -140,7 +140,7 @@ export const locales = {
     },
     authRequired: {
       title: "Inicia sesión para continuar",
-      description: "Tu passkey desbloquea balances, NFTs y pagos. La planificación funciona sin iniciar sesión.",
+      description: "Tu passkey desbloquea wallets Circle, balances USDC y transferencias.",
       cta: "Ir a Cuenta · Iniciar sesión",
       hint: "Pestaña Cuenta → Registrarse o iniciar con Passkey",
       portfolio: "Autentícate para ver tu portafolio multichain y enviar fondos.",
@@ -220,7 +220,7 @@ export const locales = {
     },
     agent: {
       workspace: "エージェント ワークスペース",
-      poweredBy: "Pick a Gemini model for chat. Day plans run as a four-agent council.",
+      poweredBy: "Circle wallets, USDC, and transfers. Pick a Gemini model to chat.",
       helpText: "今日はどのようなご用件でしょうか？",
       placeholder: "何でも聞いてください...",
       thinking: "考え中..."

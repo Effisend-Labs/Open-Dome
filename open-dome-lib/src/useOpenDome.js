@@ -48,6 +48,7 @@ let globalIsAuthorized = false;
 let globalLoading = true;
 let globalProxiedLocation = null;
 let globalHandshakeInitiated = false;
+let globalMessageHandler = null;
 let globalParentOrigin = null;
 let globalAuthError = null;
 let globalAuthPending = false;
@@ -236,9 +237,10 @@ export function useOpenDome(config = {}) {
       updateSubscribers();
     }
 
-    // Only initiate handshake on the very first hook mount in an iframe
-    if (typeof window !== 'undefined' && window.parent !== window && !globalHandshakeInitiated) {
-      globalHandshakeInitiated = true;
+    // Iframe: keep one message listener for the lifetime of the page.
+    // React Strict Mode unmounts the first effect; removing the listener there
+    // dropped LOGIN_RESPONSE and left Sign in spinning forever.
+    if (typeof window !== 'undefined' && window.parent !== window) {
       globalIsLocked = false;
 
       const appToken =
@@ -257,7 +259,7 @@ export function useOpenDome(config = {}) {
         })();
       const appId = config.appId || (typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_OD_APP_ID : null);
 
-      const handleMessage = (event) => {
+      const handleMessage = globalMessageHandler || ((event) => {
         if (!event.data) return;
         if (event.source !== window.parent) return;
 
@@ -275,25 +277,34 @@ export function useOpenDome(config = {}) {
             globalIsAuthorized = false;
             globalIsLocked = true;
             globalLoading = false;
+            globalAuthPending = false;
             updateSubscribers();
             window.parent.postMessage({
               type: 'OPEN_DOME_SDK_ERROR',
               error: error || 'INVALID_TOKEN'
             }, globalParentOrigin);
           } else if (status === 'UNAUTHENTICATED') {
-            globalToken = null;
-            globalUser = null;
-            globalContext = incomingContext || {};
-            globalIsAuthorized = false;
-            globalIsLocked = false;
-            globalLoading = false;
-            updateSubscribers();
-            window.parent.postMessage({
-              type: 'OPEN_DOME_SDK_INIT',
-              version: '1.0.0',
-              status: 'UNAUTHENTICATED',
-              context: incomingContext || {}
-            }, globalParentOrigin);
+            // A late guest handshake must not wipe a session we just signed in.
+            if (globalIsAuthorized && globalToken) {
+              globalLoading = false;
+              globalAuthPending = false;
+              updateSubscribers();
+            } else {
+              globalToken = null;
+              globalUser = null;
+              globalContext = incomingContext || {};
+              globalIsAuthorized = false;
+              globalIsLocked = false;
+              globalLoading = false;
+              globalAuthPending = false;
+              updateSubscribers();
+              window.parent.postMessage({
+                type: 'OPEN_DOME_SDK_INIT',
+                version: '1.0.0',
+                status: 'UNAUTHENTICATED',
+                context: incomingContext || {}
+              }, globalParentOrigin);
+            }
           } else {
             globalToken = payload;
             globalUser = incomingUser || null;
@@ -301,6 +312,8 @@ export function useOpenDome(config = {}) {
             globalIsAuthorized = true;
             globalIsLocked = false;
             globalLoading = false;
+            globalAuthError = null;
+            globalAuthPending = false;
             updateSubscribers();
             window.parent.postMessage({
               type: 'OPEN_DOME_SDK_INIT',
@@ -312,8 +325,9 @@ export function useOpenDome(config = {}) {
         }
 
         if (type === 'OPENDOME_REGISTER_RESPONSE' || type === 'OPENDOME_LOGIN_RESPONSE') {
-          if (status === 'SUCCESS') {
-            globalToken = payload.token;
+          const nextToken = payload?.token || (typeof payload === 'string' ? payload : null);
+          if (status === 'SUCCESS' && nextToken) {
+            globalToken = nextToken;
             globalUser = incomingUser || null;
             // Merge incoming context (auth-specific: wsJwt) on top of the
             // existing environment context (theme, lang, etc.) — never replace,
@@ -353,43 +367,45 @@ export function useOpenDome(config = {}) {
           globalProxiedLocation = payload;
           updateSubscribers();
         }
-      };
+      });
 
-      window.addEventListener('message', handleMessage);
+      if (!globalMessageHandler) {
+        globalMessageHandler = handleMessage;
+        window.addEventListener('message', globalMessageHandler);
+      }
 
-      // Post validation details back
-      window.parent.postMessage({
-        type: 'OPENDOME_READY',
-        token: appToken || null,
-        appId: appId || null
-      }, getTargetOrigin());
+      if (!globalHandshakeInitiated) {
+        globalHandshakeInitiated = true;
+        window.parent.postMessage({
+          type: 'OPENDOME_READY',
+          token: appToken || null,
+          appId: appId || null
+        }, getTargetOrigin());
 
-      // No host handshake → lock (do not unlock via SKIP_AUTH in production)
-      const timeout = setTimeout(() => {
-        if (globalLoading && !globalIsAuthorized) {
-          if (allowStandaloneDebug(config) && skipAuthEnabled()) {
-            globalToken = 'DEBUG_TOKEN';
-            globalUser = {
-              username: 'DebugUser',
-              evmAddress: '0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681',
-              solanaAddress: 'FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u'
-            };
-            globalContext = { theme: 'light', lang: 'en' };
-            globalIsAuthorized = true;
-            globalIsLocked = false;
-            globalLoading = false;
-          } else {
-            globalIsLocked = true;
-            globalIsAuthorized = false;
-            globalLoading = false;
+        setTimeout(() => {
+          if (globalLoading && !globalIsAuthorized) {
+            if (allowStandaloneDebug(config) && skipAuthEnabled()) {
+              globalToken = 'DEBUG_TOKEN';
+              globalUser = {
+                username: 'DebugUser',
+                evmAddress: '0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681',
+                solanaAddress: 'FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u'
+              };
+              globalContext = { theme: 'light', lang: 'en' };
+              globalIsAuthorized = true;
+              globalIsLocked = false;
+              globalLoading = false;
+            } else {
+              globalIsLocked = true;
+              globalIsAuthorized = false;
+              globalLoading = false;
+            }
+            updateSubscribers();
           }
-          updateSubscribers();
-        }
-      }, 5000);
+        }, 5000);
+      }
 
       return () => {
-        window.removeEventListener('message', handleMessage);
-        clearTimeout(timeout);
         subscribers.delete(setState);
       };
     }
@@ -425,10 +441,12 @@ export function useOpenDome(config = {}) {
     return null;
   };
 
+  const decodedJwt = state.token ? parseJwt(state.token) : null;
   const enrichedUser = (state.token || state.user) ? {
     username: getDecodedUsername() || state.user?.username || null,
-    evmAddress: state.user?.evmAddress || null,
-    solanaAddress: state.user?.solanaAddress || null
+    role: decodedJwt?.role || state.user?.role || null,
+    evmAddress: state.user?.evmAddress || decodedJwt?.evm || null,
+    solanaAddress: state.user?.solanaAddress || decodedJwt?.solana || null
   } : null;
 
   return {

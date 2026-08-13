@@ -1,235 +1,254 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Modal, TouchableOpacity, TextInput, Animated } from 'react-native';
-import { GLOBAL_STYLES } from '../theme';
-import { USE_NATIVE_DRIVER } from '../utils/styleCompat';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, Modal, TouchableOpacity, TextInput } from 'react-native';
+import { useSponsoredTransfer } from '../features/send/useSponsoredTransfer';
+import { sanitizeUsdcAmount, isUsdcAmountReady } from '../features/send/sanitizeUsdcAmount';
+import { SendLoading, SendSuccess } from '../features/send/SendProgress';
+import { DestinationQrScanner } from '../features/send/DestinationQrScanner';
+import {
+  sanitizeDestinationInput,
+  isDestinationAddress,
+  destinationChain,
+} from '../features/send/destinationAddress';
 
-// ── Progress Bar ────────────────────────────────────────────────────────────────
-// Fills proportionally to estimated transfer time (latency-optimized feedback).
-const ProgressBar = ({ duration, color, trackColor }) => {
-  const progress = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: duration,
-      useNativeDriver: false, // width interpolation requires JS driver
-    }).start();
-  }, [duration]);
-
-  return (
-    <View style={{ width: '100%', height: 3, backgroundColor: trackColor, borderRadius: 1.5, overflow: 'hidden', marginTop: 20 }}>
-      <Animated.View style={{
-        height: '100%',
-        backgroundColor: color,
-        borderRadius: 1.5,
-        width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-      }} />
-    </View>
-  );
-};
-
-export default function SendModal({ visible, onClose, tokens, isDark }) {
+export default function SendModal({
+  visible,
+  onClose,
+  tokens,
+  isDark,
+  authToken,
+  transferApiUrl,
+  solanaAddress,
+}) {
   const [amount, setAmount] = useState('');
   const [destination, setDestination] = useState('');
-  const [sourceChain, setSourceChain] = useState('Base');
-  const [destChain, setDestChain] = useState('Solana');
-  const [fastTransfer, setFastTransfer] = useState(true);
-  const [gasless, setGasless] = useState(true);
-  
-  const [status, setStatus] = useState('idle'); // idle, confirm, loading, success
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [status, setStatus] = useState('idle');
+  const [scanning, setScanning] = useState(false);
+  const { send, error, result, reset } = useSponsoredTransfer({
+    token: authToken,
+    apiUrl: transferApiUrl,
+  });
 
   useEffect(() => {
-    if (visible) {
-      setStatus('idle');
-      setAmount('');
-      setDestination('');
-      fadeAnim.setValue(1);
-    }
-  }, [visible]);
+    if (!visible) return;
+    setStatus('idle');
+    setAmount('');
+    setDestination('');
+    setScanning(false);
+    reset();
+  }, [visible, reset]);
 
-  const handleAction = () => {
-    if (status === 'idle') {
-      // First press: morph to "Execute Transfer" (cognitive friction)
-      setStatus('confirm');
-      return;
-    }
+  const handleAmount = (raw) => {
+    setAmount(sanitizeUsdcAmount(raw));
+    if (status === 'error') setStatus('idle');
+  };
 
-    if (status === 'confirm') {
-      // Second press: actually execute
-      setStatus('loading');
-      
-      const delay = fastTransfer ? 8000 : 400;
-      
-      setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: USE_NATIVE_DRIVER
-        }).start(() => {
-          setStatus('success');
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: USE_NATIVE_DRIVER
-          }).start();
-        });
-      }, delay);
+  const handleAction = async () => {
+    if (status === 'loading') return;
+    setStatus('loading');
+    try {
+      await send({ amount, destination });
+      setStatus('success');
+    } catch {
+      setStatus('error');
     }
   };
 
-  const isEVM = destChain !== 'Solana';
-  const canProceed = amount && destination;
-  const transferDuration = fastTransfer ? 8000 : 400;
+  const handleDestination = (raw) => {
+    setDestination(sanitizeDestinationInput(raw));
+    if (status === 'error') setStatus('idle');
+  };
+
+  const fillMySolana = () => {
+    if (!solanaAddress) return;
+    setDestination(solanaAddress);
+    if (status === 'error') setStatus('idle');
+  };
+
+  const handleQrAddress = useCallback((addr) => {
+    setDestination(addr);
+    setScanning(false);
+    if (status === 'error') setStatus('idle');
+  }, [status]);
+
+  const destChain = destinationChain(destination);
+  const canProceed = isUsdcAmountReady(amount) && isDestinationAddress(destination);
+  const destIncomplete = destination.length > 0 && !isDestinationAddress(destination);
+  const toOwnSolana = Boolean(solanaAddress) && destination === solanaAddress;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={[styles.overlay, { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }]}>
-        <View style={[styles.container, { 
-          backgroundColor: tokens.BG,
-          // Dynamic tray height (Family Wallet pattern)
-          minHeight: status === 'idle' || status === 'confirm' ? '50%' : '60%',
-        }]}>
-          
-          {/* Header */}
+        <View style={[styles.container, { backgroundColor: tokens.BG }]}>
           <View style={[styles.header, { borderBottomColor: tokens.BORDER }]}>
-            <Text style={[styles.title, { color: tokens.FG, fontFamily: tokens.font.primary }]}>Send USDC</Text>
-            <TouchableOpacity onPress={() => { setStatus('idle'); onClose(); }} style={styles.closeBtn}>
+            <Text style={[styles.title, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+              Send USDC
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setStatus('idle');
+                onClose();
+              }}
+              style={styles.closeBtn}
+            >
               <Text style={{ color: tokens.MUTED, fontSize: 24, lineHeight: 24 }}>×</Text>
             </TouchableOpacity>
           </View>
 
-          {status === 'success' ? (
-            <Animated.View style={[styles.content, { opacity: fadeAnim, alignItems: 'center', paddingVertical: 40 }]}>
-              {/* Geometric checkmark — no emoji */}
-              <View style={[styles.successCircle, { backgroundColor: tokens.SUCCESS + '20' }]}>
-                <View style={{ width: 8, height: 16, borderRightWidth: 2.5, borderBottomWidth: 2.5, borderColor: tokens.SUCCESS, transform: [{ rotate: '45deg' }], marginTop: -4 }} />
-              </View>
-              <Text style={[styles.successTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>Transfer Complete</Text>
-              <Text style={[styles.successDesc, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
-                {amount || '0'} USDC arrived on {destChain}.
-              </Text>
-              <TouchableOpacity
-                style={[styles.primaryBtn, { backgroundColor: tokens.SURFACE_ELEVATED, borderColor: tokens.BORDER, borderWidth: 1, marginTop: 24 }]}
-                onPress={() => { setStatus('idle'); onClose(); }}
-              >
-                <Text style={[styles.primaryBtnText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>Done</Text>
-              </TouchableOpacity>
-            </Animated.View>
+          {scanning ? (
+            <DestinationQrScanner
+              tokens={tokens}
+              onClose={() => setScanning(false)}
+              onAddress={handleQrAddress}
+            />
+          ) : status === 'success' ? (
+            <SendSuccess
+              amount={amount}
+              destination={destination}
+              txHash={result?.txHash}
+              mintTxHash={result?.mintTxHash}
+              chain={result?.chain || destChain}
+              tokens={tokens}
+              onDone={() => {
+                setStatus('idle');
+                onClose();
+              }}
+            />
           ) : status === 'loading' ? (
-            <Animated.View style={[styles.content, { opacity: fadeAnim, alignItems: 'center', paddingVertical: 40 }]}>
-              <Text style={[styles.loadingTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-                {fastTransfer ? 'Executing CCTP Fast Transfer' : 'Signing Gateway Intent'}
-              </Text>
-              <Text style={[styles.loadingDesc, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary, marginTop: 8 }]}>
-                {fastTransfer ? 'Waiting for global allowance pool (8-20s)...' : 'Fetching attestation (< 500ms)...'}
-              </Text>
-              {gasless && (
-                <Text style={[styles.loadingDesc, { color: tokens.ACCENT, fontFamily: tokens.font.primary, marginTop: 8 }]}>
-                  Forwarding Service: Subsidizing destination gas
-                </Text>
-              )}
-              {/* Progress Bar — latency-optimized feedback */}
-              <ProgressBar duration={transferDuration} color={tokens.ACCENT} trackColor={tokens.BORDER} />
-            </Animated.View>
+            <SendLoading
+              amount={amount}
+              destination={destination}
+              tokens={tokens}
+              chain={destChain}
+            />
           ) : (
-            <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-              {/* Chains */}
-              <View style={styles.row}>
-                <View style={styles.half}>
-                  <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>From</Text>
-                  <View style={[styles.dropdown, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
-                    <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary }}>{sourceChain}</Text>
-                  </View>
-                </View>
-                <View style={styles.half}>
-                  <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>To</Text>
-                  <View style={[styles.dropdown, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
-                    <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary }}>{destChain}</Text>
-                  </View>
+            <View style={styles.content}>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+                  From
+                </Text>
+                <View style={[styles.network, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
+                  <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary }}>
+                    {destChain === 'solana' ? 'Base USDC → Solana' : 'Base USDC'}
+                  </Text>
                 </View>
               </View>
 
-              {/* Amount */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>Amount</Text>
+                <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+                  Amount
+                </Text>
                 <View style={[styles.inputWrapper, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
-                  <Text style={{ color: tokens.FG, fontSize: 18, fontFamily: tokens.font.mono }}>$</Text>
                   <TextInput
                     style={[styles.input, { color: tokens.FG, fontFamily: tokens.font.mono }]}
                     placeholder="0.00"
                     placeholderTextColor={tokens.MUTED}
                     keyboardType="decimal-pad"
+                    inputMode="decimal"
                     value={amount}
-                    onChangeText={(v) => { setAmount(v); if (status === 'confirm') setStatus('idle'); }}
+                    onChangeText={handleAmount}
                   />
                   <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary }}>USDC</Text>
                 </View>
               </View>
 
-              {/* Address */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>Destination Address</Text>
-                <TextInput
-                  style={[styles.inputFull, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER, color: tokens.FG, fontFamily: tokens.font.mono }]}
-                  placeholder={isEVM ? "0x..." : "Solana address..."}
-                  placeholderTextColor={tokens.MUTED}
-                  value={destination}
-                  onChangeText={(v) => { setDestination(v); if (status === 'confirm') setStatus('idle'); }}
-                />
-              </View>
-
-              {/* Toggles */}
-              <View style={styles.toggles}>
-                <TouchableOpacity 
-                  activeOpacity={0.7} 
-                  style={[styles.toggleRow, { borderBottomColor: tokens.BORDER }]} 
-                  onPress={() => setFastTransfer(!fastTransfer)}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.toggleTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>Enable Fast Transfer</Text>
-                    <Text style={[styles.toggleDesc, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>Settles in 8-20s. Incurs a $0.15 risk premium fee.</Text>
-                  </View>
-                  <View style={[styles.checkbox, { backgroundColor: fastTransfer ? tokens.ACCENT : 'transparent', borderColor: fastTransfer ? tokens.ACCENT : tokens.BORDER }]}>
-                    {fastTransfer && <View style={{ width: 5, height: 9, borderRightWidth: 1.5, borderBottomWidth: 1.5, borderColor: '#FFF', transform: [{ rotate: '45deg' }], marginTop: -2 }} />}
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  activeOpacity={0.7} 
-                  style={[styles.toggleRow, { borderBottomColor: tokens.BORDER }]} 
-                  onPress={() => setGasless(!gasless)}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.toggleTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>Gasless Destination (Forwarding)</Text>
-                    <Text style={[styles.toggleDesc, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
-                      Pay destination gas with USDC. {!isEVM ? 'Includes ATA rent fee.' : ''}
+                <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+                  Destination
+                </Text>
+                <View style={styles.destRow}>
+                  <TextInput
+                    style={[
+                      styles.inputFull,
+                      styles.destInput,
+                      {
+                        backgroundColor: tokens.SURFACE,
+                        borderColor: destIncomplete ? (tokens.DANGER || tokens.ACCENT) : tokens.BORDER,
+                        color: tokens.FG,
+                        fontFamily: tokens.font.mono,
+                      },
+                    ]}
+                    placeholder="0x… or Solana address"
+                    placeholderTextColor={tokens.MUTED}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={destination}
+                    onChangeText={handleDestination}
+                  />
+                  <TouchableOpacity
+                    style={[styles.scanBtn, { backgroundColor: tokens.SURFACE_ELEVATED, borderColor: tokens.BORDER }]}
+                    onPress={() => setScanning(true)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.scanBtnText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+                      Scan
                     </Text>
-                  </View>
-                  <View style={[styles.checkbox, { backgroundColor: gasless ? tokens.ACCENT : 'transparent', borderColor: gasless ? tokens.ACCENT : tokens.BORDER }]}>
-                    {gasless && <View style={{ width: 5, height: 9, borderRightWidth: 1.5, borderBottomWidth: 1.5, borderColor: '#FFF', transform: [{ rotate: '45deg' }], marginTop: -2 }} />}
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
+                {solanaAddress ? (
+                  <TouchableOpacity onPress={fillMySolana} activeOpacity={0.7} style={styles.solChipWrap}>
+                    <Text
+                      style={[
+                        styles.solChip,
+                        {
+                          color: toOwnSolana ? tokens.ACCENT : tokens.FG_SECONDARY,
+                          fontFamily: tokens.font.primary,
+                        },
+                      ]}
+                    >
+                      {toOwnSolana ? 'Sending to your Solana wallet' : 'Use my Solana wallet'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+                {destIncomplete ? (
+                  <Text style={[styles.destHint, { color: tokens.DANGER || tokens.ACCENT, fontFamily: tokens.font.primary }]}>
+                    Paste a Base 0x address or a Solana address
+                  </Text>
+                ) : null}
               </View>
 
-              {/* Action — Two-step confirmation (cognitive friction) */}
+              <Text style={[styles.gasNote, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
+                {destChain === 'solana'
+                  ? 'Bridges your Base USDC to native USDC on Solana via Circle CCTP. A small USDC bridge fee applies.'
+                  : 'OpenDome sponsors gas with Circle Gas Station — you only need USDC.'}
+              </Text>
+
+              {status === 'error' && error ? (
+                <Text style={[styles.error, { color: tokens.DANGER || tokens.ACCENT, fontFamily: tokens.font.primary }]}>
+                  {error}
+                </Text>
+              ) : null}
+
               <TouchableOpacity
-                style={[styles.primaryBtn, { 
-                  backgroundColor: status === 'confirm' ? tokens.ACCENT : (canProceed ? tokens.FG : tokens.SURFACE_ELEVATED),
-                  borderColor: status === 'confirm' ? tokens.ACCENT : (canProceed ? tokens.FG : tokens.BORDER),
-                }]}
+                style={[
+                  styles.primaryBtn,
+                  {
+                    backgroundColor: canProceed ? tokens.ACCENT : tokens.SURFACE_ELEVATED,
+                    borderColor: canProceed ? tokens.ACCENT : tokens.BORDER,
+                  },
+                ]}
                 onPress={handleAction}
                 disabled={!canProceed}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.primaryBtnText, { 
-                  color: status === 'confirm' ? '#FFFFFF' : (canProceed ? tokens.BG : tokens.MUTED), 
-                  fontFamily: tokens.font.primary 
-                }]}>
-                  {status === 'confirm' ? 'Execute Transfer' : 'Confirm & Send'}
+                <Text
+                  style={[
+                    styles.primaryBtnText,
+                    {
+                      color: canProceed ? '#FFFFFF' : tokens.MUTED,
+                      fontFamily: tokens.font.primary,
+                    },
+                  ]}
+                >
+                  {status === 'error'
+                    ? 'Try again'
+                    : amount
+                      ? destChain === 'solana'
+                        ? `Bridge ${amount} USDC to Solana`
+                        : `Send ${amount} USDC`
+                      : 'Send USDC'}
                 </Text>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           )}
         </View>
       </View>
@@ -245,7 +264,7 @@ const styles = StyleSheet.create({
   container: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   header: {
     flexDirection: 'row',
@@ -264,13 +283,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
-  row: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 20,
-  },
-  half: {
-    flex: 1,
+  inputGroup: {
+    marginBottom: 16,
   },
   label: {
     fontSize: 12,
@@ -279,13 +293,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  dropdown: {
+  network: {
     borderWidth: 1,
     padding: 14,
     borderRadius: 12,
-  },
-  inputGroup: {
-    marginBottom: 20,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -298,8 +309,16 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 18,
-    paddingHorizontal: 8,
+    paddingRight: 8,
     height: '100%',
+  },
+  destRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  destInput: {
+    flex: 1,
   },
   inputFull: {
     borderWidth: 1,
@@ -308,32 +327,37 @@ const styles = StyleSheet.create({
     height: 56,
     fontSize: 14,
   },
-  toggles: {
-    marginBottom: 24,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  toggleTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  toggleDesc: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+  scanBtn: {
+    height: 56,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 16,
+  },
+  scanBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  solChipWrap: {
+    marginTop: 8,
+  },
+  solChip: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  destHint: {
+    marginTop: 8,
+    fontSize: 12,
+  },
+  gasNote: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 20,
+  },
+  error: {
+    fontSize: 13,
+    marginBottom: 16,
   },
   primaryBtn: {
     height: 56,
@@ -345,28 +369,5 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  successCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  successDesc: {
-    fontSize: 14,
-  },
-  loadingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingDesc: {
-    fontSize: 13,
   },
 });

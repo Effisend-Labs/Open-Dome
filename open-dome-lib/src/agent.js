@@ -32,7 +32,7 @@ export class AgentAPI {
    * @param {string} text - The prompt text
    * @returns {Promise<string>} The agent's response
    */
-  async prompt(text) {
+  async prompt(text, options = {}) {
     if (typeof window === 'undefined' || window.parent === window) {
       throw new Error('AgentAPI must be used within an Open-Dome Sandbox iframe.');
     }
@@ -44,7 +44,12 @@ export class AgentAPI {
       window.parent.postMessage({
         type: 'OPENDOME_AI_PROMPT',
         id,
-        payload: { prompt: text }
+        payload: {
+          prompt: text,
+          mode: options.mode || 'dome',
+          modelId: options.modelId,
+          messages: options.messages,
+        }
       }, '*');
     });
   }

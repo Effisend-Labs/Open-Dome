@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { useOpenDome, OpenDomeLockScreen } from 'opendome';
 import { Ionicons } from '@expo/vector-icons';
+import { GEMINI_CHAT_MODELS } from 'opendome/src/agentTariff.js';
 import { MINI_APP_THEMES } from './theme';
 import { ChatView } from './features/chat/ChatView';
 import { AccountView } from './features/account/AccountView';
-
-const TABS = [
-  { id: 'CHAT', label: 'Agent', icon: 'sparkles-outline' },
-  { id: 'ACCOUNT', label: 'Account', icon: 'person-outline' },
-];
+import { ModelPicker } from './features/chat/ModelPicker';
+import { AppHeader } from './features/shell/AppHeader';
+import { CreditsBadge } from './features/credits/CreditsBadge';
+import { useUsdcCredits } from './features/credits/useUsdcCredits';
+import { openBaseScan, usdcExplorerUrl } from './features/explorer/baseScan';
 
 export default function App({ appId, appToken }) {
-  const { isAuthorized, isLocked, user, context, loading, register, login, logout } = useOpenDome({
+  const { isAuthorized, isLocked, user, context, loading, register, login, logout, authPending, authError } = useOpenDome({
     appId: appId || process.env.EXPO_PUBLIC_OD_APP_ID,
     appToken,
     blockchain: { evm: ['base', 'arbitrum', 'avalanche', 'mainnet', 'polygon', 'optimism', 'monad'] },
@@ -21,99 +22,82 @@ export default function App({ appId, appToken }) {
   const themeType = (context?.theme || 'dark').toLowerCase();
   const isDark = !['light', 'pastel', 'alpine'].includes(themeType);
   const tokens = MINI_APP_THEMES[themeType] || MINI_APP_THEMES.dark;
-  const [activeTab, setActiveTab] = useState('CHAT');
+  const [screen, setScreen] = useState('CHAT');
+  const [modelId, setModelId] = useState(GEMINI_CHAT_MODELS[1].id);
+  const credits = useUsdcCredits();
 
   if (loading) {
     return (
-      <View style={[styles.loading, { backgroundColor: tokens.BG }]}>
-        <Text style={{ color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }}>Connecting</Text>
+      <View style={[styles.boot, { backgroundColor: tokens.BG }]}>
+        <Text style={{ color: tokens.MUTED, fontSize: 15 }}>Connecting</Text>
       </View>
     );
   }
 
   if (isLocked) return <OpenDomeLockScreen />;
 
-  const userInitial = user?.username ? user.username[0].toUpperCase() : '·';
-
   return (
-    <View style={[styles.container, { backgroundColor: tokens.BG }]}>
-      <View style={[styles.topBar, { borderBottomColor: tokens.BORDER }]}>
-        <Text style={[styles.appName, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-          OpenAgent
-        </Text>
-        <View style={[styles.avatar, { backgroundColor: tokens.ACCENT_SOFT }]}>
-          <Text style={[styles.avatarText, { color: tokens.ACCENT }]}>
-            {isAuthorized ? userInitial : '·'}
-          </Text>
-        </View>
-      </View>
+    <View style={[styles.root, { backgroundColor: tokens.BG }]}>
+      <AppHeader
+        tokens={tokens}
+        left={
+          screen === 'ACCOUNT' ? (
+            <Pressable onPress={() => setScreen('CHAT')} hitSlop={12} style={styles.back}>
+              <Ionicons name="chevron-back" size={22} color={tokens.FG} />
+            </Pressable>
+          ) : isAuthorized ? (
+            <ModelPicker tokens={tokens} modelId={modelId} onChange={setModelId} />
+          ) : null
+        }
+        right={
+          screen === 'CHAT' && isAuthorized ? (
+            <View style={styles.right}>
+              <CreditsBadge
+                tokens={tokens}
+                label={`${credits.label} USDC`}
+                status={credits.status}
+                onPress={() => openBaseScan(usdcExplorerUrl(user?.evmAddress))}
+              />
+              <Pressable onPress={() => setScreen('ACCOUNT')} hitSlop={10} style={styles.account}>
+                <Ionicons name="person-circle-outline" size={28} color={tokens.FG_SECONDARY} />
+              </Pressable>
+            </View>
+          ) : null
+        }
+      />
 
-      <View style={[styles.tabBar, { borderBottomColor: tokens.BORDER }]}>
-        {TABS.map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <TouchableOpacity
-              key={tab.id}
-              style={styles.tab}
-              activeOpacity={0.7}
-              onPress={() => setActiveTab(tab.id)}
-            >
-              <Ionicons name={tab.icon} size={20} color={active ? tokens.FG : tokens.MUTED} />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: active ? tokens.FG : tokens.MUTED, fontFamily: tokens.font.primary },
-                ]}
-              >
-                {tab.label}
-              </Text>
-              {active ? <View style={[styles.underline, { backgroundColor: tokens.FG }]} /> : null}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={styles.content}>
-        {activeTab === 'CHAT' ? (
-          <ChatView
-            tokens={tokens}
-            isDark={isDark}
-            isAuthorized={isAuthorized}
-            onGoToAccount={() => setActiveTab('ACCOUNT')}
-          />
-        ) : (
-          <AccountView
-            tokens={tokens}
-            isAuthorized={isAuthorized}
-            user={user}
-            register={register}
-            login={login}
-            logout={logout}
-          />
-        )}
-      </View>
+      {screen === 'CHAT' ? (
+        <ChatView
+          tokens={tokens}
+          isDark={isDark}
+          isAuthorized={isAuthorized}
+          onGoToAccount={() => setScreen('ACCOUNT')}
+          credits={credits}
+          modelId={modelId}
+          onChangeModel={setModelId}
+          login={login}
+          authPending={authPending}
+          authError={authError}
+        />
+      ) : (
+        <AccountView
+          tokens={tokens}
+          isAuthorized={isAuthorized}
+          user={user}
+          register={register}
+          login={login}
+          logout={logout}
+          credits={credits}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'web' ? 16 : 52,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  appName: { fontSize: 20, fontWeight: '600', letterSpacing: -0.5 },
-  avatar: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 13, fontWeight: '600' },
-  tabBar: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
-  tab: { flex: 1, alignItems: 'center', paddingTop: 12, paddingBottom: 12, gap: 4 },
-  tabLabel: { fontSize: 11, fontWeight: '500' },
-  underline: { position: 'absolute', bottom: 0, height: 2, width: 48, borderRadius: 1 },
-  content: { flex: 1 },
+  root: { flex: 1 },
+  boot: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  back: { width: 36, height: 36, justifyContent: 'center' },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  account: { width: 36, height: 36, alignItems: 'flex-end', justifyContent: 'center' },
 });

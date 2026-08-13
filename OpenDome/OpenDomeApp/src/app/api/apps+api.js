@@ -19,8 +19,8 @@ export async function GET(request) {
   const storeApps = [
     {
       id: 'demo',
-      name: 'Mini App',
-      description: 'SDK showcase — games, map, events, and wallet features.',
+      name: 'Dome City',
+      description: 'Guest guide for Tokyo Dome City: shows, map, games.',
       publisher: 'Open Dome',
       url: resolveMiniAppUrl(
         request,
@@ -32,7 +32,7 @@ export async function GET(request) {
     {
       id: 'wallet',
       name: 'Wallet',
-      description: 'Multi-chain wallet with passes, send, and receive.',
+      description: 'Your USDC and NFTs. Send, receive, or plan the day.',
       publisher: 'Open Dome',
       url: resolveMiniAppUrl(
         request,
@@ -44,7 +44,7 @@ export async function GET(request) {
     {
       id: 'openagent',
       name: 'OpenAgent',
-      description: 'Gemini chat billed per message via x402 (base tariff + length).',
+      description: 'Gemini chat. Pay as you prompt, in USDC.',
       publisher: 'Open Dome',
       url: resolveMiniAppUrl(
         request,
@@ -56,7 +56,7 @@ export async function GET(request) {
     {
       id: 'admin',
       name: 'Admin',
-      description: 'Server Bridge — GOD only (@altaga).',
+      description: 'Staff only. Mint and issue guest passes.',
       publisher: 'Open Dome',
       godOnly: true,
       url: resolveMiniAppUrl(
@@ -69,7 +69,7 @@ export async function GET(request) {
     {
       id: 'scanner',
       name: 'Scanner',
-      description: 'Verify guest QR / wallets and use passes — scanner, admin, god.',
+      description: 'Door staff. Scan a QR to let a guest in.',
       publisher: 'Open Dome',
       staffOnly: true,
       url: resolveMiniAppUrl(

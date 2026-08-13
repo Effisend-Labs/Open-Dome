@@ -1,52 +1,65 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { GEMINI_CHAT_MODELS } from 'opendome/src/agentTariff.js';
+import React, { useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { GEMINI_CHAT_MODELS, resolveGeminiChatModel } from 'opendome/src/agentTariff.js';
 
 export function ModelPicker({ tokens, modelId, onChange }) {
+  const [open, setOpen] = useState(false);
+  const active = resolveGeminiChatModel(modelId);
+
   return (
-    <View style={styles.row}>
-      {GEMINI_CHAT_MODELS.map((model) => {
-        const active = model.id === modelId;
-        return (
-          <TouchableOpacity
-            key={model.id}
-            activeOpacity={0.8}
-            onPress={() => onChange(model.id)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: active ? tokens.ACCENT_SOFT : tokens.SURFACE,
-                borderColor: active ? tokens.ACCENT : tokens.BORDER,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: active ? tokens.ACCENT : tokens.FG_SECONDARY,
-                  fontFamily: tokens.font.primary,
-                },
-              ]}
-            >
-              {model.shortLabel || model.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+    <View style={styles.wrap}>
+      <Pressable onPress={() => setOpen((v) => !v)} hitSlop={8} style={styles.trigger}>
+        <Text style={[styles.title, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+          {active.shortLabel}
+        </Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={tokens.MUTED} />
+      </Pressable>
+
+      {open ? (
+        <View style={[styles.menu, { backgroundColor: tokens.SURFACE }]}>
+          {GEMINI_CHAT_MODELS.map((model) => {
+            const selected = model.id === modelId;
+            return (
+              <Pressable
+                key={model.id}
+                onPress={() => {
+                  onChange(model.id);
+                  setOpen(false);
+                }}
+                style={styles.option}
+              >
+                <Text
+                  style={{
+                    color: selected ? tokens.FG : tokens.FG_SECONDARY,
+                    fontFamily: tokens.font.primary,
+                    fontSize: 15,
+                    fontWeight: selected ? '600' : '400',
+                  }}
+                >
+                  {model.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
-  chip: {
-    flex: 1,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: 'center',
+  wrap: { zIndex: 20 },
+  trigger: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  title: { fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+  menu: {
+    position: 'absolute',
+    top: 32,
+    left: 0,
+    minWidth: 220,
+    borderRadius: 14,
+    paddingVertical: 6,
+    overflow: 'hidden',
   },
-  label: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  option: { paddingHorizontal: 14, paddingVertical: 10 },
 });

@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { nodeRequire } from './nodeRequire';
+import { isSolanaAddress } from './cctp/solanaAddress.js';
+import { bridgeUsdcToSolana } from './cctp/bridgeUsdcToSolana.js';
 
 let _circleClient = null;
 
@@ -58,27 +60,63 @@ export async function createCircleAgentWallet(blockchains) {
   }
 }
 
-export async function executeCircleNanoPayment({ amount, destination, tokenId }) {
+async function resolveSourceWallet(client, walletId) {
+  if (walletId) {
+    const res = await client.getWallet({ id: walletId });
+    return res.data?.wallet || res.data;
+  }
+  const walletSetId = await getOrCreateWalletSet();
+  const walletsRes = await client.listWallets({ walletSetId });
+  const wallets = walletsRes.data?.wallets || [];
+  return wallets.find((w) => w.blockchain === 'BASE') || wallets[0] || null;
+}
+
+function isUsdcToken(tokenId) {
+  return !tokenId || tokenId === BASE_USDC_TOKEN_ID;
+}
+
+export async function executeCircleNanoPayment({ amount, destination, tokenId, walletId }) {
   const client = getClient();
   try {
-    const walletSetId = await getOrCreateWalletSet();
-    const walletsRes = await client.listWallets({ walletSetId });
-
-    if (!walletsRes.data?.wallets?.length) {
+    const sourceWallet = await resolveSourceWallet(client, walletId);
+    if (!sourceWallet?.id) {
       return { error: 'No agent wallets available.' };
     }
 
-    const sourceWallet = walletsRes.data.wallets[0];
+    if (isSolanaAddress(destination)) {
+      return bridgeUsdcToSolana({
+        client,
+        walletId: sourceWallet.id,
+        destination,
+        amount,
+      });
+    }
+
+    if (isUsdcToken(tokenId) && process.env.MERCHANT_PRIVATE_KEY) {
+      const { sponsorUsdcTransferWithCircle } = await import('./sponsorUsdcTransfer.js');
+      const sponsored = await sponsorUsdcTransferWithCircle({
+        client,
+        walletId: sourceWallet.id,
+        fromAddress: sourceWallet.address,
+        destination,
+        amount,
+      });
+      if (sponsored?.success) return sponsored;
+      console.warn(
+        '[Circle] facilitator sponsor failed, wallet pays gas:',
+        sponsored?.error,
+      );
+    }
 
     const response = await client.createTransaction({
       walletId: sourceWallet.id,
-      tokenId: tokenId || '7b2a6fce-2032-5a21-93c6-94b29bb88796',
+      tokenId: tokenId || BASE_USDC_TOKEN_ID,
       destinationAddress: destination,
       amounts: [amount],
       fee: { type: 'level', config: { feeLevel: 'HIGH' } },
       idempotencyKey: randomUUID(),
     });
-    return { success: true, transactionId: response.data.id };
+    return { success: true, transactionId: response.data.id, sponsored: false };
   } catch (err) {
     console.error('executeCircleNanoPayment error:', err.response?.data || err.message);
     return { error: err.response?.data?.message || err.message };
@@ -91,3 +129,5 @@ export function getCircleWalletsClient() {
 }
 
 export const CIRCLE_WALLET_SET_ID = 'afd0591a-e99a-5883-89e7-a1c27316eee8';
+/** Base mainnet USDC (Circle token id). Not the testnet UUID. */
+export const BASE_USDC_TOKEN_ID = 'aa7bb533-aeb8-535c-bd65-354aed91ea3d';

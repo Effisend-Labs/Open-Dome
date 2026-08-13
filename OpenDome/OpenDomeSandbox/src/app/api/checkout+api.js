@@ -104,7 +104,7 @@ export async function POST(req) {
             amounts,
             contractAddress:
               process.env.CONTRACT_ADDRESS ||
-              '0x40c39F091a7c85D10B8C46762b59Df3eCd77630C',
+              '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF',
             signedBy: 'platform-bypass',
           };
         } else {
