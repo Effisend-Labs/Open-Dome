@@ -1,6 +1,6 @@
 {
   "name": "demo",
-  "version": "1.0.22",
+  "version": "1.0.24",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start --port 8084 -c",

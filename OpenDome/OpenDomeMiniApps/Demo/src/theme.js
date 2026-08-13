@@ -1,5 +1,18 @@
 import { Platform } from 'react-native';
 
+export const DARK_THEMES = ['dark', 'synthwave', 'deep_space'];
+
+export function isDarkTheme(theme) {
+  return DARK_THEMES.includes(String(theme || '').toLowerCase());
+}
+
+/** Text color that stays readable on `tokens.NEON_PRIMARY` fills. */
+export function onPrimaryColor(theme) {
+  const t = String(theme || '').toLowerCase();
+  if (t === 'dark' || t === 'pastel' || t === 'synthwave') return '#000';
+  return '#FFF';
+}
+
 export const GLOBAL_STYLES = {
   monospace: Platform.select({ ios: 'Menlo', web: '"Courier New", Courier, monospace', default: 'monospace' }),
   sans: Platform.select({ ios: 'System', web: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif', default: 'sans-serif' }),

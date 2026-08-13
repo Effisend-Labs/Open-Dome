@@ -1,16 +1,14 @@
 /**
  * Proxy → OpenDomeApp scan-lookup (avoids browser CORS to :8082).
  */
+import { getOpenDomeAppUrl } from '../../core/hostUrls';
+
 export async function POST(request) {
   const auth =
     request.headers.get('Authorization') ||
     request.headers.get('authorization') ||
     '';
-  const host = (
-    process.env.OPENDOME_APP_URL ||
-    process.env.EXPO_PUBLIC_OD_HOST_URL ||
-    'http://localhost:8082'
-  ).replace(/\/$/, '');
+  const host = getOpenDomeAppUrl();
 
   try {
     const body = await request.json();

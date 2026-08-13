@@ -1,16 +1,14 @@
 /**
  * Proxy → Admin /api/scanner (verify & use / burn).
  */
+import { getAdminBridgeUrl } from '../../core/hostUrls';
+
 export async function POST(request) {
   const auth =
     request.headers.get('Authorization') ||
     request.headers.get('authorization') ||
     '';
-  const bridge = (
-    process.env.ADMIN_BRIDGE_URL ||
-    process.env.EXPO_PUBLIC_ADMIN_BRIDGE_URL ||
-    'http://localhost:8090'
-  ).replace(/\/$/, '');
+  const bridge = getAdminBridgeUrl();
 
   try {
     const body = await request.json();

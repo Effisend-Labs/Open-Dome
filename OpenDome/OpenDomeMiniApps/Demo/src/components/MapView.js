@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
-import { Location, useOpenDome } from 'opendome';
+import { Text, View, TouchableOpacity, Platform } from 'react-native';
+import { Location } from 'opendome';
 import 'ol/ol.css';
 import Map from 'ol/Map';
 import ViewOL from 'ol/View';
@@ -12,11 +12,16 @@ import Point from 'ol/geom/Point';
 import { Vector as VectorLayer } from 'ol/layer';
 import { Vector as VectorSource } from 'ol/source';
 import { Style, Icon } from 'ol/style';
-import { GLOBAL_STYLES } from '../theme';
+import { GLOBAL_STYLES, isDarkTheme, onPrimaryColor } from '../theme';
+
+const POSITION_OPTS = {
+  coarse: { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
+  fine: { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 },
+};
 
 export default function LocationView({ proxiedLocation, theme, tokens }) {
-  const isDark = theme === 'dark';
-  const { Agent } = useOpenDome();
+  const isDark = isDarkTheme(theme);
+  const onPrimary = onPrimaryColor(theme);
 
   const mapElement = useRef(null);
   const mapRef = useRef(null);
@@ -24,51 +29,61 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
   const [isFine, setIsFine] = React.useState(false);
   const [error, setError] = React.useState(null);
   const [permissionStatus, setPermissionStatus] = React.useState('prompt');
+  const [requesting, setRequesting] = React.useState(false);
   const watchId = useRef(null);
 
-  // Sync with proxied location from parent
   useEffect(() => {
     if (proxiedLocation) {
       setCoords(proxiedLocation);
       setPermissionStatus('granted');
+      setError(null);
     }
   }, [proxiedLocation]);
 
+  const clearWatch = () => {
+    if (watchId.current != null) {
+      Location.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+  };
+
   const requestPermission = async () => {
+    if (proxiedLocation) return;
+    setRequesting(true);
+    setError(null);
     try {
+      const pos = await Location.getCurrentPosition(POSITION_OPTS.coarse);
+      setCoords(pos);
+      setPermissionStatus('granted');
       setError(null);
-      await Location.getCurrentPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
-      const status = await Location.checkPermission();
-      setPermissionStatus(status);
-      fetchLocation();
     } catch (e) {
-      setError(e.message);
-      const status = await Location.checkPermission();
-      setPermissionStatus(status);
+      const status = await Location.checkPermission().catch(() => 'denied');
+      setPermissionStatus(status === 'granted' ? 'granted' : (status || 'denied'));
+      setError(e.message || 'UPLINK_DENIED: Geolocation Required');
+    } finally {
+      setRequesting(false);
     }
   };
 
   const fetchLocation = async () => {
     if (proxiedLocation) {
-      if (watchId.current) {
-        Location.clearWatch(watchId.current);
-        watchId.current = null;
-      }
+      clearWatch();
       return;
     }
 
-    const status = await Location.checkPermission();
+    const status = await Location.checkPermission().catch(() => 'unknown');
     setPermissionStatus(status);
-    
-    if (status !== 'granted' && status !== 'unknown') {
-      setError("UPLINK_DENIED: Geolocation Required");
+
+    if (status !== 'granted') {
+      if (status === 'denied') setError('UPLINK_DENIED: Geolocation Required');
+      else setError(null);
       return;
     }
 
     try {
       setError(null);
       if (isFine) {
-        if (watchId.current) Location.clearWatch(watchId.current);
+        clearWatch();
         watchId.current = Location.watchPosition(
           (pos) => {
             setCoords(pos);
@@ -76,11 +91,11 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
             setError(null);
           },
           (err) => setError(`SIGNAL_LOST: ${err.message}`),
-          { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
+          POSITION_OPTS.fine
         );
       } else {
-        if (watchId.current) { Location.clearWatch(watchId.current); watchId.current = null; }
-        const pos = await Location.getCurrentPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
+        clearWatch();
+        const pos = await Location.getCurrentPosition(POSITION_OPTS.coarse);
         setCoords(pos);
         setPermissionStatus('granted');
       }
@@ -91,14 +106,14 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
 
   useEffect(() => {
     fetchLocation();
-    return () => { if (watchId.current) Location.clearWatch(watchId.current); };
+    return () => clearWatch();
   }, [isFine]);
 
   const markerFeature = useRef(new Feature());
+  const needsGrant = !proxiedLocation && permissionStatus !== 'granted' && !coords;
 
-  // Initialize Map Once
   useEffect(() => {
-    if (!mapElement.current || Platform.OS !== 'web') return;
+    if (needsGrant || !mapElement.current || Platform.OS !== 'web' || mapRef.current) return;
 
     const vectorSource = new VectorSource({ features: [markerFeature.current] });
     const vectorLayer = new VectorLayer({
@@ -126,9 +141,8 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
 
     mapRef.current = map;
     return () => { map.setTarget(null); mapRef.current = null; };
-  }, []);
+  }, [needsGrant]);
 
-  // Update Map View & Marker when coords change
   useEffect(() => {
     if (coords && mapRef.current) {
       const projCoords = fromLonLat([coords.longitude, coords.latitude]);
@@ -139,7 +153,6 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.BG }}>
-      {/* Info Box */}
       <View style={{ padding: 20, borderBottomWidth: 2, borderBottomColor: tokens.BORDER, backgroundColor: tokens.SURFACE }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <Text style={{ color: tokens.FG, fontSize: 11, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 2, fontFamily: tokens.font.primary }}>LOCATION TRACKER</Text>
@@ -147,11 +160,10 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
             style={{ backgroundColor: isFine ? tokens.NEON_SUCCESS : tokens.BG, paddingHorizontal: 12, paddingVertical: 6, borderWidth: tokens.shape.border, borderColor: tokens.BORDER, borderRadius: tokens.shape.buttonRadius }}
             onPress={async () => {
               if (!isFine) {
-                // Requesting High Acc
-                const status = await Location.checkPermission();
+                const status = await Location.checkPermission().catch(() => 'prompt');
                 if (status !== 'granted') {
                   await requestPermission();
-                  const newStatus = await Location.checkPermission();
+                  const newStatus = await Location.checkPermission().catch(() => 'prompt');
                   if (newStatus === 'granted') setIsFine(true);
                 } else {
                   setIsFine(true);
@@ -171,39 +183,53 @@ export default function LocationView({ proxiedLocation, theme, tokens }) {
           </Text>
         ) : (
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-            <Text style={{ color: tokens.NEON_DANGER, fontSize: 9, fontFamily: tokens.font.mono, flex: 1 }}>{error || 'LOCATING...'}</Text>
-            <TouchableOpacity style={{ backgroundColor: tokens.NEON_PRIMARY, paddingHorizontal: 10, paddingVertical: 4, borderRadius: tokens.shape.buttonRadius }} onPress={fetchLocation}>
-              <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '900', fontFamily: tokens.font.primary }}>RETRY</Text>
+            <Text style={{ color: error ? tokens.NEON_DANGER : tokens.MUTED, fontSize: 9, fontFamily: tokens.font.mono, flex: 1 }}>
+              {error || (requesting ? 'REQUESTING UPLINK...' : 'GEOLOCATION REQUIRED')}
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: tokens.NEON_PRIMARY, paddingHorizontal: 10, paddingVertical: 4, borderRadius: tokens.shape.buttonRadius }}
+              onPress={requestPermission}
+              disabled={requesting}
+            >
+              <Text style={{ color: onPrimary, fontSize: 8, fontWeight: '900', fontFamily: tokens.font.primary }}>
+                {requesting ? 'WAIT' : 'RETRY'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
 
-      {/* Permission prompt - Only blocking if isFine is requested and not granted */}
-      {permissionStatus !== 'granted' && isFine && (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, position: 'absolute', top: 100, left: 0, right: 0, bottom: 0, zIndex: 10, backgroundColor: tokens.BG }}>
+      {needsGrant ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, backgroundColor: tokens.BG }}>
           <Text style={{ fontSize: 48, marginBottom: 20 }}>📡</Text>
           <Text style={{ color: tokens.FG, fontSize: 13, fontWeight: GLOBAL_STYLES.heavy, letterSpacing: 1, marginBottom: 10, fontFamily: tokens.font.primary }}>LOCATION REQUIRED</Text>
           <Text style={{ color: tokens.MUTED, fontSize: 11, textAlign: 'center', lineHeight: 18, marginBottom: 30, fontFamily: tokens.font.mono }}>
-            This app needs geolocation access to display your position on the map.
+            {permissionStatus === 'denied'
+              ? 'Location is blocked for this mini app. Enable geolocation for this site in the browser, then tap Allow Access.'
+              : 'This app needs geolocation access to display your position on the map.'}
           </Text>
-          <TouchableOpacity style={{ backgroundColor: tokens.NEON_PRIMARY, paddingHorizontal: 24, paddingVertical: 16, borderWidth: tokens.shape.border, borderColor: tokens.FG, borderRadius: tokens.shape.buttonRadius }} onPress={requestPermission}>
-            <Text style={{ color: isDark ? '#000' : '#FFF', fontSize: 10, fontWeight: '900', fontFamily: tokens.font.primary }}>ALLOW ACCESS</Text>
+          <TouchableOpacity
+            style={{ backgroundColor: tokens.NEON_PRIMARY, paddingHorizontal: 24, paddingVertical: 16, borderWidth: tokens.shape.border, borderColor: tokens.FG, borderRadius: tokens.shape.buttonRadius }}
+            onPress={requestPermission}
+            disabled={requesting}
+          >
+            <Text style={{ color: onPrimary, fontSize: 10, fontWeight: '900', fontFamily: tokens.font.primary }}>
+              {requesting ? 'REQUESTING...' : 'ALLOW ACCESS'}
+            </Text>
           </TouchableOpacity>
         </View>
+      ) : (
+        <View style={{ flex: 1, width: '100%' }}>
+          <View
+            ref={mapElement}
+            style={{
+              flex: 1,
+              width: '100%',
+              filter: isDark ? 'invert(100%) hue-rotate(180deg) contrast(120%)' : 'none'
+            }}
+          />
+        </View>
       )}
-
-      {/* Map */}
-      <View style={{ flex: 1, width: '100%', display: permissionStatus === 'granted' ? 'flex' : 'none' }}>
-        <View 
-          ref={mapElement} 
-          style={{ 
-            flex: 1, 
-            width: '100%',
-            filter: isDark ? 'invert(100%) hue-rotate(180deg) contrast(120%)' : 'none' 
-          }} 
-        />
-      </View>
     </View>
   );
 }

@@ -531,7 +531,7 @@ export default function IframeContainer({
           src={iframeSrc}
           style={styles.iframe}
           title="Open-Dome Active Mini App"
-          allow="geolocation; camera; clipboard-write; clipboard-read"
+          allow="geolocation *; camera *; clipboard-write *; clipboard-read *"
           onLoad={() => setIsLoading(false)}
           onError={() => setLoadError(true)}
         />

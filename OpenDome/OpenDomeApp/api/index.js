@@ -21,6 +21,11 @@ try {
 } catch (e) {
   console.warn('[api boot] opendome:', e.message);
 }
+try {
+  require('./load-genai');
+} catch (e) {
+  console.warn('[api boot] genai:', e.message);
+}
 
 const { createRequestHandler } = require('@expo/server/adapter/vercel');
 

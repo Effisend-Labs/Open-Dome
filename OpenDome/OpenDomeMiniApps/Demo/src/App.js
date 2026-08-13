@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Platform } from 'react-native';
 import { useOpenDome, OpenDomeLockScreen } from 'opendome';
-import { MINI_APP_THEMES, GLOBAL_STYLES } from './theme';
+import { MINI_APP_THEMES, GLOBAL_STYLES, isDarkTheme } from './theme';
 import { locales } from './core/locales';
 
 // Sub-App Imports
@@ -35,7 +35,7 @@ export default function App({ appId, appToken }) {
   const t = locales[lang] || locales.en;
   
   const themeType = (context?.theme || 'light').toLowerCase();
-  const isDark = ['dark', 'synthwave', 'deep_space'].includes(themeType);
+  const isDark = isDarkTheme(themeType);
   const tokens = MINI_APP_THEMES[themeType] || MINI_APP_THEMES.dark;
 
   const [activeApp, setActiveApp] = useState('GAME');
