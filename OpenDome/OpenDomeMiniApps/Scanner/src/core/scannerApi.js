@@ -1,10 +1,11 @@
+import { getOpenDomeAppClientUrl } from './hostUrls';
+
 export async function scannerFetch(path, { token, method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
     headers['X-OpenDome-Jwt'] = token;
   }
-  // Same-origin Scanner proxies → Admin bridge (no CORS)
   const res = await fetch(path, {
     method,
     headers,
@@ -15,6 +16,12 @@ export async function scannerFetch(path, { token, method = 'GET', body } = {}) {
     throw new Error(data.error || data.message || `Request failed (${res.status})`);
   }
   return data;
+}
+
+/** OpenDomeApp owns tickets + chain. Scanner is UI only. */
+export function hostFetch(path, opts) {
+  const base = getOpenDomeAppClientUrl();
+  return scannerFetch(`${base}${path}`, opts);
 }
 
 export function parseScanQuery(raw) {

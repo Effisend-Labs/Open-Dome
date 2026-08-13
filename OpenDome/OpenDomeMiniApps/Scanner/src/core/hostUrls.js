@@ -48,6 +48,25 @@ export function getOpenDomeAppUrl() {
   );
 }
 
+/**
+ * Browser URL for OpenDomeApp APIs (lookup + scan-pass).
+ * Production mini-app must not follow a localhost EXPO_PUBLIC_OD_HOST_URL.
+ */
+export function getOpenDomeAppClientUrl() {
+  const fromEnv = stripQuotes(process.env.EXPO_PUBLIC_OD_HOST_URL).replace(
+    /\/$/,
+    '',
+  );
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    if (host === 'opendome.xyz' || host.endsWith('.opendome.xyz')) {
+      return 'https://app.opendome.xyz';
+    }
+  }
+  if (fromEnv && !isLoopbackUrl(fromEnv)) return fromEnv;
+  return fromEnv || 'http://localhost:8082';
+}
+
 export function getAdminBridgeUrl() {
   return pickUrl(
     [process.env.ADMIN_BRIDGE_URL, process.env.EXPO_PUBLIC_ADMIN_BRIDGE_URL],

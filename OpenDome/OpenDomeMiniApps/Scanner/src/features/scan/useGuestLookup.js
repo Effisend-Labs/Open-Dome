@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
-import { parseScanQuery, scannerFetch } from '../../core/scannerApi';
+import { parseScanQuery, hostFetch } from '../../core/scannerApi';
 import { formatPublicError } from '../../core/formatPublicError';
 import {
   loadRecentScans,
@@ -61,7 +61,7 @@ export default function useGuestLookup(hostToken) {
       setQuery(raw);
       setLoading(true);
       try {
-        const data = await scannerFetch('/api/lookup', {
+        const data = await hostFetch('/api/scan-lookup', {
           token: hostToken,
           method: 'POST',
           body: { query: raw },
@@ -110,7 +110,7 @@ export default function useGuestLookup(hostToken) {
       setError('');
       setFlash('');
       try {
-        const data = await scannerFetch('/api/use', {
+        const data = await hostFetch('/api/scan-pass', {
           token: hostToken,
           method: 'POST',
           body: {
@@ -135,7 +135,7 @@ export default function useGuestLookup(hostToken) {
             .filter(Boolean),
         );
         try {
-          const refreshed = await scannerFetch('/api/lookup', {
+          const refreshed = await hostFetch('/api/scan-lookup', {
             token: hostToken,
             method: 'POST',
             body: { query: query.trim() },
