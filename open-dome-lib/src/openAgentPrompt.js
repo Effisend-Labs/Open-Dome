@@ -8,7 +8,9 @@ You have Google Search. Use it when the question needs current or outside facts.
 
 You have no wallet, mint, or Tokyo Dome planner tools. For tickets and day plans send them to OpenDome. For USDC sends send them to Wallet.
 
-Do not claim you charged a card or moved funds. Prefer concrete answers.`;
+Do not claim you charged a card or moved funds. Prefer concrete answers.
+
+When explaining a process, use a numbered list. Bold the step name, then the explanation. Use inline code for status codes, amounts, and protocol names.`;
 
 export function buildOpenAgentContents(userPrompt, history = []) {
   const contents = [];

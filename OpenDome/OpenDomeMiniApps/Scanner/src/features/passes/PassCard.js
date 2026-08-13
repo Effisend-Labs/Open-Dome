@@ -7,56 +7,39 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../theme';
 
 export default function PassCard({ pass, busy, disabled, onUse }) {
   const amount = Math.max(1, Math.floor(Number(pass.amount) || 1));
   return (
-    <View style={s.card}>
-      <View style={s.row}>
-        {pass.image ? (
-          <Image source={{ uri: pass.image }} style={s.thumb} />
-        ) : (
-          <View style={s.thumbFallback}>
-            <Ionicons name="ticket-outline" size={22} color={COLORS.magenta} />
-          </View>
-        )}
-        <View style={s.body}>
-          <View style={s.titleRow}>
-            <Text style={s.title} numberOfLines={1}>
-              {pass.name || `Pass #${pass.tokenId}`}
-            </Text>
-            <View style={s.qty}>
-              <Text style={s.qtyText}>×{amount}</Text>
-            </View>
-          </View>
-          {pass.description ? (
-            <Text style={s.desc} numberOfLines={2}>
-              {pass.description}
-            </Text>
-          ) : null}
-          <Text style={s.id}>
-            {amount} remaining · ID {pass.tokenId}
+    <View style={s.row}>
+      {pass.image ? (
+        <Image source={{ uri: pass.image }} style={s.thumb} />
+      ) : (
+        <View style={s.thumbFallback}>
+          <Text style={s.thumbLetter}>
+            {(pass.name || 'P').slice(0, 1).toUpperCase()}
           </Text>
         </View>
+      )}
+      <View style={s.body}>
+        <Text style={s.title} numberOfLines={1}>
+          {pass.name || `Pass #${pass.tokenId}`}
+        </Text>
+        <Text style={s.meta} numberOfLines={1}>
+          {amount} left
+          {pass.description ? ` · ${pass.description}` : ''}
+        </Text>
       </View>
-
       <TouchableOpacity
-        style={[s.btn, (busy || disabled) && { opacity: 0.55 }]}
+        style={[s.btn, (busy || disabled) && { opacity: 0.4 }]}
         disabled={busy || disabled}
         onPress={onUse}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel={`Verify and use ${pass.name || pass.tokenId}`}
       >
         {busy ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <>
-            <Ionicons name="shield-checkmark" size={17} color="#fff" />
-            <Text style={s.btnText}>Verify & use</Text>
-          </>
+          <Text style={s.btnText}>Use</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -64,45 +47,34 @@ export default function PassCard({ pass, busy, disabled, onUse }) {
 }
 
 const s = StyleSheet.create({
-  card: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
-  },
-  row: { flexDirection: 'row', gap: 12 },
-  thumb: { width: 52, height: 52, borderRadius: 12, backgroundColor: COLORS.elevated },
-  thumbFallback: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: 'rgba(232, 121, 249, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  body: { flex: 1, minWidth: 0 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { flex: 1, color: COLORS.fg, fontWeight: '700', fontSize: 15, letterSpacing: -0.2 },
-  qty: {
-    backgroundColor: COLORS.primarySoft,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  qtyText: { color: '#7AA2FF', fontWeight: '800', fontSize: 12 },
-  desc: { color: COLORS.muted, fontSize: 12, marginTop: 4, lineHeight: 17 },
-  id: { color: COLORS.secondary, fontSize: 11, marginTop: 6, fontWeight: '600' },
-  btn: {
-    marginTop: 12,
-    backgroundColor: COLORS.accent,
-    borderRadius: 12,
-    paddingVertical: 12,
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
   },
-  btnText: { color: '#0A0A0A', fontWeight: '800', fontSize: 14 },
+  thumb: { width: 40, height: 40, borderRadius: 8, backgroundColor: COLORS.elevated },
+  thumbFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: COLORS.elevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbLetter: { color: COLORS.secondary, fontSize: 15, fontWeight: '600' },
+  body: { flex: 1, minWidth: 0 },
+  title: { color: COLORS.fg, fontSize: 15, fontWeight: '600' },
+  meta: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
+  btn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 56,
+    alignItems: 'center',
+  },
+  btnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 });

@@ -124,7 +124,7 @@ export default function useGuestLookup(hostToken) {
         });
         setStats((s) => ({ ...s, used: s.used + burnAmount }));
         const shortTx = data.txHash ? `${data.txHash.slice(0, 10)}…` : 'ok';
-        setFlash(`Verified · burned ${burnAmount} · ${shortTx}`);
+        setFlash(`Used ${burnAmount} · ${shortTx}`);
         setPasses((prev) =>
           prev
             .map((row) => {

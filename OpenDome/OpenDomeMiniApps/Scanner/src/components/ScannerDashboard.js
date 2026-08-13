@@ -55,25 +55,16 @@ export default function ScannerDashboard({ hostToken, currentUser }) {
       <View style={s.hostSlot} />
 
       <View style={s.identity}>
-        <Text style={s.kicker}>Scanner</Text>
         <Text style={s.identityText} numberOfLines={1}>
-          {currentUser?.name} · {String(staffRole || '').toUpperCase()}
+          {currentUser?.name}
+          {staffRole ? ` · ${staffRole}` : ''}
         </Text>
-      </View>
-
-      <View style={s.stats}>
-        <View style={s.stat}>
-          <Text style={s.statVal}>{stats.lookups}</Text>
-          <Text style={s.statLabel}>Lookups</Text>
-        </View>
-        <View style={s.stat}>
-          <Text style={s.statVal}>{stats.used}</Text>
-          <Text style={s.statLabel}>Burned</Text>
-        </View>
-        <View style={s.stat}>
-          <Text style={s.statVal}>{passes.length}</Text>
-          <Text style={s.statLabel}>On guest</Text>
-        </View>
+        <Text style={s.statsLine}>
+          {stats.lookups} lookup{stats.lookups === 1 ? '' : 's'}
+          {' · '}
+          {stats.used} used
+          {profile ? ` · ${passes.length} on guest` : ''}
+        </Text>
       </View>
 
       <ScannerLookupPanel
@@ -98,18 +89,8 @@ export default function ScannerDashboard({ hostToken, currentUser }) {
         }}
       />
 
-      {error ? (
-        <View style={s.bannerError}>
-          <Ionicons name="alert-circle" size={16} color={COLORS.danger} />
-          <Text style={s.bannerErrorText}>{error}</Text>
-        </View>
-      ) : null}
-      {flash && !error ? (
-        <View style={s.bannerOk}>
-          <Ionicons name="checkmark-circle" size={16} color={COLORS.accent} />
-          <Text style={s.bannerOkText}>{flash}</Text>
-        </View>
-      ) : null}
+      {error ? <Text style={s.bannerError}>{error}</Text> : null}
+      {flash && !error ? <Text style={s.bannerOk}>{flash}</Text> : null}
 
       <GuestProfileCard
         profile={profile}
@@ -122,7 +103,7 @@ export default function ScannerDashboard({ hostToken, currentUser }) {
 
       {profile ? (
         <Text style={s.sectionLabel}>
-          Passes {passes.length ? `(${passes.length})` : ''}
+          {passes.length ? 'Passes' : 'No passes'}
         </Text>
       ) : null}
     </View>
@@ -178,20 +159,12 @@ export default function ScannerDashboard({ hostToken, currentUser }) {
         )}
         ListEmptyComponent={
           profile ? (
-            <View style={s.emptyBox}>
-              <Ionicons name="ticket-outline" size={28} color={COLORS.muted} />
-              <Text style={s.emptyTitle}>No passes</Text>
-              <Text style={s.emptySub}>This guest has no passes to verify.</Text>
-            </View>
+            <Text style={s.emptySub}>Nothing to check in for this guest.</Text>
           ) : !recent.length ? (
-            <View style={s.emptyBox}>
-              <Ionicons name="scan-outline" size={28} color={COLORS.cyan} />
-              <Text style={s.emptyTitle}>Ready to verify</Text>
-              <Text style={s.emptySub}>
-                Scan a guest OpenDome QR or paste their @username / wallet.
-              </Text>
-            </View>
-          ) : null
+            <Text style={s.emptySub}>
+              Scan a guest QR, or paste an @username or wallet.
+            </Text>
+          ) : null}
         }
       />
       <UsePassModal
@@ -218,73 +191,22 @@ const s = StyleSheet.create({
   listContent: { paddingHorizontal: 16, paddingBottom: 48 },
   chrome: { marginBottom: 4 },
   hostSlot: { height: 44 },
-  identity: { marginBottom: 12 },
-  kicker: {
-    color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  identityText: { color: COLORS.secondary, fontSize: 13, marginTop: 2 },
-  stats: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  stat: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  statVal: { color: COLORS.fg, fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
-  statLabel: { color: COLORS.muted, fontSize: 10, marginTop: 2, fontWeight: '600' },
-  bannerError: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.dangerSoft,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-  },
-  bannerErrorText: { color: COLORS.danger, flex: 1, fontSize: 13 },
-  bannerOk: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.accentSoft,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-  },
-  bannerOkText: { color: COLORS.accent, flex: 1, fontSize: 13, fontWeight: '600' },
+  identity: { marginBottom: 16 },
+  identityText: { color: COLORS.secondary, fontSize: 13 },
+  statsLine: { color: COLORS.muted, fontSize: 12, marginTop: 3 },
+  bannerError: { color: COLORS.danger, fontSize: 13, marginBottom: 10 },
+  bannerOk: { color: COLORS.secondary, fontSize: 13, marginBottom: 10 },
   sectionLabel: {
-    color: COLORS.secondary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-    marginTop: 2,
+    color: COLORS.muted,
+    fontSize: 13,
+    marginBottom: 4,
+    marginTop: 8,
   },
-  emptyBox: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  emptyTitle: { color: COLORS.fg, fontSize: 16, fontWeight: '700' },
   emptySub: {
     color: COLORS.muted,
     fontSize: 13,
-    textAlign: 'center',
     lineHeight: 19,
-    maxWidth: 280,
+    paddingVertical: 16,
   },
   recentBlock: { marginTop: 8 },
   recentHead: {
@@ -298,12 +220,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    marginBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.border,
   },
   recentMeta: { flex: 1, minWidth: 0 },
   recentLabel: { color: COLORS.fg, fontWeight: '600', fontSize: 14 },

@@ -41,7 +41,7 @@ export default function ScannerLookupPanel({
   onClear,
 }) {
   return (
-    <View style={s.panel}>
+    <View style={s.wrap}>
       <View style={s.modeRow}>
         {MODES.map((m) => {
           const on = mode === m.id;
@@ -83,7 +83,7 @@ export default function ScannerLookupPanel({
           activeOpacity={0.9}
         >
           <View style={s.cameraCtaIcon}>
-            <Ionicons name="scan" size={26} color={COLORS.cyan} />
+            <Ionicons name="scan" size={22} color={COLORS.primary} />
           </View>
           <Text style={s.cameraCtaTitle}>Open camera</Text>
           <Text style={s.cameraCtaSub}>
@@ -136,10 +136,7 @@ export default function ScannerLookupPanel({
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <>
-            <Ionicons name="flash" size={16} color="#fff" />
-            <Text style={s.primaryText}>Look up passes</Text>
-          </>
+          <Text style={s.primaryText}>Look up</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -147,98 +144,71 @@ export default function ScannerLookupPanel({
 }
 
 const s = StyleSheet.create({
-  panel: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 18,
-    padding: 12,
-    marginBottom: 12,
-  },
-  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  wrap: { marginBottom: 16 },
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   modeBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    paddingVertical: 9,
+    borderRadius: 8,
     backgroundColor: COLORS.elevated,
   },
-  modeBtnOn: {
-    borderColor: 'rgba(0, 82, 255, 0.55)',
-    backgroundColor: COLORS.primarySoft,
-  },
-  modeText: { color: COLORS.muted, fontWeight: '700', fontSize: 13 },
+  modeBtnOn: { backgroundColor: COLORS.primarySoft },
+  modeText: { color: COLORS.muted, fontWeight: '600', fontSize: 13 },
   modeTextOn: { color: COLORS.fg },
   cameraCta: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderRadius: 10,
     backgroundColor: COLORS.elevated,
-    paddingVertical: 22,
+    paddingVertical: 20,
     paddingHorizontal: 14,
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  cameraCtaIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: 'rgba(34, 211, 238, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 10,
   },
-  cameraCtaTitle: { color: COLORS.fg, fontSize: 15, fontWeight: '700' },
+  cameraCtaIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  cameraCtaTitle: { color: COLORS.fg, fontSize: 15, fontWeight: '600' },
   cameraCtaSub: {
     color: COLORS.muted,
     fontSize: 12,
     marginTop: 4,
     textAlign: 'center',
-    lineHeight: 17,
   },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: COLORS.elevated,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 12,
   },
-  input: { flex: 1, color: COLORS.fg, paddingVertical: 12, fontSize: 14 },
-  typeRow: { marginTop: 10, marginBottom: 12 },
+  input: { flex: 1, color: COLORS.fg, paddingVertical: 11, fontSize: 14 },
+  typeRow: { marginTop: 8, marginBottom: 10 },
   typePill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: COLORS.bg,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: COLORS.elevated,
   },
-  typePillOk: {
-    borderColor: 'rgba(0, 82, 255, 0.35)',
-    backgroundColor: COLORS.primarySoft,
-  },
-  typePillBad: {
-    borderColor: 'rgba(239, 68, 68, 0.35)',
-    backgroundColor: COLORS.dangerSoft,
-  },
-  typePillText: { color: COLORS.secondary, fontSize: 11, fontWeight: '700' },
+  typePillOk: { backgroundColor: COLORS.primarySoft },
+  typePillBad: { backgroundColor: COLORS.dangerSoft },
+  typePillText: { color: COLORS.secondary, fontSize: 12 },
   primaryBtn: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
   },
-  primaryText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  primaryText: { color: '#fff', fontWeight: '600', fontSize: 15 },
 });
