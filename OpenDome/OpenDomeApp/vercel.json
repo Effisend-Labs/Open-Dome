@@ -5,7 +5,7 @@
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/OpenDome/OpenDomeApp :/open-dome-lib 2>/dev/null || exit 1",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{dist/server/**,node_modules/{opendome,@google-cloud,@grpc,@circle-fin,google-gax,google-auth-library,protobufjs,google-logging-utils}/**}",
+      "includeFiles": "{dist/server/**,node_modules/opendome/dist/**,node_modules/{@google-cloud/firestore,@grpc,@circle-fin,google-gax,google-auth-library,protobufjs,google-logging-utils}/**}",
       "maxDuration": 30
     }
   },
