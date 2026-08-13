@@ -36,3 +36,6 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# Generated on Vercel install from open-dome-lib/dist
+api/vendor/

@@ -5,6 +5,9 @@ import { useOpenDome } from 'opendome';
 import { Ionicons } from '@expo/vector-icons';
 
 const ADMIN_PASSWORD = "OpenDomeX402";
+const DEFAULT_CONTRACT =
+  process.env.EXPO_PUBLIC_CONTRACT_ADDRESS ||
+  '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
 
 export default function SecretScanner({ tokens }) {
   const { blockchain } = useOpenDome();
@@ -15,7 +18,7 @@ export default function SecretScanner({ tokens }) {
 
   // Scanner State
   const [network, setNetwork] = useState('base');
-  const [contractAddress, setContractAddress] = useState('');
+  const [contractAddress, setContractAddress] = useState(DEFAULT_CONTRACT);
   const [tokenId, setTokenId] = useState('');
   const [isReusable, setIsReusable] = useState(false);
   const [consumeAmount, setConsumeAmount] = useState(1);

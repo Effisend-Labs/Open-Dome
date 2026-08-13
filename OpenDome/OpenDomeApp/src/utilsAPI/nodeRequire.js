@@ -64,9 +64,15 @@ function subpathFromPackage(id) {
   return `./${id.slice('opendome/'.length)}`;
 }
 
+function vendorSubpath(id) {
+  if (!id.startsWith('opendome/dist/')) return null;
+  return `./vendor/opendome/${id.slice('opendome/dist/'.length)}`;
+}
+
 export function nodeRequire(id) {
   const files = collectRequireFiles(id);
   const relative = subpathFromPackage(id);
+  const vendor = vendorSubpath(id);
   let lastErr;
   for (const file of files) {
     const req = createRequire(file);
@@ -78,6 +84,13 @@ export function nodeRequire(id) {
     if (relative) {
       try {
         return req(relative);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (vendor) {
+      try {
+        return req(vendor);
       } catch (err) {
         lastErr = err;
       }

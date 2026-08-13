@@ -1,15 +1,16 @@
 /**
- * Top-level requires so Vercel NFT copies opendome CJS dist into the Lambda.
- * Dynamic nodeRequire('opendome/dist/...') is invisible to the tracer.
+ * Literal relative requires so Vercel NFT copies the CJS SDK into the Lambda.
+ * Do not require('opendome') — that pulls React via useOpenDome.
+ * Dist is copied to api/vendor/opendome during Vercel installCommand.
  */
 module.exports = {
-  agentSkills: require('opendome/dist/agentSkills.js'),
-  openAgentPrompt: require('opendome/dist/openAgentPrompt.js'),
-  agentTariff: require('opendome/dist/agentTariff.js'),
-  x402: require('opendome/dist/x402.js'),
-  quote: require('opendome/dist/quote.js'),
-  platformMint: require('opendome/dist/platformMint.js'),
-  devBypass: require('opendome/dist/devBypass.js'),
-  events: require('opendome/dist/dbs/events.json'),
-  amenities: require('opendome/dist/dbs/amenities.json'),
+  agentSkills: require('./vendor/opendome/agentSkills.js'),
+  openAgentPrompt: require('./vendor/opendome/openAgentPrompt.js'),
+  agentTariff: require('./vendor/opendome/agentTariff.js'),
+  x402: require('./vendor/opendome/x402.js'),
+  quote: require('./vendor/opendome/quote.js'),
+  platformMint: require('./vendor/opendome/platformMint.js'),
+  devBypass: require('./vendor/opendome/devBypass.js'),
+  events: require('./vendor/opendome/dbs/events.json'),
+  amenities: require('./vendor/opendome/dbs/amenities.json'),
 };

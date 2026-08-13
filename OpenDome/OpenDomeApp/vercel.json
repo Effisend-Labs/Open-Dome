@@ -1,11 +1,11 @@
 {
-  "installCommand": "cd ../../open-dome-lib && npm install --legacy-peer-deps && npm run build && cd ../OpenDome/OpenDomeApp && npm install --legacy-peer-deps",
+  "installCommand": "cd ../../open-dome-lib && npm install --legacy-peer-deps && npm run build && cd ../OpenDome/OpenDomeApp && npm install --legacy-peer-deps && rm -rf api/vendor/opendome && mkdir -p api/vendor/opendome && cp -R ../../open-dome-lib/dist/. api/vendor/opendome/",
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/OpenDome/OpenDomeApp :/open-dome-lib 2>/dev/null || exit 1",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{dist/server/**,node_modules/opendome/dist/**,node_modules/{@google-cloud/firestore,@grpc,@circle-fin,google-gax,google-auth-library,protobufjs,google-logging-utils}/**}",
+      "includeFiles": "{dist/server/**,node_modules/@google-cloud/firestore/**,node_modules/google-gax/**,node_modules/google-auth-library/**,node_modules/protobufjs/**,node_modules/@grpc/**,node_modules/google-logging-utils/**,node_modules/@circle-fin/**}",
       "maxDuration": 30
     }
   },
