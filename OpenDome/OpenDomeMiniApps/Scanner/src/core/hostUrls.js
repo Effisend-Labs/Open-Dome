@@ -19,20 +19,45 @@ function isVercel() {
   );
 }
 
+function isLoopbackUrl(url) {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return /localhost|127\.0\.0\.1/i.test(url);
+  }
+}
+
+function pickUrl(candidates, productionFallback, localFallback) {
+  for (const raw of candidates) {
+    const url = stripQuotes(raw).replace(/\/$/, '');
+    if (!url) continue;
+    if (isVercel() && isLoopbackUrl(url)) continue;
+    return url;
+  }
+  if (isVercel()) return productionFallback;
+  return localFallback;
+}
+
 export function getOpenDomeAppUrl() {
-  const fromEnv = stripQuotes(
-    process.env.OPENDOME_APP_URL || process.env.EXPO_PUBLIC_OD_HOST_URL,
-  ).replace(/\/$/, '');
-  if (fromEnv) return fromEnv;
-  if (isVercel()) return 'https://app.opendome.xyz';
-  return 'http://localhost:8082';
+  return pickUrl(
+    [process.env.OPENDOME_APP_URL, process.env.EXPO_PUBLIC_OD_HOST_URL],
+    'https://app.opendome.xyz',
+    'http://localhost:8082',
+  );
 }
 
 export function getAdminBridgeUrl() {
-  const fromEnv = stripQuotes(
-    process.env.ADMIN_BRIDGE_URL || process.env.EXPO_PUBLIC_ADMIN_BRIDGE_URL,
-  ).replace(/\/$/, '');
-  if (fromEnv) return fromEnv;
-  if (isVercel()) return 'https://admin.opendome.xyz';
-  return 'http://localhost:8090';
+  return pickUrl(
+    [process.env.ADMIN_BRIDGE_URL, process.env.EXPO_PUBLIC_ADMIN_BRIDGE_URL],
+    'https://admin.opendome.xyz',
+    'http://localhost:8090',
+  );
+}
+
+export function describeFetchError(err, target) {
+  const cause = err?.cause?.message || err?.cause?.code || '';
+  const base = err?.message || 'fetch failed';
+  return cause ? `${base} → ${target} (${cause})` : `${base} → ${target}`;
 }

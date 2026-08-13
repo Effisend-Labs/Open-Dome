@@ -1,7 +1,7 @@
 /**
- * Proxy → OpenDomeApp scan-lookup (avoids browser CORS to :8082).
+ * Proxy → OpenDomeApp scan-lookup (avoids browser CORS to the host).
  */
-import { getOpenDomeAppUrl } from '../../core/hostUrls';
+import { describeFetchError, getOpenDomeAppUrl } from '../../core/hostUrls';
 
 export async function POST(request) {
   const auth =
@@ -25,6 +25,10 @@ export async function POST(request) {
     const data = await res.json().catch(() => ({}));
     return Response.json(data, { status: res.status });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error('[Scanner lookup]', host, e);
+    return Response.json(
+      { error: describeFetchError(e, `${host}/api/scan-lookup`) },
+      { status: 502 },
+    );
   }
 }

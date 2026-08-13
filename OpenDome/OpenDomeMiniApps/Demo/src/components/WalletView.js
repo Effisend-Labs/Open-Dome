@@ -7,16 +7,21 @@ import { GLOBAL_STYLES, isDarkTheme } from '../theme';
 import imgBase from '../assets/base.png';
 import imgMon from '../assets/mon.png';
 import imgSol from '../assets/sol.png';
+import imgEth from '../assets/eth.png';
+import imgAvax from '../assets/avax.png';
+import imgPol from '../assets/pol.png';
+import imgOp from '../assets/op.png';
+import imgArb from '../assets/arb.png';
 
 const CHAIN_ASSETS = {
   base: { logo: imgBase, ticker: 'ETH', explorer: 'https://basescan.org/address/' },
   monad: { logo: imgMon, ticker: 'MON', explorer: 'https://explorer.monad.xyz/address/' },
   solana: { logo: imgSol, ticker: 'SOL', explorer: 'https://solscan.io/account/' },
-  arbitrum: { logo: null, ticker: 'ETH', explorer: 'https://arbiscan.io/address/' },
-  avalanche: { logo: null, ticker: 'AVAX', explorer: 'https://snowtrace.io/address/' },
-  mainnet: { logo: null, ticker: 'ETH', explorer: 'https://etherscan.io/address/' },
-  polygon: { logo: null, ticker: 'POL', explorer: 'https://polygonscan.com/address/' },
-  optimism: { logo: null, ticker: 'ETH', explorer: 'https://optimistic.etherscan.io/address/' }
+  arbitrum: { logo: imgArb, ticker: 'ETH', explorer: 'https://arbiscan.io/address/' },
+  avalanche: { logo: imgAvax, ticker: 'AVAX', explorer: 'https://snowtrace.io/address/' },
+  mainnet: { logo: imgEth, ticker: 'ETH', explorer: 'https://etherscan.io/address/' },
+  polygon: { logo: imgPol, ticker: 'POL', explorer: 'https://polygonscan.com/address/' },
+  optimism: { logo: imgOp, ticker: 'ETH', explorer: 'https://optimistic.etherscan.io/address/' }
 };
 
 const formatBalance = (bal) => {

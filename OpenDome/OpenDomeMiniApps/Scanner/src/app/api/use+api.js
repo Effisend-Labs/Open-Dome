@@ -1,7 +1,7 @@
 /**
  * Proxy → Admin /api/scanner (verify & use / burn).
  */
-import { getAdminBridgeUrl } from '../../core/hostUrls';
+import { describeFetchError, getAdminBridgeUrl } from '../../core/hostUrls';
 
 export async function POST(request) {
   const auth =
@@ -24,6 +24,10 @@ export async function POST(request) {
     const data = await res.json().catch(() => ({}));
     return Response.json(data, { status: res.status });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error('[Scanner use]', bridge, e);
+    return Response.json(
+      { error: describeFetchError(e, `${bridge}/api/scanner`) },
+      { status: 502 },
+    );
   }
 }
