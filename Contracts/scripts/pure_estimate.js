@@ -10,7 +10,7 @@ async function main() {
   const factory = new ethers.ContractFactory(abi, bytecode);
   
   // Create unsigned deploy tx
-  const deployTx = await factory.getDeployTransaction("0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f");
+  const deployTx = await factory.getDeployTransaction("0x0000000000000000000000000000000000000000");
   
   try {
     const gasEstimate = await provider.estimateGas(deployTx);

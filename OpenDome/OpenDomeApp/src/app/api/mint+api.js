@@ -11,7 +11,7 @@ export async function POST(request) {
       request.headers.get('authorization') ||
       '';
     const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-    const scannerToken = process.env.ADMIN_SCANNER_TOKEN || 'admin-session-token-123';
+    const scannerToken = process.env.ADMIN_SCANNER_TOKEN;
 
     if (!token) {
       return Response.json(

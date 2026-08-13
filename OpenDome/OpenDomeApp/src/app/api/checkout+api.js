@@ -45,7 +45,10 @@ export async function POST(req) {
     const bypassChain = isBlockchainBypassEnabled();
     const price = formatQuotePriceForX402(quote.totalUsd);
     const { OpenDomeSeller, OpenDomeFacilitator } = await import('opendome/dist/x402.js');
-    const merchantAddress = process.env.MERCHANT_ADDRESS || '0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f';
+    const merchantAddress = process.env.MERCHANT_ADDRESS;
+    if (!merchantAddress) {
+      return Response.json({ error: 'MERCHANT_ADDRESS is not set' }, { status: 500 });
+    }
     const seller = new OpenDomeSeller(merchantAddress);
     const paymentSignatureBase64 = req.headers.get('payment-signature');
 

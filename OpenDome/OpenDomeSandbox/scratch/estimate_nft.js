@@ -17,7 +17,7 @@ async function main() {
     const data = encodeDeployData({
       abi,
       bytecode,
-      args: ['0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f', '0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f']
+      args: ['0x0000000000000000000000000000000000000000', '0x0000000000000000000000000000000000000000']
     });
     const gasEstimate = await client.estimateGas({
       data,

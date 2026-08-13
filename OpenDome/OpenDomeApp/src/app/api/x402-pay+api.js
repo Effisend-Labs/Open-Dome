@@ -7,8 +7,19 @@ BigInt.prototype.toJSON = function () {
   return this.toString();
 };
 
-/** Testing — skip Circle USDC settlement without touching .env */
+/** Testing — skip Circle USDC settlement without touching .env. Never for OpenAgent. */
 const FORCE_SKIP_X402 = true;
+
+function isOpenAgentPayment(payload) {
+  try {
+    const raw = payload?.fetchOptions?.body;
+    const body = typeof raw === 'string' ? JSON.parse(raw) : raw || {};
+    if (body.mode === 'openagent' || body.app === 'openagent') return true;
+  } catch {
+    // ignore
+  }
+  return false;
+}
 
 function formatX402Error(err) {
   if (!err) return 'Unknown payment error';
@@ -30,7 +41,10 @@ function formatX402Error(err) {
 
 export async function POST(request) {
   try {
-    const JWT_SECRET = process.env.JWT_SECRET || '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+    }
 
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -55,8 +69,9 @@ export async function POST(request) {
 
     console.log(`[x402 Host] Payment intent for ${serviceUrl} from @${decoded.username}`);
 
-    // Skip real USDC: call service with user Bearer (agent free path) + bypass header (checkout).
-    if (FORCE_SKIP_X402 || process.env.OD_BYPASS_X402 === 'true') {
+    const openAgentPay = isOpenAgentPayment(payload);
+    // OpenAgent is always real x402. Wallet/demo may still skip Circle.
+    if (!openAgentPay && (FORCE_SKIP_X402 || process.env.OD_BYPASS_X402 === 'true')) {
       console.warn('[x402 Host] SKIP_X402 — no Circle settlement (code flag or env)');
       const { BYPASS_HEADER } = await import('opendome/dist/devBypass.js');
       const response = await fetch(serviceUrl, {

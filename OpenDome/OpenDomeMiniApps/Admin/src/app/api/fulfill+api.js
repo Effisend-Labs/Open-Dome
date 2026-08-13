@@ -2,8 +2,7 @@ import { mintPassesToAddress } from '../../utilsAPI/mintService';
 import { addTickets } from '../../utilsAPI/adminDb';
 import { isBlockchainBypassEnabled } from 'opendome/dist/devBypass.js';
 
-const SERVICE_TOKEN =
-  process.env.ADMIN_SCANNER_TOKEN || 'admin-session-token-123';
+const SERVICE_TOKEN = process.env.ADMIN_SCANNER_TOKEN;
 
 function authorizeService(request) {
   const authHeader =

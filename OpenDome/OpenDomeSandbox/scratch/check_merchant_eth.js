@@ -7,7 +7,8 @@ const client = createPublicClient({
 })
 
 async function check() {
-  const address = "0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f";
+  const address = process.env.MERCHANT_ADDRESS;
+  if (!address) throw new Error('MERCHANT_ADDRESS is not set');
   const balance = await client.getBalance({ address });
   console.log("ETH Balance of Merchant:", Number(balance) / 1e18);
 }

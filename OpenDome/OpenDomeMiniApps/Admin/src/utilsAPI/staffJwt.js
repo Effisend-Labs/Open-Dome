@@ -55,7 +55,7 @@ export async function verifyStaffActor(request) {
   const token = readBearerToken(request);
   if (!token) return null;
 
-  const scannerToken = process.env.ADMIN_SCANNER_TOKEN || 'admin-session-token-123';
+  const scannerToken = process.env.ADMIN_SCANNER_TOKEN;
   if (token === scannerToken) {
     return { type: 'scanner-token', role: 'scanner', username: 'hardware' };
   }

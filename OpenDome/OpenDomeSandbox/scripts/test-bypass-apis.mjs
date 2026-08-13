@@ -19,10 +19,11 @@ process.env.OD_BYPASS_X402 = 'true';
 process.env.OD_BYPASS_BLOCKCHAIN = 'true';
 process.env.OD_RELAX_X402_ERRORS = 'false';
 process.env.OD_MOCK_TICKET_INDEX = 'true';
-process.env.MERCHANT_ADDRESS = process.env.MERCHANT_ADDRESS || '0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f';
+process.env.MERCHANT_ADDRESS =
+  process.env.MERCHANT_ADDRESS || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 process.env.MERCHANT_PRIVATE_KEY =
   process.env.MERCHANT_PRIVATE_KEY ||
-  '0xd6128a944cf8c3045c20fffc7c0d71a4d518bc0e4d9ebce766a12b658a72120a';
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 process.env.ADMIN_BRIDGE_URL = process.env.ADMIN_BRIDGE_URL || 'http://localhost:8090';
 process.env.ADMIN_SCANNER_TOKEN = process.env.ADMIN_SCANNER_TOKEN || 'admin-session-token-123';
 process.env.CONTRACT_ADDRESS =

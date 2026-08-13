@@ -12,7 +12,10 @@ BigInt.prototype.toJSON = function () {
 
 export async function POST(request) {
   try {
-    const JWT_SECRET = process.env.JWT_SECRET || '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+    }
     
     // 1. Verify Authorization Header
     const authHeader = request.headers.get('authorization');

@@ -87,7 +87,10 @@ export async function POST(request) {
     let solanaAddress = null;
     let tokenToVerify = token;
 
-    const JWT_SECRET = process.env.JWT_SECRET || '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+    }
 
     if (tokenToVerify && tokenToVerify.split('.').length === 3) {
       try {
@@ -117,7 +120,10 @@ export async function POST(request) {
     let wsJwt = null;
     let hostJwt = null;
     try {
-      const SECRET = process.env.OPENDOME_SECRET || 'opendome_default_fallback_secret_key_512_bits';
+      const SECRET = process.env.OPENDOME_SECRET;
+      if (!SECRET) {
+        throw new Error('OPENDOME_SECRET is not set');
+      }
       
       // 1. JWT for the Mini App
       const payload = {

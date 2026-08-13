@@ -8,7 +8,7 @@ import os from 'node:os';
  * GenAI is lazy-initialized only after payment settles.
  */
 
-/** Testing — skip USDC settlement without touching .env */
+/** Testing — skip USDC settlement without touching .env. Never for OpenAgent. */
 const FORCE_SKIP_X402 = true;
 
 const rateLimitStore = new Map();
@@ -106,9 +106,10 @@ export async function OPTIONS() {
 
 export async function POST(req) {
   try {
-    const JWT_SECRET =
-      process.env.JWT_SECRET ||
-      '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+    }
 
     const authHeader = req.headers.get('authorization');
     let decoded = null;
@@ -153,7 +154,8 @@ export async function POST(req) {
       rateLimitStore.set(decoded.userId, recent);
     }
 
-    const { quotePromptTariff } = await import('opendome/dist/agentTariff.js');
+    const { nodeRequire } = await import('../../utilsAPI/nodeRequire.js');
+    const { quotePromptTariff } = nodeRequire('opendome/dist/agentTariff.js');
     const tariff = quotePromptTariff(userPrompt, body.modelId);
     const targetModel = tariff.apiModel;
     const modelLabel = tariff.modelLabel;
@@ -161,14 +163,14 @@ export async function POST(req) {
 
     let paymentTxHash = null;
 
-    // x402 first — no GenAI import needed for challenge
-    if (!decoded) {
-      const { OpenDomeSeller, OpenDomeFacilitator } = await import(
-        'opendome/dist/x402.js'
-      );
-      const merchantAddress =
-        process.env.MERCHANT_ADDRESS ||
-        '0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f';
+    // OpenAgent always settles x402. JWT must not skip the 402 challenge.
+    const requireX402 = isOpenAgent || !decoded;
+    if (requireX402) {
+      const { OpenDomeSeller, OpenDomeFacilitator } = nodeRequire('opendome/dist/x402.js');
+      const merchantAddress = process.env.MERCHANT_ADDRESS;
+      if (!merchantAddress) {
+        return Response.json({ error: 'MERCHANT_ADDRESS is not set' }, { status: 500 });
+      }
       const seller = new OpenDomeSeller(merchantAddress);
       const paymentSignatureBase64 = req.headers.get('payment-signature');
 
@@ -189,7 +191,9 @@ export async function POST(req) {
         return Response.json({ error: err.message }, { status: 400 });
       }
 
-      if (FORCE_SKIP_X402 || process.env.OD_BYPASS_X402 === 'true') {
+      const skipRelay =
+        !isOpenAgent && (FORCE_SKIP_X402 || process.env.OD_BYPASS_X402 === 'true');
+      if (skipRelay) {
         console.warn('[Host Agent] SKIP_X402 — skip on-chain relay (code flag or env)');
       } else {
         const facilitator = new OpenDomeFacilitator(
@@ -207,7 +211,7 @@ export async function POST(req) {
         }
       }
 
-      decoded = { userId: 'x402-user', username: 'x402 Payer' };
+      if (!decoded) decoded = { userId: 'x402-user', username: 'x402 Payer' };
     }
 
     const ai = await getAI();

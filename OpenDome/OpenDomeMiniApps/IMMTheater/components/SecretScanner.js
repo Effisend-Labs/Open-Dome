@@ -92,7 +92,10 @@ export default function SecretScanner({ tokens }) {
 
     setIsProcessing(true);
     try {
-      const authToken = "admin-session-token-123"; 
+      const authToken = process.env.EXPO_PUBLIC_ADMIN_SCANNER_TOKEN;
+      if (!authToken) {
+        throw new Error('EXPO_PUBLIC_ADMIN_SCANNER_TOKEN is not set');
+      } 
 
       if (isReusable) {
         await blockchain.consumePassAccess(network, contractAddress, tokenId, consumeAmount, authToken);

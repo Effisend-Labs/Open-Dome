@@ -18,7 +18,8 @@ const erc20Abi = [
 ];
 
 async function check() {
-  const address = "0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f";
+  const address = process.env.MERCHANT_ADDRESS;
+  if (!address) throw new Error('MERCHANT_ADDRESS is not set');
   const usdcAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // Base USDC
   
   const balance = await client.readContract({

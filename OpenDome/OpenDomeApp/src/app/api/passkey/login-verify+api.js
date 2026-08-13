@@ -25,11 +25,12 @@ const getDynamicRpID = (req) => {
   }
 };
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export const POST = async (request) => {
+  if (!JWT_SECRET) {
+    return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+  }
   const expectedRPID = getDynamicRpID(request);
   const expectedOrigin =
     request.headers.get('origin') || 'http://localhost:8082';

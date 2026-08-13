@@ -97,7 +97,10 @@ export async function OPTIONS(request) {
 
 export async function POST(req) {
   try {
-    const JWT_SECRET = process.env.JWT_SECRET || '275f0edac42d0454d77f9bb62ea812b70b1f3a1dac5d5fbca651e4819e438c52';
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+    }
     console.log(`[Agent API] Incoming Headers:`, Object.fromEntries(req.headers.entries()));
 
     const authHeader = req.headers.get('authorization');
@@ -151,7 +154,10 @@ export async function POST(req) {
     // --- x402 CLASSIC FACILITATOR MIDDLEWARE ---
     if (!decoded) {
       const { OpenDomeSeller, OpenDomeFacilitator } = await import('opendome/dist/x402.js');
-      const merchantAddress = process.env.MERCHANT_ADDRESS || "0x69F6B4d206E19D2ef5838ed3E7150F2D22A9Fc7f";
+      const merchantAddress = process.env.MERCHANT_ADDRESS;
+      if (!merchantAddress) {
+        return Response.json({ error: 'MERCHANT_ADDRESS is not set' }, { status: 500 });
+      }
       const seller = new OpenDomeSeller(merchantAddress);
       
       const paymentSignatureBase64 = req.headers.get('payment-signature');
