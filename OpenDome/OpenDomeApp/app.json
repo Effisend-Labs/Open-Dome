@@ -25,6 +25,19 @@
       "output": "server",
       "favicon": "./src/assets/favicon.png"
     },
+    "server": {
+      "nodeModules": [
+        "@google-cloud/firestore",
+        "@circle-fin/developer-controlled-wallets",
+        "@simplewebauthn/server",
+        "@google/genai",
+        "jsonwebtoken",
+        "ethers",
+        "opendome",
+        "tslib",
+        "uuid"
+      ]
+    },
     "plugins": [
       [
         "expo-router",
