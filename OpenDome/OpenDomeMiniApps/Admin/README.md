@@ -20,7 +20,8 @@ ADMIN_SCANNER_TOKEN=
 ```
 OPENDOME_APP_URL=…        # override JWT verify host
 FIRESTORE_ENV=dev|production   # override auto-detect
-MERCHANT_SOLANA_ADDRESS=… # Solana merchant pubkey (Admin SOL + USDC balances)
+MERCHANT_SOLANA_ADDRESS=…      # Solana merchant pubkey (Admin SOL + USDC balances)
+MERCHANT_SOLANA_PRIVATE_KEY=… # base58 secret (gitignored .env only; same wallet as address)
 RPC_URL_BASE= / RPC_URL_ARB= / RPC_URL_OP= / RPC_URL_MATIC= / RPC_URL_AVAX= / RPC_URL_ETH= / RPC_URL_SOL=
 ```
 
