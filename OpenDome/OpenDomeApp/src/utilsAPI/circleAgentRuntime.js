@@ -275,3 +275,19 @@ export async function runCircleAgentTool(name, args = {}, ctx = {}) {
     return fail(err);
   }
 }
+
+/** Circle wallet ids + agent ctx from Firestore wallet doc. */
+export function buildWalletAgentContext(walletData = {}) {
+  const ids = walletData.walletIds || {};
+  return {
+    walletId: ids.BASE || ids.ETH || walletData.evm?.id || null,
+    solWalletId: ids.SOL || ids.SOLANA || walletData.solana?.id || null,
+    walletIds: ids,
+  };
+}
+
+export async function fetchBalancesForUserWallets(client, ctx, filterChain) {
+  return balancesForUserWallets(client, ctx, filterChain);
+}
+
+export { normalizeChain, pickUsdcAmount };

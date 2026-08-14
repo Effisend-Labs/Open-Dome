@@ -3,6 +3,7 @@ import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { nodeRequire } from '../../utilsAPI/nodeRequire';
+import { signSolanaPaymentProof } from '../../utilsAPI/solanaPaymentProof.js';
 
 BigInt.prototype.toJSON = function () {
   return this.toString();
@@ -29,13 +30,10 @@ function formatX402Error(err) {
 function pickEvmWalletId(walletData, chainKey) {
   const ids = walletData.walletIds || {};
   const key = String(chainKey || 'BASE').toUpperCase();
-  return (
-    ids[key] ||
-    ids.BASE ||
-    ids.ETH ||
-    walletData.evm?.id ||
-    null
-  );
+  if (ids[key]) return ids[key];
+  if (key === 'BASE') return ids.BASE || walletData.evm?.id || null;
+  if (key === 'ETH') return ids.ETH || walletData.evm?.id || null;
+  return null;
 }
 
 export async function POST(request) {
@@ -161,15 +159,17 @@ export async function POST(request) {
         throw new Error(settled?.error || 'Solana USDC payment failed');
       }
 
+      const solanaPayment = {
+        x402Version: 2,
+        scheme: 'solana-circle',
+        chain: 'SOL',
+        amount: challengeData.amount,
+        payTo: challengeData.payTo,
+        transactionId: settled.transactionId,
+      };
+      solanaPayment.proof = signSolanaPaymentProof(solanaPayment);
       const paymentSignatureBase64 = Buffer.from(
-        JSON.stringify({
-          x402Version: 2,
-          scheme: 'solana-circle',
-          chain: 'SOL',
-          amount: challengeData.amount,
-          payTo: challengeData.payTo,
-          transactionId: settled.transactionId,
-        }),
+        JSON.stringify(solanaPayment),
       ).toString('base64');
 
       const response = await fetch(serviceUrl, {

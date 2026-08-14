@@ -164,6 +164,7 @@ export class OpenDomeSeller {
         transactionId,
         value,
         to: payTo || this.merchantAddress,
+        proof: paymentData.proof || null,
       };
     }
 

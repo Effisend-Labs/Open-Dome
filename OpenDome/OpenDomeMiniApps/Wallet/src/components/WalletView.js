@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Linking, Animated } from 'react-native';
 import { useOpenDome } from 'opendome';
 import { copyText } from '../features/receive/copyText';
@@ -7,6 +7,7 @@ import SendModal from './SendModal';
 import ReceiveModal from './ReceiveModal';
 import { AuthRequiredPanel } from '../features/auth/AuthRequiredPanel';
 import { useTokenUsdPrices } from '../features/prices/useTokenUsdPrices';
+import { useSharedBalances } from '../features/wallet/useSharedBalances';
 
 // Chain logos
 import imgBase from '../assets/base.png';
@@ -238,12 +239,10 @@ const NetworkRow = ({
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) {
-  const { blockchain, user, isAuthorized } = useOpenDome();
+  const { user, isAuthorized } = useOpenDome();
   const { priceOf } = useTokenUsdPrices();
-  const [balances, setBalances] = useState({});
-  const [loading, setLoading] = useState(true);
+  const { balances, loading, lastSync, refresh: fetchBalances } = useSharedBalances(isAuthorized);
   const [copiedKey, setCopiedKey] = useState(null);
-  const [lastSync, setLastSync] = useState(null);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [displayBalance, setDisplayBalance] = useState('0.00');
@@ -258,48 +257,6 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
   Object.keys(CHAINS).forEach(key => {
     addressMap[key] = CHAINS[key].type === 'solana' ? solAddr : evmAddr;
   });
-
-  const fetchBalances = useCallback(async () => {
-    if (!isAuthorized) return;
-    setLoading(true);
-    try {
-      const results = {};
-      const promises = Object.keys(CHAINS).map(async (chain) => {
-        try {
-          const addr = addressMap[chain];
-          const tokenAddr = USDC_ADDRESSES[chain];
-          let native = '0';
-          let usdc = '0';
-
-          if (!blockchain?.supportsChain?.(chain)) {
-            results[chain] = { native: '0', usdc: '0', unsupported: true };
-            return;
-          }
-
-          if (addr) {
-            native = await blockchain.getBalance(chain, addr);
-            if (tokenAddr) {
-              usdc = await blockchain.getBalanceToken(chain, addr, tokenAddr);
-            }
-          }
-          results[chain] = { native, usdc };
-        } catch (e) {
-          console.warn(`[Wallet] Error fetching balance for ${chain}:`, e.message);
-          results[chain] = { native: 'error', usdc: 'error' };
-        }
-      });
-      await Promise.all(promises);
-      setBalances(results);
-      setLastSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    } catch (err) {
-      console.error('[Wallet] Balance fetch error:', err);
-    }
-    setLoading(false);
-  }, [isAuthorized, evmAddr, solAddr]);
-
-  useEffect(() => {
-    fetchBalances();
-  }, [fetchBalances]);
 
   const handleCopy = async (key, address) => {
     if (!address) return;

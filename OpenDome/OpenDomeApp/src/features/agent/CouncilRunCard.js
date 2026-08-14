@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native
 import { USE_NATIVE_DRIVER } from './styleCompat';
 import { COUNCIL_PHASES } from './councilDrama';
 import { GeminiMark } from './GeminiMark';
+import { PaymentNetworkPicker } from './PaymentNetworkPicker';
 
 const ROW_H = 64;
 
@@ -105,7 +106,9 @@ export function CouncilRunCard({
   onConfirm,
   onReview,
   confirmDisabled,
-  confirmLabel,
+  paymentAmount,
+  paymentNetwork,
+  onPaymentNetworkChange,
   onSelectAgent,
 }) {
   const done = phase === COUNCIL_PHASES.DONE;
@@ -148,27 +151,43 @@ export function CouncilRunCard({
 
       <View style={styles.footer}>
         {awaiting ? (
-          <View style={styles.actions}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              disabled={confirmDisabled}
-              onPress={onReview}
-              style={[styles.cta, styles.ghost, { borderColor: tokens.BORDER }]}
-            >
-              <Text style={[styles.ctaText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-                Review
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              disabled={confirmDisabled}
-              onPress={onConfirm}
-              style={[styles.cta, { backgroundColor: tokens.FG, opacity: confirmDisabled ? 0.5 : 1 }]}
-            >
-              <Text style={[styles.ctaText, { color: tokens.BG, fontFamily: tokens.font.primary }]} numberOfLines={1}>
-                {confirmLabel || 'Pay'}
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.checkout}>
+            <PaymentNetworkPicker
+              tokens={tokens}
+              value={paymentNetwork}
+              onChange={onPaymentNetworkChange}
+            />
+            <View style={styles.actions}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={confirmDisabled}
+                onPress={onReview}
+                style={[styles.reviewCta, { borderColor: tokens.BORDER }]}
+              >
+                <Text style={[styles.reviewText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+                  Review plan
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={confirmDisabled}
+                onPress={onConfirm}
+                style={[
+                  styles.payCta,
+                  {
+                    backgroundColor: tokens.ACCENT,
+                    opacity: confirmDisabled ? 0.5 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.payTitle, { color: '#FFFFFF', fontFamily: tokens.font.primary }]}>
+                  Pay now
+                </Text>
+                <Text style={[styles.payAmount, { color: '#FFFFFF', fontFamily: tokens.font.mono }]}>
+                  {paymentAmount || 'USDC'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <Text style={[styles.footerLine, { color: tokens.MUTED, fontFamily: tokens.font.primary }]} numberOfLines={1}>
@@ -260,23 +279,43 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     justifyContent: 'center',
   },
+  checkout: {
+    gap: 10,
+  },
   actions: {
     flexDirection: 'row',
     gap: 8,
   },
-  cta: {
-    flex: 1,
+  reviewCta: {
+    flex: 0.9,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: 8,
-  },
-  ghost: {
+    minHeight: 56,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  ctaText: {
-    fontSize: 15,
+  reviewText: {
+    fontSize: 14,
     fontWeight: '600',
+  },
+  payCta: {
+    flex: 1.1,
+    minHeight: 56,
+    borderRadius: 12,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  payTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+  payAmount: {
+    marginTop: 2,
+    fontSize: 16,
+    fontWeight: '700',
   },
   footerLine: {
     fontSize: 14,

@@ -25,6 +25,7 @@ import MapApp from '../../components/MapApp';
 import { isAltagaGodToken, isStaffToken } from '../../core/godAccess';
 import DomeAgentView from '../../features/agent/DomeAgentView';
 import { warmHostPublicCache } from '../../features/bridge/hostPublicCache';
+import { UserWalletProvider } from '../../features/userWallet/UserWalletProvider';
 
 
 const CORE_APPS = [
@@ -272,6 +273,7 @@ export default function Main() {
   const closeApp = () => setActiveApp(null);
 
   return (
+    <UserWalletProvider token={verifiedToken}>
     <View style={s.desktopWrapper}>
       <StatusBar barStyle="light-content" />
       
@@ -525,6 +527,7 @@ export default function Main() {
 
       </Animated.View>
     </View>
+    </UserWalletProvider>
   );
 }
 

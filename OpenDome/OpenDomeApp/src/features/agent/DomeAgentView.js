@@ -47,6 +47,8 @@ export default function DomeAgentView({ verifiedToken }) {
         onSelectAgent={chat.handlePickCouncilAgent}
         onConfirm={(opts) => chat.runFulfillment(opts)}
         onViewPlan={(p) => chat.setSheetProposal(chat.session?.proposal || p)}
+        paymentNetwork={chat.paymentNetwork}
+        onPaymentNetworkChange={chat.setPaymentNetwork}
       />
 
       <View style={{ paddingBottom: keyboardInset > 80 ? n(12) : n(108), zIndex: 4 }}>

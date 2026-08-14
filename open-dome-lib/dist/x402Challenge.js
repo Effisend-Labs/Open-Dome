@@ -160,7 +160,8 @@ class OpenDomeSeller {
         signature: transactionId,
         transactionId,
         value,
-        to: payTo || this.merchantAddress
+        to: payTo || this.merchantAddress,
+        proof: paymentData.proof || null
       };
     }
     const {

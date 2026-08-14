@@ -1,4 +1,4 @@
-export async function checkoutDayPlan({ quote, token, toAddress }) {
+export async function checkoutDayPlan({ quote, token, toAddress, paymentNetwork = 'BASE' }) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -16,6 +16,7 @@ export async function checkoutDayPlan({ quote, token, toAddress }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-payment-network': paymentNetwork,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ quote, toAddress }),

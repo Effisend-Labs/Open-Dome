@@ -5,6 +5,11 @@ import {
   getHostPlatformConfig,
   getHostTokenPrices,
 } from './hostPublicCache';
+import {
+  getCachedUserNfts,
+  getCachedWalletBalances,
+  refreshUserWallet,
+} from '../userWallet/userWalletCache';
 
 async function hostFetch(path, token, { method = 'GET', body } = {}) {
   const headers = {};
@@ -43,16 +48,30 @@ export async function runHostRequest(payload, token) {
   }
 
   if (action === 'transfer') {
-    return hostPost('/api/transfer', token, {
+    const result = await hostPost('/api/transfer', token, {
       amount: payload.amount,
       destination: payload.destination,
       blockchain: payload.blockchain || payload.chain || 'BASE',
       asset: payload.asset || 'USDC',
     });
+    await refreshUserWallet(token, { force: true });
+    return result;
   }
 
   if (action === 'listNfts') {
-    return hostPost('/api/nfts', token, {});
+    const cached = getCachedUserNfts();
+    if (!cached.updatedAt || Date.now() - cached.updatedAt >= cached.ttlMs) {
+      await refreshUserWallet(token);
+    }
+    return getCachedUserNfts();
+  }
+
+  if (action === 'walletBalances') {
+    const cached = getCachedWalletBalances();
+    if (!cached.updatedAt || Date.now() - cached.updatedAt >= cached.ttlMs) {
+      await refreshUserWallet(token);
+    }
+    return getCachedWalletBalances();
   }
 
   if (action === 'listUsers') {
@@ -76,12 +95,14 @@ export async function runHostRequest(payload, token) {
   }
 
   if (action === 'assign') {
-    return hostPost('/api/assign', token, {
+    const result = await hostPost('/api/assign', token, {
       userIds: payload.userIds,
       ticketIds: payload.ticketIds,
       amounts: payload.amounts,
       network: payload.network || 'base',
     });
+    await refreshUserWallet(token, { force: true });
+    return result;
   }
 
   if (action === 'merchantBalances') {

@@ -3,6 +3,10 @@ import { StyleSheet, Text, View, Pressable, Platform, ActivityIndicator } from '
 import { Ionicons } from '@expo/vector-icons';
 import { colors, space, radii, type as typeTokens, shadow } from '../core/tokens';
 import { runHostRequest, resolveHostServiceUrl } from '../features/bridge/runHostRequest';
+import {
+  getCachedUserWalletSnapshot,
+  subscribeUserWallet,
+} from '../features/userWallet/userWalletCache';
 
 export default function IframeContainer({
   activeUrl,
@@ -35,6 +39,36 @@ export default function IframeContainer({
       return '*';
     }
   };
+
+  const postWalletUpdate = (targetWindow, origin) => {
+    if (!targetWindow) return;
+    const snap = getCachedUserWalletSnapshot();
+    if (!snap?.updatedAt) return;
+    targetWindow.postMessage(
+      {
+        type: 'OPENDOME_WALLET_UPDATE',
+        balancesByChain: snap.balancesByChain,
+        nfts: snap.nfts,
+        chains: snap.chains,
+        updatedAt: snap.updatedAt,
+        ttlMs: snap.ttlMs,
+        stale: snap.stale,
+      },
+      origin || getMiniAppOrigin(),
+    );
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return undefined;
+    const unsub = subscribeUserWallet((snap) => {
+      if (!snap?.updatedAt) return;
+      const iframe = iframeRef.current;
+      if (iframe?.contentWindow) {
+        postWalletUpdate(iframe.contentWindow, getMiniAppOrigin());
+      }
+    });
+    return unsub;
+  }, [activeUrl]);
 
   // Helper to verify a token against the server API
   const verifyTokenOnServer = async (token) => {
@@ -125,8 +159,10 @@ export default function IframeContainer({
                   context: {
                     ...contextObj,
                     wsJwt
-                  }
+                  },
+                  wallet: getCachedUserWalletSnapshot(),
                 }, origin);
+                postWalletUpdate(sourceWindow, origin);
 
                 // Sync profile state back
                 onUserAuthChanged({
@@ -473,7 +509,9 @@ export default function IframeContainer({
           solanaAddress: userRes.solanaAddress,
         },
         context: { ...contextObj, wsJwt: userRes.wsJwt },
+        wallet: getCachedUserWalletSnapshot(),
       }, getMiniAppOrigin());
+      postWalletUpdate(iframe.contentWindow, getMiniAppOrigin());
       onAddLog('[Bridge] Pushed verified session into Mini App.');
     })();
     return () => {

@@ -25,6 +25,8 @@ export function DomeAgentMessages({
   onSelectAgent,
   onConfirm,
   onViewPlan,
+  paymentNetwork,
+  onPaymentNetworkChange,
 }) {
   const scrollRef = useRef(null);
   const empty = messages.length === 0 && !isTyping;
@@ -100,11 +102,13 @@ export function DomeAgentMessages({
               payingLabel={msg.payingLabel}
               onSelectAgent={onSelectAgent}
               confirmDisabled={isTyping}
-              confirmLabel={
+              paymentAmount={
                 (msg.quote || session?.quote)?.totalLabel
-                  ? `Pay ${withUsdc((msg.quote || session?.quote).totalLabel)}`
-                  : 'Pay'
+                  ? withUsdc((msg.quote || session?.quote).totalLabel)
+                  : 'USDC'
               }
+              paymentNetwork={paymentNetwork}
+              onPaymentNetworkChange={onPaymentNetworkChange}
               onConfirm={onConfirm}
               onReview={() => onViewPlan(msg.proposal || session?.proposal)}
             />

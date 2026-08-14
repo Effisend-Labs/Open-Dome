@@ -33,6 +33,7 @@ export function useDomeChat({ token } = {}) {
   const [prompt, setPrompt] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [sheetProposal, setSheetProposal] = useState(null);
+  const [paymentNetwork, setPaymentNetwork] = useState('BASE');
   const fulfillLockRef = useRef(false);
 
   const append = useCallback((msgs) => {
@@ -207,6 +208,7 @@ export function useDomeChat({ token } = {}) {
       quote,
       token,
       toAddress,
+      paymentNetwork,
     });
     const confirmation = data?.confirmation;
     if (!confirmation) throw new Error('Checkout completed but no confirmation returned.');
@@ -219,7 +221,7 @@ export function useDomeChat({ token } = {}) {
       model: 'Gemini council',
     });
     return true;
-  }, [append, token]);
+  }, [append, paymentNetwork, token]);
 
   const runFulfillment = useCallback(async ({ userText, quote: quoteArg } = {}) => {
     if (isTyping || fulfillLockRef.current) return;
@@ -384,6 +386,8 @@ export function useDomeChat({ token } = {}) {
     session,
     sheetProposal,
     setSheetProposal,
+    paymentNetwork,
+    setPaymentNetwork,
     send,
     handlePlanDay,
     handlePickCouncilAgent,

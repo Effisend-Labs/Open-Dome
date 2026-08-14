@@ -1,15 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useOpenDome } from 'opendome';
-import { listX402PaymentChains } from 'opendome/src/usdcChains.js';
-
-const NETWORK_KEY_BY_CHAIN = {
-  BASE: 'base',
-  ARB: 'arbitrum',
-  OP: 'optimism',
-  MATIC: 'polygon',
-  AVAX: 'avalanche',
-  SOL: 'solana',
-};
+import { useOpenDome, Host } from 'opendome';
 
 export function formatCredits(amount) {
   if (amount == null || Number.isNaN(Number(amount))) return '—';
@@ -21,50 +11,50 @@ export function formatCredits(amount) {
 }
 
 export function useUsdcCredits(selectedNetwork = 'base') {
-  const { blockchain, user, isAuthorized } = useOpenDome();
+  const { isAuthorized } = useOpenDome();
   const [balances, setBalances] = useState({});
   const [status, setStatus] = useState('idle');
 
+  const applySnapshot = useCallback((payload) => {
+    const byChain = payload?.balancesByChain || payload?.balances || {};
+    const next = {};
+    for (const [network, row] of Object.entries(byChain)) {
+      const value = parseFloat(row?.usdc);
+      next[network] = Number.isFinite(value) ? value : 0;
+    }
+    setBalances(next);
+    setStatus('success');
+  }, []);
+
   const refresh = useCallback(async () => {
-    if (!isAuthorized || (!user?.evmAddress && !user?.solanaAddress)) {
+    if (!isAuthorized) {
       setBalances({});
       setStatus('idle');
       return;
     }
-    if (!blockchain?.getBalanceToken) {
-      setStatus('error');
-      return;
-    }
     setStatus('loading');
     try {
-      const values = await Promise.all(
-        listX402PaymentChains().map(async (chain) => {
-          const network = NETWORK_KEY_BY_CHAIN[chain.key];
-          const address = chain.key === 'SOL' ? user.solanaAddress : user.evmAddress;
-          if (!network || !address || !blockchain.supportsChain?.(network)) {
-            return [network, 0];
-          }
-
-          try {
-            const raw = await blockchain.getBalanceToken(network, address, chain.usdc);
-            const value = parseFloat(raw);
-            return [network, Number.isFinite(value) ? value : 0];
-          } catch {
-            return [network, 0];
-          }
-        }),
-      );
-      setBalances(Object.fromEntries(values.filter(([network]) => network)));
-      setStatus('success');
+      const data = await Host.walletBalances();
+      applySnapshot(data);
     } catch {
       setBalances({});
       setStatus('error');
     }
-  }, [blockchain, isAuthorized, user?.evmAddress, user?.solanaAddress]);
+  }, [isAuthorized, applySnapshot]);
 
   useEffect(() => {
+    if (!isAuthorized) {
+      setBalances({});
+      setStatus('idle');
+      return undefined;
+    }
+
     refresh();
-  }, [refresh]);
+    const unsub = Host.subscribeWalletUpdates((payload) => {
+      applySnapshot(payload);
+    });
+    return unsub;
+  }, [isAuthorized, refresh, applySnapshot]);
 
   const selectedBalance = balances[selectedNetwork] ?? null;
   const unifiedBalance = Object.values(balances).reduce((total, balance) => total + balance, 0);

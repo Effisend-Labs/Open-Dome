@@ -5,7 +5,9 @@ import {
 } from 'opendome/dist/quote.js';
 import { mintPassesAsPlatform } from 'opendome/dist/platformMint.js';
 import { assignTicketsAsPlatform } from '../../utilsAPI/ticketsDb.js';
+import { Transactions } from '../../utilsAPI/passkeyDb.js';
 import { mintPlanFromQuote } from '../../utilsAPI/mintPlanFromQuote.js';
+import { verifySolanaPaymentProof } from '../../utilsAPI/solanaPaymentProof.js';
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -33,10 +35,23 @@ export async function POST(req) {
     }
 
     const price = formatQuotePriceForX402(settlementUsdForQuote(quote));
-    const { OpenDomeSeller } = await import('opendome/dist/x402Challenge.js');
-    const merchantAddress = process.env.MERCHANT_ADDRESS;
+    const {
+      OpenDomeSeller,
+      resolveX402PaymentNetwork,
+      resolveUsdcRpcUrls,
+    } = await import('opendome/dist/x402.js');
+    const paymentChain = resolveX402PaymentNetwork(
+      req.headers.get('x-payment-network') || 'BASE',
+    );
+    const merchantAddress =
+      paymentChain.key === 'SOL'
+        ? process.env.MERCHANT_SOLANA_ADDRESS
+        : process.env.MERCHANT_ADDRESS;
     if (!merchantAddress) {
-      return Response.json({ error: 'MERCHANT_ADDRESS is not set' }, { status: 500 });
+      return Response.json(
+        { error: `${paymentChain.key === 'SOL' ? 'MERCHANT_SOLANA_ADDRESS' : 'MERCHANT_ADDRESS'} is not set` },
+        { status: 500 },
+      );
     }
     const seller = new OpenDomeSeller(merchantAddress);
     const paymentSignatureBase64 = req.headers.get('payment-signature');
@@ -44,7 +59,12 @@ export async function POST(req) {
     if (!paymentSignatureBase64) {
       return new Response(null, {
         status: 402,
-        headers: { 'x402-challenge': seller.generateChallenge(price) },
+        headers: {
+          'x402-challenge': seller.generateChallenge(price, {
+            chain: paymentChain.key,
+            payTo: merchantAddress,
+          }),
+        },
       });
     }
 
@@ -55,19 +75,46 @@ export async function POST(req) {
       return Response.json({ error: err.message }, { status: 400 });
     }
 
-    const { OpenDomeFacilitator } = await import('opendome/dist/x402.js');
-    const facilitator = new OpenDomeFacilitator(process.env.MERCHANT_PRIVATE_KEY);
     let paymentTxHash;
-    try {
-      paymentTxHash = await facilitator.verifyAndRelay(
-        parsedPayment.payload,
-        parsedPayment.signature,
-      );
-      console.log(`[Host Checkout API] x402 settled ${price} USDC (${settlementUsdForQuote(quote)} catalog demo rate). Hash: ${paymentTxHash}`);
-    } catch (relayErr) {
-      console.error('[Host Checkout API] Facilitator relay failed:', relayErr.message);
-      return Response.json({ error: relayErr.message }, { status: 500 });
+    if (paymentChain.key === 'SOL') {
+      if (!verifySolanaPaymentProof(parsedPayment)) {
+        return Response.json({ error: 'Invalid Solana payment proof' }, { status: 400 });
+      }
+      paymentTxHash = parsedPayment.transactionId;
+      try {
+        await Transactions.doc(`solana-x402-${paymentTxHash}`).create({
+          chain: 'SOL',
+          amount: parsedPayment.value,
+          payTo: parsedPayment.to,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (recordErr) {
+        const alreadyUsed =
+          Number(recordErr?.code) === 6 ||
+          /already exists/i.test(recordErr?.message || '');
+        return Response.json(
+          { error: alreadyUsed ? 'Solana payment was already used' : recordErr.message },
+          { status: alreadyUsed ? 409 : 500 },
+        );
+      }
+    } else {
+      const { OpenDomeFacilitator } = await import('opendome/dist/x402.js');
+      const facilitator = new OpenDomeFacilitator(process.env.MERCHANT_PRIVATE_KEY, {
+        chain: paymentChain.key,
+        rpcUrls: resolveUsdcRpcUrls(paymentChain),
+        usdc: paymentChain.usdc,
+      });
+      try {
+        paymentTxHash = await facilitator.verifyAndRelay(
+          parsedPayment.payload,
+          parsedPayment.signature,
+        );
+      } catch (relayErr) {
+        console.error('[Host Checkout API] Facilitator relay failed:', relayErr.message);
+        return Response.json({ error: relayErr.message }, { status: 500 });
+      }
     }
+    console.log(`[Host Checkout API] x402 settled ${price} USDC on ${paymentChain.key} (${settlementUsdForQuote(quote)} catalog demo rate). Hash: ${paymentTxHash}`);
 
     const recipient = String(toAddress || parsedPayment?.from || '')
       .trim()

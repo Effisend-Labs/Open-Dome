@@ -9,9 +9,12 @@ exports.HostAPI = exports.Host = void 0;
  */
 const REQUEST = 'OPENDOME_HOST_REQUEST';
 const RESPONSE = 'OPENDOME_HOST_RESPONSE';
+const WALLET_UPDATE = 'OPENDOME_WALLET_UPDATE';
 function defaultTimeout(action) {
   if (action === 'scanPass' || action === 'assign') return 90000;
-  if (action === 'listNfts' || action === 'merchantBalances') return 45000;
+  if (action === 'listNfts' || action === 'merchantBalances' || action === 'walletBalances') {
+    return 45000;
+  }
   return 20000;
 }
 class HostAPI {
@@ -19,9 +22,52 @@ class HostAPI {
     this.resolvers = new Map();
     this.cache = new Map();
     this.inflight = new Map();
+    this.walletListeners = new Set();
     if (typeof window !== 'undefined') {
       window.addEventListener('message', event => {
-        if (!event.data || event.data.type !== RESPONSE) return;
+        if (!event.data) return;
+        if (event.data.type === WALLET_UPDATE) {
+          const {
+            balancesByChain,
+            nfts,
+            chains,
+            updatedAt,
+            ttlMs,
+            stale
+          } = event.data;
+          const ttl = Number(ttlMs) || 60_000;
+          const expiresAt = (Number(updatedAt) || Date.now()) + ttl;
+          this.cache.set('walletBalances', {
+            value: {
+              success: true,
+              balancesByChain: balancesByChain || {},
+              updatedAt,
+              ttlMs: ttl,
+              stale: Boolean(stale)
+            },
+            expiresAt
+          });
+          this.cache.set('listNfts', {
+            value: {
+              success: true,
+              nfts: nfts || [],
+              chains: chains || [],
+              updatedAt,
+              ttlMs: ttl,
+              stale: Boolean(stale)
+            },
+            expiresAt
+          });
+          this.walletListeners.forEach(listener => {
+            try {
+              listener(event.data);
+            } catch {
+              /* ignore */
+            }
+          });
+          return;
+        }
+        if (event.data.type !== RESPONSE) return;
         const {
           id,
           response,
@@ -108,9 +154,21 @@ class HostAPI {
     });
   }
   listNfts() {
-    return this.request('listNfts', {}, {
+    return this.memoize('listNfts', () => this.request('listNfts', {}, {
       timeoutMs: 45000
-    });
+    }), 60_000);
+  }
+  walletBalances() {
+    return this.memoize('walletBalances', () => this.request('walletBalances', {}, {
+      timeoutMs: 45000
+    }), 60_000);
+  }
+
+  /** Subscribe to host-pushed wallet snapshots (OPENDOME_WALLET_UPDATE). */
+  subscribeWalletUpdates(listener) {
+    if (typeof listener !== 'function') return () => {};
+    this.walletListeners.add(listener);
+    return () => this.walletListeners.delete(listener);
   }
   listUsers({
     scope = 'roles',
