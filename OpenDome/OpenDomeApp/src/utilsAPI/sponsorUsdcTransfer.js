@@ -31,7 +31,7 @@ export async function sponsorUsdcTransferWithCircle({
       OpenDomeFacilitator,
       sponsorUsdcTransfer,
       getUsdcChain,
-      resolveUsdcRpcUrl,
+      resolveUsdcRpcUrls,
       isSponsoredUsdcChain,
     } = x402();
 
@@ -42,7 +42,7 @@ export async function sponsorUsdcTransferWithCircle({
     const cfg = getUsdcChain(blockchain);
     const facilitator = new OpenDomeFacilitator(merchantKey, {
       chain: cfg.key,
-      rpcUrl: resolveUsdcRpcUrl(cfg),
+      rpcUrls: resolveUsdcRpcUrls(cfg),
       usdc: cfg.usdc,
     });
 

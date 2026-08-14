@@ -11,7 +11,15 @@ const NETWORK_LABEL = {
   solana: 'Solana',
 };
 
-export function useAgentChat({ isAuthorized, onNeedAuth, onPaid, modelId: modelIdProp, onChangeModel }) {
+export function useAgentChat({
+  isAuthorized,
+  onNeedAuth,
+  onPaid,
+  modelId: modelIdProp,
+  onChangeModel,
+  selectedNetwork: selectedNetworkProp,
+  onChangeNetwork,
+}) {
   const [messages, setMessages] = useState([]);
   const [prompt, setPrompt] = useState('');
   const [modelIdInner, setModelIdInner] = useState(GEMINI_CHAT_MODELS[1].id);
@@ -19,7 +27,9 @@ export function useAgentChat({ isAuthorized, onNeedAuth, onPaid, modelId: modelI
   const setModelId = onChangeModel || setModelIdInner;
   const [pending, setPending] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [selectedNetwork, setSelectedNetwork] = useState('base');
+  const [selectedNetworkInner, setSelectedNetworkInner] = useState('base');
+  const selectedNetwork = selectedNetworkProp || selectedNetworkInner;
+  const setSelectedNetwork = onChangeNetwork || setSelectedNetworkInner;
 
   const liveQuote = quotePromptTariff(prompt, modelId);
 

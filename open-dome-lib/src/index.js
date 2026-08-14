@@ -8,6 +8,7 @@ export * from './itinerary';
 export * from './planner';
 export * from './quote';
 export * from './pricing';
+export * from './tokenPrices';
 export * from './communication';
 export * from './agent';
 export * from './host';

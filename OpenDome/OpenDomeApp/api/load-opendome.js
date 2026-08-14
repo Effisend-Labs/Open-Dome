@@ -14,6 +14,7 @@ module.exports = {
   quote: require('./vendor/opendome/quote.js'),
   platformMint: require('./vendor/opendome/platformMint.js'),
   devBypass: require('./vendor/opendome/devBypass.js'),
+  tokenPrices: require('./vendor/opendome/tokenPrices.js'),
   events: require('./vendor/opendome/dbs/events.json'),
   amenities: require('./vendor/opendome/dbs/amenities.json'),
 };

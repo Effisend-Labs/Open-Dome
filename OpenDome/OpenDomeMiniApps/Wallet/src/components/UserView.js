@@ -1,17 +1,70 @@
 import React, { useState } from 'react';
 import {
-  StyleSheet, Text, View, TextInput,
-  TouchableOpacity, ScrollView, ActivityIndicator
+  ActivityIndicator,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ScrollView,
 } from 'react-native';
 import { useOpenDome } from 'opendome';
-import { GLOBAL_STYLES } from '../theme';
+import { copyText } from '../features/receive/copyText';
+import imgBase from '../assets/base.png';
+import imgSol from '../assets/sol.png';
 
-export default function UserView({ tokens, theme, t, isDark }) {
+function truncateAddress(addr) {
+  if (!addr) return '';
+  if (addr.length < 14) return addr;
+  return `${addr.slice(0, 6)}···${addr.slice(-4)}`;
+}
+
+function AddressRow({ label, subtitle, value, icon, tokens, copied, onCopy }) {
+  if (!value) return null;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.65}
+      onPress={onCopy}
+      style={[styles.addressRow, { borderBottomColor: tokens.BORDER }]}
+    >
+      <View
+        style={[
+          styles.chainIcon,
+          { backgroundColor: tokens.SURFACE_ELEVATED, borderColor: tokens.BORDER },
+        ]}
+      >
+        <Image source={icon} style={{ width: 22, height: 22 }} resizeMode="contain" />
+      </View>
+
+      <View style={styles.addressInfo}>
+        <Text style={[styles.addressLabel, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+          {label}
+        </Text>
+        <Text style={[styles.addressSub, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+          {subtitle}
+        </Text>
+      </View>
+
+      <View style={styles.addressMeta}>
+        <Text style={[styles.addressValue, { color: tokens.FG, fontFamily: tokens.font.mono }]}>
+          {truncateAddress(value)}
+        </Text>
+        <Text style={[styles.copyHint, { color: copied ? tokens.SUCCESS : tokens.MUTED, fontFamily: tokens.font.primary }]}>
+          {copied ? 'Copied' : 'Tap to copy'}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export default function UserView({ tokens, t }) {
   const { isAuthorized, user, register, login, logout } = useOpenDome();
-
   const [username, setUsername] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(null);
 
   const handleRegister = () => {
     if (!username.trim()) {
@@ -36,263 +89,357 @@ export default function UserView({ tokens, theme, t, isDark }) {
     logout();
   };
 
-  return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: tokens.BG }}
-      contentContainerStyle={{ padding: 20 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      {isAuthorized && user ? (
-        /* ── Authenticated ──────────────────────────────────────────── */
-        <View>
-          <View style={[styles.card, {
-            backgroundColor: tokens.SURFACE,
-            borderRadius: tokens.shape.cardRadius,
-            ...tokens.shadow.card
-          }]}>
-            <View style={styles.cardHeader}>
-              <View style={[styles.dot, { backgroundColor: tokens.SUCCESS }]} />
-              <Text style={[styles.statusText, { color: tokens.SUCCESS, fontFamily: tokens.font.primary }]}>
-                {t.userProfile?.sessionActive || 'Session active'}
-              </Text>
-            </View>
+  const handleCopy = async (key, address) => {
+    if (!address) return;
+    try {
+      await copyText(address);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    } catch {
+      setCopiedKey(null);
+    }
+  };
 
-            <Text style={[styles.handle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-              @{user.username || 'unknown'}
+  if (isAuthorized && user) {
+    return (
+      <ScrollView
+        style={{ flex: 1, backgroundColor: tokens.BG }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <View style={styles.statusRow}>
+            <View style={[styles.dot, { backgroundColor: tokens.SUCCESS }]} />
+            <Text style={[styles.statusText, { color: tokens.SUCCESS, fontFamily: tokens.font.primary }]}>
+              {t.userProfile?.sessionActive || 'Session active'}
             </Text>
-
-            <View style={[styles.divider, { backgroundColor: tokens.BORDER }]} />
-
-            <AddressRow label="EVM" value={user.evmAddress} tokens={tokens} t={t} />
-            <AddressRow label="SOL" value={user.solanaAddress} tokens={tokens} t={t} />
           </View>
 
+          <Text style={[styles.handle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+            @{user.username || 'unknown'}
+          </Text>
+          <Text style={[styles.headerSub, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+            {t.userProfile?.securePassport || 'Secure Passport'}
+          </Text>
+        </View>
+
+        <View style={[styles.listSection, { backgroundColor: tokens.SURFACE }]}>
+          <View style={[styles.listHeader, { borderBottomColor: tokens.BORDER }]}>
+            <Text style={[styles.listTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+              Addresses
+            </Text>
+            <Text style={{ color: tokens.MUTED, fontSize: 10, fontFamily: tokens.font.mono }}>
+              EVM · SOL
+            </Text>
+          </View>
+
+          <AddressRow
+            label="EVM"
+            subtitle="Shared across Base and L2s"
+            value={user.evmAddress}
+            icon={imgBase}
+            tokens={tokens}
+            copied={copiedKey === 'evm'}
+            onCopy={() => handleCopy('evm', user.evmAddress)}
+          />
+          <AddressRow
+            label="Solana"
+            subtitle="Circle Solana wallet"
+            value={user.solanaAddress}
+            icon={imgSol}
+            tokens={tokens}
+            copied={copiedKey === 'sol'}
+            onCopy={() => handleCopy('sol', user.solanaAddress)}
+          />
+        </View>
+
+        <View style={styles.actionWrap}>
           <TouchableOpacity
-            style={[styles.button, {
-              backgroundColor: 'transparent',
-              borderColor: tokens.DANGER,
-              borderRadius: tokens.shape.buttonRadius,
-              marginTop: 20,
-            }]}
-            onPress={handleLogout}
             activeOpacity={0.7}
+            onPress={handleLogout}
+            style={[
+              styles.actionPill,
+              {
+                backgroundColor: tokens.SURFACE_ELEVATED,
+                borderColor: tokens.BORDER,
+              },
+            ]}
           >
-            <Text style={[styles.buttonText, { color: tokens.DANGER, fontFamily: tokens.font.primary }]}>
+            <Text style={[styles.actionLabel, { color: tokens.DANGER, fontFamily: tokens.font.primary }]}>
               {t.userProfile?.disconnect || 'Disconnect'}
             </Text>
           </TouchableOpacity>
         </View>
-      ) : (
-        /* ── Not Authenticated ──────────────────────────────────────── */
-        <View>
-          <Text style={[styles.title, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-            {t.userProfile?.securePassport || 'Secure Passport'}
-          </Text>
-          <Text style={[styles.subtitle, { color: tokens.FG_SECONDARY || tokens.MUTED, fontFamily: tokens.font.primary }]}>
-            {t.userProfile?.bioAuthMsg || 'Biometric auth is securely handled by the sandbox.'}
-          </Text>
+      </ScrollView>
+    );
+  }
 
-          {/* Register */}
-          <View style={[styles.card, {
-            backgroundColor: tokens.SURFACE,
-            borderRadius: tokens.shape.cardRadius,
-            ...tokens.shadow.card
-          }]}>
-            <Text style={[styles.sectionLabel, { color: tokens.FG_SECONDARY || tokens.MUTED, fontFamily: tokens.font.primary }]}>
-              {t.userProfile?.createAccount || 'Create account'}
-            </Text>
-            <TextInput
-              style={[styles.input, {
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: tokens.BG }}
+      contentContainerStyle={{ paddingBottom: 40 }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.header}>
+        <Text style={[styles.greeting, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+          Account
+        </Text>
+        <Text style={[styles.handle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+          {t.userProfile?.securePassport || 'Secure Passport'}
+        </Text>
+        <Text style={[styles.headerSub, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+          {t.userProfile?.bioAuthMsg || 'Biometric auth is securely handled by the sandbox.'}
+        </Text>
+      </View>
+
+      <View style={[styles.listSection, { backgroundColor: tokens.SURFACE }]}>
+        <View style={[styles.listHeader, { borderBottomColor: tokens.BORDER }]}>
+          <Text style={[styles.listTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+            {t.userProfile?.createAccount || 'Create account'}
+          </Text>
+        </View>
+
+        <View style={styles.registerBody}>
+          <TextInput
+            style={[
+              styles.input,
+              {
                 backgroundColor: tokens.BG,
                 borderColor: tokens.BORDER,
                 color: tokens.FG,
-                borderRadius: tokens.shape.buttonRadius,
-                fontFamily: tokens.font.mono
-              }]}
-              value={username}
-              onChangeText={setUsername}
-              placeholder={t.userProfile?.usernamePlaceholder || 'username (e.g. alice)'}
-              placeholderTextColor={tokens.MUTED}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!pending}
-            />
+                fontFamily: tokens.font.mono,
+              },
+            ]}
+            value={username}
+            onChangeText={setUsername}
+            placeholder={t.userProfile?.usernamePlaceholder || 'username (e.g. alice)'}
+            placeholderTextColor={tokens.MUTED}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!pending}
+          />
 
-            <TouchableOpacity
-              style={[styles.button, {
-                backgroundColor: tokens.ACCENT,
-                borderColor: tokens.ACCENT,
-                borderRadius: tokens.shape.buttonRadius,
-              }]}
-              onPress={handleRegister}
-              activeOpacity={0.7}
-              disabled={pending}
-            >
-              {pending
-                ? <ActivityIndicator color="#FFFFFF" size="small" />
-                : <Text style={[styles.buttonText, { color: '#FFFFFF', fontFamily: tokens.font.primary }]}>
-                    {t.userProfile?.registerBtn || 'Register with Passkey'}
-                  </Text>
-              }
-            </TouchableOpacity>
-          </View>
-
-          {/* Separator */}
-          <View style={styles.orRow}>
-            <View style={[styles.orLine, { backgroundColor: tokens.BORDER }]} />
-            <Text style={[styles.orText, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
-              {t.userProfile?.or || 'or'}
-            </Text>
-            <View style={[styles.orLine, { backgroundColor: tokens.BORDER }]} />
-          </View>
-
-          {/* Login */}
           <TouchableOpacity
-            style={[styles.button, styles.loginButton, {
-              borderColor: tokens.BORDER,
-              borderRadius: tokens.shape.buttonRadius,
-            }]}
-            onPress={handleLogin}
             activeOpacity={0.7}
+            onPress={handleRegister}
             disabled={pending}
+            style={[styles.actionPill, { backgroundColor: tokens.ACCENT, borderColor: tokens.ACCENT }]}
           >
-            {pending
-              ? <ActivityIndicator color={tokens.FG} size="small" />
-              : <Text style={[styles.buttonText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-                  {t.userProfile?.signInBtn || 'Sign in with Passkey'}
-                </Text>
-            }
+            {pending ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={[styles.actionLabel, { color: '#FFFFFF', fontFamily: tokens.font.primary }]}>
+                {t.userProfile?.registerBtn || 'Register with Passkey'}
+              </Text>
+            )}
           </TouchableOpacity>
+        </View>
+      </View>
 
-          {/* Error */}
-          {error && (
-            <View style={[styles.errorBox, {
+      <View style={styles.orRow}>
+        <View style={[styles.orLine, { backgroundColor: tokens.BORDER }]} />
+        <Text style={[styles.orText, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
+          {t.userProfile?.or || 'or'}
+        </Text>
+        <View style={[styles.orLine, { backgroundColor: tokens.BORDER }]} />
+      </View>
+
+      <View style={styles.actionWrap}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleLogin}
+          disabled={pending}
+          style={[
+            styles.actionPill,
+            {
+              backgroundColor: tokens.SURFACE_ELEVATED,
+              borderColor: tokens.BORDER,
+            },
+          ]}
+        >
+          {pending ? (
+            <ActivityIndicator color={tokens.FG} size="small" />
+          ) : (
+            <Text style={[styles.actionLabel, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+              {t.userProfile?.signInBtn || 'Sign in with Passkey'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {error ? (
+        <View
+          style={[
+            styles.errorBox,
+            {
               backgroundColor: tokens.DANGER_SOFT || 'rgba(220, 38, 38, 0.06)',
               borderColor: tokens.DANGER,
-              borderRadius: tokens.shape.buttonRadius,
-            }]}>
-              <Text style={[styles.errorText, { color: tokens.DANGER, fontFamily: tokens.font.mono }]}>
-                {error}
-              </Text>
-            </View>
-          )}
-
-          {pending && (
-            <Text style={[styles.hint, { color: tokens.MUTED, marginTop: 20, textAlign: 'center', fontFamily: tokens.font.primary }]}>
-              {t.userProfile?.awaitingBio || 'Awaiting biometric verification...'}
-            </Text>
-          )}
+            },
+          ]}
+        >
+          <Text style={[styles.errorText, { color: tokens.DANGER, fontFamily: tokens.font.mono }]}>
+            {error}
+          </Text>
         </View>
-      )}
+      ) : null}
+
+      {pending ? (
+        <Text style={[styles.hint, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
+          {t.userProfile?.awaitingBio || 'Awaiting biometric verification...'}
+        </Text>
+      ) : null}
     </ScrollView>
   );
 }
 
-function AddressRow({ label, value, tokens, t }) {
-  if (!value) return null;
-  return (
-    <View style={{ marginBottom: 12 }}>
-      <Text style={[styles.addressLabel, { color: tokens.FG_SECONDARY || tokens.MUTED, fontFamily: tokens.font.primary }]}>
-        {label} {t?.userProfile?.address || 'Address'}
-      </Text>
-      <Text style={[styles.addressValue, { color: tokens.FG, fontFamily: tokens.font.mono }]} numberOfLines={1} ellipsizeMode="middle">
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-    marginBottom: 6,
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
   },
-  subtitle: {
-    fontSize: 12,
-    lineHeight: 17,
-    letterSpacing: -0.1,
-    marginBottom: 24,
+  greeting: {
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+    marginBottom: 8,
   },
-  card: {
-    padding: 20,
-  },
-  cardHeader: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   statusText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     letterSpacing: -0.1,
   },
   handle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
-    letterSpacing: -0.8,
-    marginBottom: 16,
+    letterSpacing: -0.9,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginBottom: 16,
-  },
-  addressLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    marginBottom: 3,
-    textTransform: 'uppercase',
-  },
-  addressValue: {
-    fontSize: 11,
-    fontFamily: GLOBAL_STYLES.monospace,
-  },
-  sectionLabel: {
+  headerSub: {
     fontSize: 12,
-    fontWeight: '600',
+    lineHeight: 18,
+    marginTop: 6,
     letterSpacing: -0.1,
-    marginBottom: 12,
-    textTransform: 'uppercase',
   },
-  input: {
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 13,
-    marginBottom: 16,
+  listSection: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
   },
-  button: {
-    borderWidth: 1,
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
     paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  listTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  chainIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loginButton: {
-    backgroundColor: 'transparent',
+  addressInfo: {
+    flex: 1,
+    gap: 2,
   },
-  buttonText: {
-    fontSize: 13,
+  addressLabel: {
+    fontSize: 15,
     fontWeight: '600',
     letterSpacing: -0.2,
+  },
+  addressSub: {
+    fontSize: 12,
+    letterSpacing: -0.1,
+  },
+  addressMeta: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  addressValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  copyHint: {
+    fontSize: 10,
+    letterSpacing: 0.2,
+  },
+  actionWrap: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  actionPill: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  registerBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 14,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 13,
   },
   orRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginHorizontal: 20,
+    marginTop: 20,
     gap: 10,
   },
-  orLine: { flex: 1, height: StyleSheet.hairlineWidth },
+  orLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
   orText: {
     fontSize: 11,
     fontWeight: '500',
   },
   errorBox: {
+    marginHorizontal: 20,
     marginTop: 16,
     borderWidth: 1,
+    borderRadius: 12,
     padding: 12,
   },
   errorText: {
@@ -300,6 +447,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   hint: {
+    marginTop: 16,
+    textAlign: 'center',
     fontSize: 12,
     lineHeight: 17,
   },

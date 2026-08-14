@@ -13,7 +13,7 @@ function PaymentReceipt({ tokens, label, explorer }) {
     >
       <Ionicons name="checkmark-circle" size={14} color={tokens.SUCCESS} />
       <Text style={[styles.receiptText, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
-        {label ? `Paid ${label}` : 'Paid on Base'}
+        {label ? `Paid ${label}` : 'Paid in USDC'}
       </Text>
       {explorer ? <Ionicons name="open-outline" size={12} color={tokens.MUTED} /> : null}
     </Pressable>

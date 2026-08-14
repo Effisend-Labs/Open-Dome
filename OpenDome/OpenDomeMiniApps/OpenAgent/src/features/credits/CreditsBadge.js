@@ -1,9 +1,9 @@
 import React from 'react';
-import { ActivityIndicator, Text, Pressable, StyleSheet } from 'react-native';
+import { ActivityIndicator, Text, View, StyleSheet } from 'react-native';
 
-export function CreditsBadge({ tokens, label, status, onPress }) {
+export function CreditsBadge({ tokens, label, status }) {
   return (
-    <Pressable onPress={onPress} hitSlop={10} style={styles.wrap}>
+    <View style={styles.wrap}>
       {status === 'loading' ? (
         <ActivityIndicator size="small" color={tokens.FG_SECONDARY} />
       ) : (
@@ -11,7 +11,7 @@ export function CreditsBadge({ tokens, label, status, onPress }) {
           {label}
         </Text>
       )}
-    </Pressable>
+    </View>
   );
 }
 

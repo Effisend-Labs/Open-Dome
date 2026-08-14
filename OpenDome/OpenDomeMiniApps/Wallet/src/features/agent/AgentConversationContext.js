@@ -22,7 +22,6 @@ export function AgentConversationProvider({ children }) {
     patchSession,
   } = useAgentSession();
   const [conversation, setConversation] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('fast');
   const [sheetProposal, setSheetProposal] = useState(null);
 
   const appendMessages = useCallback((msgs) => {
@@ -42,8 +41,6 @@ export function AgentConversationProvider({ children }) {
       setConversation,
       appendMessages,
       clearConversation,
-      selectedModel,
-      setSelectedModel,
       sheetProposal,
       setSheetProposal,
       session,
@@ -56,7 +53,6 @@ export function AgentConversationProvider({ children }) {
       conversation,
       appendMessages,
       clearConversation,
-      selectedModel,
       sheetProposal,
       session,
       runPlannerTurn,

@@ -60,10 +60,9 @@ export const USDC_CHAINS = {
     chainId: 8453,
     usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     rpcEnv: 'RPC_URL_BASE',
-    defaultRpc: 'https://base-rpc.publicnode.com',
-    // Curated from EffisendTDC (llamarpc disabled — flaky / CF).
+    // EffisendTDC order, publicnode demoted — archive receipt calls require a token there.
+    defaultRpc: 'https://mainnet.base.org',
     rpcs: [
-      'https://base-rpc.publicnode.com',
       'https://developer-access-mainnet.base.org',
       'https://mainnet.base.org',
       'https://base.drpc.org',
@@ -82,9 +81,9 @@ export const USDC_CHAINS = {
     chainId: 42161,
     usdc: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
     rpcEnv: 'RPC_URL_ARB',
-    defaultRpc: 'https://arbitrum-one-rpc.publicnode.com',
+    // EffisendTDC Arbitrum list (publicnode demoted — same archive token issue).
+    defaultRpc: 'https://arb1.arbitrum.io/rpc',
     rpcs: [
-      'https://arbitrum-one-rpc.publicnode.com',
       'https://arbitrum.drpc.org',
       'https://arb1.arbitrum.io/rpc',
       'https://arbitrum-one.public.blastapi.io',
@@ -105,9 +104,8 @@ export const USDC_CHAINS = {
     chainId: 10,
     usdc: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
     rpcEnv: 'RPC_URL_OP',
-    defaultRpc: 'https://optimism-rpc.publicnode.com',
+    defaultRpc: 'https://mainnet.optimism.io',
     rpcs: [
-      'https://optimism-rpc.publicnode.com',
       'https://mainnet.optimism.io',
       'https://optimism.drpc.org',
       'https://1rpc.io/op',
@@ -125,10 +123,9 @@ export const USDC_CHAINS = {
     chainId: 137,
     usdc: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
     rpcEnv: 'RPC_URL_MATIC',
-    defaultRpc: 'https://polygon-bor-rpc.publicnode.com',
-    // Avoid polygon-rpc.com (tenant/API key failures).
+    // Avoid polygon-rpc.com (tenant/API key failures) and publicnode archive limits.
+    defaultRpc: 'https://polygon.drpc.org',
     rpcs: [
-      'https://polygon-bor-rpc.publicnode.com',
       'https://polygon.drpc.org',
       'https://1rpc.io/matic',
       'https://polygon-mainnet.public.blastapi.io',
@@ -146,9 +143,8 @@ export const USDC_CHAINS = {
     chainId: 43114,
     usdc: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
     rpcEnv: 'RPC_URL_AVAX',
-    defaultRpc: 'https://avalanche-c-chain-rpc.publicnode.com',
+    defaultRpc: 'https://api.avax.network/ext/bc/C/rpc',
     rpcs: [
-      'https://avalanche-c-chain-rpc.publicnode.com',
       'https://api.avax.network/ext/bc/C/rpc',
       'https://avalanche.drpc.org',
       'https://1rpc.io/avax/c',
@@ -165,11 +161,9 @@ export const USDC_CHAINS = {
     chainId: 1,
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     rpcEnv: 'RPC_URL_ETH',
-    defaultRpc: 'https://ethereum-rpc.publicnode.com',
-    // Avoid eth.llamarpc.com (Cloudflare challenge).
+    // Avoid eth.llamarpc.com (Cloudflare) and publicnode archive token walls.
+    defaultRpc: 'https://eth.drpc.org',
     rpcs: [
-      'https://ethereum-rpc.publicnode.com',
-      'https://ethereum.publicnode.com',
       'https://1rpc.io/eth',
       'https://eth.drpc.org',
       'https://rpc.ankr.com/eth',
@@ -187,13 +181,11 @@ export const USDC_CHAINS = {
     usdc: SOLANA_USDC_MINT,
     rpcEnv: 'RPC_URL_SOL',
     defaultRpc: 'https://public.rpc.solanavibestation.com',
-    // Curated from EffisendTDC Solana list + publicnode.
+    // Exact EffisendTDC Solana RPC order.
     rpcs: [
       'https://public.rpc.solanavibestation.com',
-      'https://solana-rpc.publicnode.com',
       'https://solana.api.pocket.network',
       'https://solana.rpc.laine.co',
-      'https://api.mainnet-beta.solana.com',
     ],
     sponsored: false,
     viemKey: null,

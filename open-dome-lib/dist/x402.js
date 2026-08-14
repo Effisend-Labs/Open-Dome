@@ -175,7 +175,23 @@ class OpenDomeFacilitator {
     this.usdc = options.usdc || cfg.usdc || _eip.USDC_BASE;
     this.chainId = options.chainId || cfg.chainId || 8453;
     this.rpcUrl = options.rpcUrl || (0, _usdcChains.resolveUsdcRpcUrl)(cfg);
+    this.rpcUrls = Array.isArray(options.rpcUrls) && options.rpcUrls.length ? options.rpcUrls : (0, _usdcChains.resolveUsdcRpcUrls)(cfg);
+    if (this.rpcUrl && !this.rpcUrls.includes(this.rpcUrl)) {
+      this.rpcUrls = [this.rpcUrl, ...this.rpcUrls];
+    }
     this.viemChain = options.chainDef || resolveViemChain(cfg);
+  }
+  buildTransport() {
+    const urls = (this.rpcUrls || []).filter(Boolean);
+    if (!urls.length) {
+      return this.rpcUrl ? (0, _viem.http)(this.rpcUrl) : (0, _viem.http)();
+    }
+    if (urls.length === 1) return (0, _viem.http)(urls[0]);
+    // EffisendTDC-style failover: try curated RPCs in order on receipt/read failures.
+    return (0, _viem.fallback)(urls.map(url => (0, _viem.http)(url)), {
+      rank: false,
+      retryCount: 1
+    });
   }
   async verifyAndRelay(payload, signature) {
     return this.relayAuthorization(payload, signature, 'receiveWithAuthorization');
@@ -184,7 +200,7 @@ class OpenDomeFacilitator {
     return this.relayAuthorization(payload, signature, 'transferWithAuthorization');
   }
   async relayAuthorization(payload, signature, functionName) {
-    const transport = this.rpcUrl ? (0, _viem.http)(this.rpcUrl) : (0, _viem.http)();
+    const transport = this.buildTransport();
     const publicClient = (0, _viem.createPublicClient)({
       chain: this.viemChain,
       transport

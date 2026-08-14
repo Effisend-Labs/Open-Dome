@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
 import { SignInForm } from '../auth/SignInForm';
-import { openBaseScan, usdcExplorerUrl, walletExplorerUrl } from '../explorer/baseScan';
 
 function truncateAddress(addr) {
   if (!addr || addr.length < 12) return addr || '';
@@ -12,28 +11,20 @@ export function AccountView({ tokens, isAuthorized, user, register, login, logou
   if (isAuthorized && user) {
     return (
       <View style={[styles.screen, { backgroundColor: tokens.BG }]}>
-        <Pressable onPress={() => openBaseScan(usdcExplorerUrl(user.evmAddress))}>
-          <Text style={[styles.amount, { color: tokens.FG }]}>
-            {credits?.status === 'loading' ? '…' : credits?.label ?? '—'}
-          </Text>
-          <Text style={[styles.caption, { color: tokens.MUTED }]}>USDC on Base</Text>
-        </Pressable>
+        <Text style={[styles.amount, { color: tokens.FG }]}>
+          {credits?.status === 'loading' ? '…' : credits?.unifiedLabel ?? '—'}
+        </Text>
+        <Text style={[styles.caption, { color: tokens.MUTED }]}>
+          USDC across supported networks
+        </Text>
         <Text style={[styles.handle, { color: tokens.FG_SECONDARY }]}>
           @{user.username || 'unknown'}
         </Text>
         {user.evmAddress ? (
-          <Pressable onPress={() => openBaseScan(walletExplorerUrl(user.evmAddress))}>
-            <Text style={[styles.addr, { color: tokens.MUTED }]}>
-              {truncateAddress(user.evmAddress)}
-            </Text>
-          </Pressable>
+          <Text style={[styles.addr, { color: tokens.MUTED }]}>
+            {truncateAddress(user.evmAddress)}
+          </Text>
         ) : null}
-        <Pressable
-          onPress={() => openBaseScan(usdcExplorerUrl(user.evmAddress))}
-          style={[styles.scan, { backgroundColor: tokens.SURFACE }]}
-        >
-          <Text style={[styles.scanText, { color: tokens.FG }]}>View USDC on BaseScan</Text>
-        </Pressable>
         <Pressable onPress={logout} style={styles.out}>
           <Text style={[styles.outText, { color: tokens.DANGER }]}>Sign out</Text>
         </Pressable>
@@ -62,14 +53,6 @@ const styles = StyleSheet.create({
   caption: { fontSize: 16, marginTop: 4, marginBottom: 28 },
   handle: { fontSize: 17, fontWeight: '500' },
   addr: { fontSize: 14, marginTop: 6 },
-  scan: {
-    alignSelf: 'flex-start',
-    marginTop: 20,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  scanText: { fontSize: 15, fontWeight: '500' },
   out: { marginTop: 28 },
   outText: { fontSize: 16 },
   auth: { paddingHorizontal: 20, paddingTop: 8 },

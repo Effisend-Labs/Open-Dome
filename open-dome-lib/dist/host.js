@@ -127,6 +127,17 @@ class HostAPI {
       timeoutMs: 15000
     });
   }
+
+  /** Cached USD prices from OpenDomeApp (15s server TTL). */
+  tokenPrices({
+    tickers
+  } = {}) {
+    return this.request('tokenPrices', {
+      tickers
+    }, {
+      timeoutMs: 15000
+    });
+  }
 }
 exports.HostAPI = HostAPI;
 const Host = exports.Host = new HostAPI();

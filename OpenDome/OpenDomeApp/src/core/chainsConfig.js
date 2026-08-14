@@ -6,7 +6,11 @@ export const passesBlockchains = [
     enabled: true,
     network: 'Base',
     type: 'evm',
-    rpcs: ['https://base-rpc.publicnode.com', 'https://mainnet.base.org'],
+    rpcs: [
+      'https://developer-access-mainnet.base.org',
+      'https://mainnet.base.org',
+      'https://base.drpc.org',
+    ],
     passesContracts: [OPENDOME_PASS_ADDRESS],
   },
   {
@@ -14,7 +18,7 @@ export const passesBlockchains = [
     network: 'Arbitrum One',
     type: 'evm',
     rpcs: [
-      'https://arbitrum-one-rpc.publicnode.com',
+      'https://arbitrum.drpc.org',
       'https://arb1.arbitrum.io/rpc',
     ],
     passesContracts: [],
@@ -23,7 +27,7 @@ export const passesBlockchains = [
     enabled: true,
     network: 'Optimism',
     type: 'evm',
-    rpcs: ['https://mainnet.optimism.io', 'https://optimism.publicnode.com'],
+    rpcs: ['https://mainnet.optimism.io', 'https://optimism.drpc.org'],
     passesContracts: [],
   },
   {
@@ -31,8 +35,8 @@ export const passesBlockchains = [
     network: 'Polygon',
     type: 'evm',
     rpcs: [
-      'https://polygon-rpc.com',
-      'https://polygon-bor-rpc.publicnode.com',
+      'https://polygon.drpc.org',
+      'https://1rpc.io/matic',
     ],
     passesContracts: [],
   },

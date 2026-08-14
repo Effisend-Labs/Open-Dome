@@ -113,6 +113,17 @@ Object.keys(_pricing).forEach(function (key) {
     }
   });
 });
+var _tokenPrices = require("./tokenPrices");
+Object.keys(_tokenPrices).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (key in exports && exports[key] === _tokenPrices[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _tokenPrices[key];
+    }
+  });
+});
 var _communication = require("./communication");
 Object.keys(_communication).forEach(function (key) {
   if (key === "default" || key === "__esModule") return;

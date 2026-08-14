@@ -86,6 +86,14 @@ export async function runHostRequest(payload, token) {
     return hostFetch('/api/platform-config', token);
   }
 
+  if (action === 'tokenPrices') {
+    const tickers = Array.isArray(payload.tickers)
+      ? payload.tickers.join(',')
+      : payload.tickers || '';
+    const qs = tickers ? `?tickers=${encodeURIComponent(tickers)}` : '';
+    return hostFetch(`/api/token-prices${qs}`, token);
+  }
+
   throw new Error(`Unknown host action: ${action}`);
 }
 

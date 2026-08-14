@@ -15,6 +15,8 @@ export function ChatView({
   credits,
   modelId,
   onChangeModel,
+  selectedNetwork,
+  onChangeNetwork,
   login,
   authPending,
   authError,
@@ -25,6 +27,8 @@ export function ChatView({
     onPaid: credits?.refresh,
     modelId,
     onChangeModel,
+    selectedNetwork,
+    onChangeNetwork,
   });
   const canSend = chat.prompt.trim().length > 0 && !chat.isTyping;
 
@@ -54,7 +58,7 @@ export function ChatView({
           onCancel={chat.cancelPay}
           breakdown={[
             { label: 'Model', value: chat.pending.quote.modelLabel },
-            { label: 'Base', value: formatTariffLabel(chat.pending.quote.baseUsd) },
+            { label: 'Prompt', value: formatTariffLabel(chat.pending.quote.baseUsd) },
             { label: `${chat.pending.quote.chars} chars`, value: formatTariffLabel(chat.pending.quote.lengthUsd) },
           ]}
         />

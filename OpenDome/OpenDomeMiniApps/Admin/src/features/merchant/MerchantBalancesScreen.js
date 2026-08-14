@@ -11,6 +11,18 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Host } from 'opendome';
+import {
+  FALLBACK_USD_BY_TICKER,
+  priceForTicker,
+} from 'opendome/src/tokenPrices.js';
+
+const PRICE_TICKERS = ['ETH', 'SOL', 'AVAX', 'POL', 'USDC'];
+const PRICE_POLL_MS = 15_000;
+
+async function loadHostPrices(tickers = PRICE_TICKERS) {
+  const body = await Host.tokenPrices({ tickers });
+  return body?.prices || body;
+}
 
 const COLORS = {
   bg: '#09090b',
@@ -34,14 +46,6 @@ const CHAIN_META = {
   AVAX: { color: '#E84142', explorer: 'https://snowtrace.io/address/' },
   ETH: { color: '#627EEA', explorer: 'https://etherscan.io/address/' },
   SOL: { color: '#9945FF', explorer: 'https://solscan.io/account/' },
-};
-
-const MOCK_PRICES = {
-  ETH: 3200,
-  POL: 0.5,
-  AVAX: 35,
-  SOL: 145,
-  USDC: 1,
 };
 
 function shortAddr(addr) {
@@ -99,13 +103,13 @@ function AssetLine({ symbol, amount, usd, low }) {
   );
 }
 
-function NetworkRow({ row, expanded, onToggle }) {
+function NetworkRow({ row, expanded, onToggle, priceOf }) {
   const meta = CHAIN_META[row.key] || {};
   const nativeVal = row.native?.value ?? 0;
   const usdcVal = row.usdc?.value ?? 0;
   const nativeSym = row.native?.symbol || 'ETH';
-  const nativeUsd = nativeVal * (MOCK_PRICES[nativeSym] || 0);
-  const usdcUsd = usdcVal * MOCK_PRICES.USDC;
+  const nativeUsd = nativeVal * priceOf(nativeSym);
+  const usdcUsd = usdcVal * priceOf('USDC');
   const totalUsd = row.error ? 0 : nativeUsd + usdcUsd;
   const role = row.sponsored
     ? 'Sponsored'
@@ -188,14 +192,24 @@ export default function MerchantBalancesScreen() {
   const [error, setError] = useState('');
   const [data, setData] = useState(null);
   const [expanded, setExpanded] = useState({});
+  const [prices, setPrices] = useState(FALLBACK_USD_BY_TICKER);
+
+  const priceOf = useCallback(
+    (ticker) => priceForTicker(prices, ticker),
+    [prices],
+  );
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     setError('');
     try {
-      const body = await Host.merchantBalances();
+      const [body, nextPrices] = await Promise.all([
+        Host.merchantBalances(),
+        loadHostPrices().catch(() => null),
+      ]);
       setData(body);
+      if (nextPrices) setPrices((prev) => ({ ...FALLBACK_USD_BY_TICKER, ...prev, ...nextPrices }));
       // Expand first chain with a low flag or error by default
       const first = (body.chains || []).find(
         (c) => c.error || c.native?.low || c.usdc?.low,
@@ -213,6 +227,22 @@ export default function MerchantBalancesScreen() {
     load(false);
   }, [load]);
 
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const next = await loadHostPrices();
+        if (next) {
+          setPrices((prev) => ({ ...FALLBACK_USD_BY_TICKER, ...prev, ...next }));
+        }
+      } catch {
+        /* keep last good */
+      }
+    };
+    poll();
+    const id = setInterval(poll, PRICE_POLL_MS);
+    return () => clearInterval(id);
+  }, []);
+
   const lowCount = useMemo(
     () =>
       data?.chains?.filter((c) => c.native?.low || c.usdc?.low).length || 0,
@@ -226,9 +256,9 @@ export default function MerchantBalancesScreen() {
       const n = row.native?.value ?? 0;
       const u = row.usdc?.value ?? 0;
       const sym = row.native?.symbol || 'ETH';
-      return sum + n * (MOCK_PRICES[sym] || 0) + u * MOCK_PRICES.USDC;
+      return sum + n * priceOf(sym) + u * priceOf('USDC');
     }, 0);
-  }, [data]);
+  }, [data, priceOf]);
 
   const toggle = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -301,6 +331,7 @@ export default function MerchantBalancesScreen() {
             row={row}
             expanded={Boolean(expanded[row.key])}
             onToggle={() => toggle(row.key)}
+            priceOf={priceOf}
           />
         ))}
       </View>

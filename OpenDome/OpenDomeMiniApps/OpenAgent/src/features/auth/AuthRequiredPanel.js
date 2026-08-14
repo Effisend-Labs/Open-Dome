@@ -14,8 +14,8 @@ export function AuthRequiredPanel({ tokens, onSignIn, onCreatePasskey, pending, 
           Pay per prompt
         </Text>
         <Text style={[styles.body, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
-          Sign in to chat with Gemini. Each send is that model's base USDC fee, plus a little for
-          how long the message is. You see the exact amount and can cancel before it goes out.
+          Sign in to chat with Gemini. Each send has a USDC fee based on the model and message
+          length. You see the exact amount and can cancel before it goes out.
         </Text>
 
         <View style={[styles.meta, { borderBottomColor: tokens.BORDER }]}>

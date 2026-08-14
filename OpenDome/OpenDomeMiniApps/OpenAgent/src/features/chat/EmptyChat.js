@@ -3,17 +3,18 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 
 export const CHAT_STARTERS = [
   'What can you actually do here?',
-  'Plan a half day in Dome City',
+  'Search the latest news on AI',
+  'What happened in the world today?',
   'Explain x402 in plain English',
 ];
 
 export function EmptyChat({ tokens, onPick }) {
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.title, { color: tokens.FG }]}>Gemini on Base</Text>
+      <Text style={[styles.title, { color: tokens.FG }]}>Gemini</Text>
       <Text style={[styles.body, { color: tokens.MUTED }]}>
-        Each send is a USDC payment you confirm. Open BaseScan from the balance chip or a paid
-        reply.
+        General questions plus live internet search. No wallet or Circle tools — each send is
+        a USDC payment you confirm (x402).
       </Text>
       <View style={styles.chips}>
         {CHAT_STARTERS.map((label) => (

@@ -13,8 +13,9 @@ import {
 import { useOpenDome } from 'opendome';
 import { USE_NATIVE_DRIVER } from '../utils/styleCompat';
 import { useAgentConversation } from '../features/agent/AgentConversationContext';
+import { MarkdownBody } from '../features/agent/markdown/MarkdownBody';
 import { SolanaPayQrCard } from '../features/agent/SolanaPayQrCard';
-import { resolveWalletAgentModel } from '../config/agentSettings';
+import { WALLET_AGENT_MODEL } from '../config/agentSettings';
 
 function stripSolanaPayUrls(text) {
   return String(text || '')
@@ -87,10 +88,14 @@ const AnimatedMessage = ({ children }) => {
 };
 
 const QUICK_ACTIONS = [
-  { id: 'balance', label: "What's my USDC balance?", prompt: "What's my USDC balance on Base?" },
   { id: 'wallets', label: 'List my Circle wallets', prompt: 'List my Circle wallets.' },
-  { id: 'solpay', label: 'Request USDC via Solana Pay', prompt: 'Create a Solana Pay QR so I can receive 0.50 USDC on Solana.' },
-  { id: 'txs', label: 'Show recent transactions', prompt: 'Show my recent Circle transactions.' },
+  {
+    id: 'wallet',
+    label: 'Show my Base wallet details',
+    prompt: 'Show the details for my Base Circle wallet.',
+  },
+  { id: 'balance', label: "What's my USDC balance?", prompt: "What's my USDC balance on Base?" },
+  { id: 'nfts', label: 'Show my wallet NFTs', prompt: 'Show the NFTs held in my Circle wallets.' },
 ];
 
 export default function AgentView({
@@ -126,9 +131,6 @@ export default function AgentView({
     return () => cancelAnimationFrame(id);
   }, [conversation.length]);
 
-  const walletModel = resolveWalletAgentModel();
-  const activeModelLabel = walletModel.label;
-
   const executeSend = async (text) => {
     if (!text || isTyping) return;
     if (!isAuthorized) {
@@ -140,7 +142,7 @@ export default function AgentView({
     setIsTyping(true);
 
     try {
-      const res = await Agent.prompt(text, { mode: 'wallet', modelId: walletModel.id });
+      const res = await Agent.prompt(text, { mode: 'wallet', modelId: WALLET_AGENT_MODEL.id });
       const payload = typeof res === 'string' ? { response: res } : res?.data || res || {};
       const responseText =
         payload.response || (typeof res === 'string' ? res : JSON.stringify(res));
@@ -151,7 +153,6 @@ export default function AgentView({
           id: (Date.now() + 1).toString(),
           role: 'agent',
           content: stripSolanaPayUrls(responseText),
-          model: payload.modelLabel || walletModel.label,
           ...(payload.explorerUrl ? { explorerUrl: payload.explorerUrl } : {}),
           ...(solanaPay?.payment_url
             ? {
@@ -252,7 +253,7 @@ export default function AgentView({
               }}
             >
               {t?.agent?.poweredBy ||
-                'Circle wallets, USDC, and transfers. Pick a Gemini model to chat.'}
+                'Circle wallets, USDC, and transfers. Powered by Gemini 3.6.'}
             </Text>
 
             <View style={{ gap: 8 }}>
@@ -323,18 +324,6 @@ export default function AgentView({
                 >
                   {msg.role === 'user' ? username : msg.role === 'agent' ? 'Agent' : 'System'}
                 </Text>
-                {msg.role === 'agent' && msg.model ? (
-                  <Text
-                    style={{
-                      color: tokens.MUTED,
-                      fontSize: 10,
-                      fontFamily: tokens.font.mono,
-                      opacity: 0.5,
-                    }}
-                  >
-                    · {msg.model}
-                  </Text>
-                ) : null}
               </View>
               <View
                 style={{
@@ -343,17 +332,21 @@ export default function AgentView({
                   borderLeftColor: msg.role === 'user' ? tokens.BORDER : 'transparent',
                 }}
               >
-                <Text
-                  style={{
-                    color: msg.role === 'system' ? tokens.DANGER : tokens.FG,
-                    fontSize: 15,
-                    lineHeight: 24,
-                    fontFamily: msg.role === 'system' ? tokens.font.mono : tokens.font.primary,
-                    letterSpacing: -0.2,
-                  }}
-                >
-                  {msg.content}
-                </Text>
+                {msg.role === 'agent' ? (
+                  <MarkdownBody tokens={tokens} text={msg.content} />
+                ) : (
+                  <Text
+                    style={{
+                      color: msg.role === 'system' ? tokens.DANGER : tokens.FG,
+                      fontSize: 15,
+                      lineHeight: 24,
+                      fontFamily: msg.role === 'system' ? tokens.font.mono : tokens.font.primary,
+                      letterSpacing: -0.2,
+                    }}
+                  >
+                    {msg.content}
+                  </Text>
+                )}
                 {msg.role === 'agent' && msg.solanaPayUrl ? (
                   <SolanaPayQrCard
                     paymentUrl={msg.solanaPayUrl}
@@ -417,32 +410,6 @@ export default function AgentView({
           paddingBottom: 12,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: tokens.SURFACE,
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 14,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: tokens.BORDER,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 11,
-                color: tokens.FG_SECONDARY,
-                fontFamily: tokens.font.primary,
-                fontWeight: '500',
-              }}
-            >
-              {activeModelLabel}
-            </Text>
-          </View>
-        </View>
-
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
           <View style={{ flex: 1, minHeight: 48, position: 'relative', justifyContent: 'center' }}>
             <Text

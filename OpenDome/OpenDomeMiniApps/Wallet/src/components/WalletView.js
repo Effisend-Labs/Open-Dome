@@ -6,6 +6,7 @@ import { GLOBAL_STYLES } from '../theme';
 import SendModal from './SendModal';
 import ReceiveModal from './ReceiveModal';
 import { AuthRequiredPanel } from '../features/auth/AuthRequiredPanel';
+import { useTokenUsdPrices } from '../features/prices/useTokenUsdPrices';
 
 // Chain logos
 import imgBase from '../assets/base.png';
@@ -58,17 +59,6 @@ const USDC_ADDRESSES = {
   solana: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
 };
 
-// ─── Mock Prices Oracle ────────────────────────────────────────────────────────
-// Sandbox environment: static mock fiat prices for USD conversion
-const MOCK_PRICES = {
-  ETH: 3200,
-  SOL: 145,
-  AVAX: 35,
-  POL: 0.50,
-  MON: 5,
-  USDC: 1,
-};
-
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 const formatBalance = (bal) => {
@@ -119,14 +109,26 @@ const ChainIcon = ({ chain, size = 36 }) => {
 
 // ─── Network Accordion Row ───────────────────────────────────────────────────────
 
-const NetworkRow = ({ chainKey, balanceData, address, tokens, isDark, onCopy, copiedKey, expanded, onToggle }) => {
+const NetworkRow = ({
+  chainKey,
+  balanceData,
+  address,
+  tokens,
+  isDark,
+  onCopy,
+  copiedKey,
+  expanded,
+  onToggle,
+  priceOf,
+}) => {
   const meta = CHAINS[chainKey];
   if (!meta) return null;
 
   const nativeBal = parseFloat(balanceData?.native) || 0;
   const usdcBal = parseFloat(balanceData?.usdc) || 0;
-  const nativePrice = MOCK_PRICES[meta.ticker] || 0;
-  const combinedUsd = (nativeBal * nativePrice) + (usdcBal * MOCK_PRICES.USDC);
+  const nativePrice = priceOf(meta.ticker);
+  const usdcPrice = priceOf('USDC');
+  const combinedUsd = (nativeBal * nativePrice) + (usdcBal * usdcPrice);
 
   return (
     <View style={{ borderBottomColor: tokens.BORDER, borderBottomWidth: StyleSheet.hairlineWidth }}>
@@ -191,13 +193,15 @@ const NetworkRow = ({ chainKey, balanceData, address, tokens, isDark, onCopy, co
                 </View>
                 <View>
                   <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary, fontSize: 15, fontWeight: '600' }}>USDC</Text>
-                  <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary, fontSize: 13 }}>$1.00</Text>
+                  <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary, fontSize: 13 }}>
+                    ${usdcPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
                 </View>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={{ color: tokens.FG, fontFamily: tokens.font.mono, fontSize: 15 }}>{formatBalance(balanceData?.usdc)}</Text>
                 <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.mono, fontSize: 13 }}>
-                  ${(usdcBal * MOCK_PRICES.USDC).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(usdcBal * usdcPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Text>
               </View>
             </View>
@@ -235,6 +239,7 @@ const NetworkRow = ({ chainKey, balanceData, address, tokens, isDark, onCopy, co
 
 export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) {
   const { blockchain, user, isAuthorized } = useOpenDome();
+  const { priceOf } = useTokenUsdPrices();
   const [balances, setBalances] = useState({});
   const [loading, setLoading] = useState(true);
   const [copiedKey, setCopiedKey] = useState(null);
@@ -335,7 +340,7 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
     const meta = CHAINS[chain];
     const nBal = parseFloat(balances[chain]?.native) || 0;
     const uBal = parseFloat(balances[chain]?.usdc) || 0;
-    return (nBal * (MOCK_PRICES[meta.ticker] || 0)) + (uBal * MOCK_PRICES.USDC);
+    return (nBal * priceOf(meta.ticker)) + (uBal * priceOf('USDC'));
   };
 
   const sortedChains = [...chainKeys].sort((a, b) => {
@@ -352,8 +357,8 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
     const meta = CHAINS[chain];
     const nBal = parseFloat(balObj.native) || 0;
     const uBal = parseFloat(balObj.usdc) || 0;
-    const price = meta ? (MOCK_PRICES[meta.ticker] || 0) : 0;
-    const combinedUsd = (nBal * price) + (uBal * MOCK_PRICES.USDC);
+    const price = meta ? priceOf(meta.ticker) : 0;
+    const combinedUsd = (nBal * price) + (uBal * priceOf('USDC'));
     return sum + combinedUsd;
   }, 0);
 
@@ -459,6 +464,7 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
             copiedKey={copiedKey}
             expanded={!!expandedChains[chainKey]}
             onToggle={() => setExpandedChains(prev => ({ ...prev, [chainKey]: !prev[chainKey] }))}
+            priceOf={priceOf}
           />
         ))}
       </View>

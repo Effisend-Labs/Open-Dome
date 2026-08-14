@@ -11,7 +11,7 @@ import { AppHeader } from './features/shell/AppHeader';
 import { useKeyboardInset } from './features/shell/useKeyboardInset';
 import { CreditsBadge } from './features/credits/CreditsBadge';
 import { useUsdcCredits } from './features/credits/useUsdcCredits';
-import { openBaseScan, usdcExplorerUrl } from './features/explorer/baseScan';
+import { NetworkPicker } from './features/billing/NetworkPicker';
 
 export default function App() {
   const { isAuthorized, isLocked, user, context, loading, register, login, logout, authPending, authError } = useOpenDome({
@@ -24,7 +24,8 @@ export default function App() {
   const keyboardInset = useKeyboardInset();
   const [screen, setScreen] = useState('CHAT');
   const [modelId, setModelId] = useState(GEMINI_CHAT_MODELS[1].id);
-  const credits = useUsdcCredits();
+  const [selectedNetwork, setSelectedNetwork] = useState('base');
+  const credits = useUsdcCredits(selectedNetwork);
 
   if (loading) {
     return (
@@ -52,11 +53,15 @@ export default function App() {
         right={
           screen === 'CHAT' && isAuthorized ? (
             <View style={styles.right}>
+              <NetworkPicker
+                tokens={tokens}
+                value={selectedNetwork}
+                onChange={setSelectedNetwork}
+              />
               <CreditsBadge
                 tokens={tokens}
                 label={`${credits.label} USDC`}
                 status={credits.status}
-                onPress={() => openBaseScan(usdcExplorerUrl(user?.evmAddress))}
               />
               <Pressable onPress={() => setScreen('ACCOUNT')} hitSlop={10} style={styles.account}>
                 <Ionicons name="person-circle-outline" size={28} color={tokens.FG_SECONDARY} />
@@ -75,6 +80,8 @@ export default function App() {
           credits={credits}
           modelId={modelId}
           onChangeModel={setModelId}
+          selectedNetwork={selectedNetwork}
+          onChangeNetwork={setSelectedNetwork}
           login={login}
           authPending={authPending}
           authError={authError}

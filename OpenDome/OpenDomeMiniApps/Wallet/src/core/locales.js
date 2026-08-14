@@ -31,7 +31,7 @@ export const locales = {
     },
     agent: {
       workspace: "Agent Workspace",
-      poweredBy: "Circle wallets, USDC, and transfers. Pick a Gemini model to chat.",
+      poweredBy: "Circle wallets, USDC, and transfers. Powered by Gemini 3.6.",
       helpText: "How can I help you today?",
       placeholder: "Ask anything...",
       thinking: "Thinking...",
@@ -133,7 +133,7 @@ export const locales = {
     },
     agent: {
       workspace: "Consola del Agente",
-      poweredBy: "Gemini 3.6 Flash · cuatro planners para Tokyo Dome City",
+      poweredBy: "Wallets Circle, USDC y transferencias. Desarrollado con Gemini 3.6.",
       helpText: "¿En qué te puedo ayudar hoy?",
       placeholder: "Pregúntame lo que sea...",
       thinking: "Pensando..."
@@ -220,7 +220,7 @@ export const locales = {
     },
     agent: {
       workspace: "エージェント ワークスペース",
-      poweredBy: "Circle wallets, USDC, and transfers. Pick a Gemini model to chat.",
+      poweredBy: "Circleウォレット、USDC、送金。Gemini 3.6 搭載。",
       helpText: "今日はどのようなご用件でしょうか？",
       placeholder: "何でも聞いてください...",
       thinking: "考え中..."
@@ -298,7 +298,7 @@ export const locales = {
     },
     agent: {
       workspace: "Espace Agent",
-      poweredBy: "Gemini 3.6 Flash · quatre planificateurs pour Tokyo Dome City",
+      poweredBy: "Portefeuilles Circle, USDC et transferts. Propulsé par Gemini 3.6.",
       helpText: "Comment puis-je vous aider aujourd'hui ?",
       placeholder: "Demandez n'importe quoi...",
       thinking: "Réflexion..."
@@ -376,7 +376,7 @@ export const locales = {
     },
     agent: {
       workspace: "特工工作区",
-      poweredBy: "Gemini 3.6 Flash · 四位规划师，东京巨蛋城一日",
+      poweredBy: "Circle 钱包、USDC 和转账。由 Gemini 3.6 提供支持。",
       helpText: "今天我能怎么帮助你？",
       placeholder: "随便问点什么...",
       thinking: "思考中..."

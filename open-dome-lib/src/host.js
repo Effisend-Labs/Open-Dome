@@ -105,6 +105,11 @@ export class HostAPI {
   platformConfig() {
     return this.request('platformConfig', {}, { timeoutMs: 15000 });
   }
+
+  /** Cached USD prices from OpenDomeApp (15s server TTL). */
+  tokenPrices({ tickers } = {}) {
+    return this.request('tokenPrices', { tickers }, { timeoutMs: 15000 });
+  }
 }
 
 export const Host = new HostAPI();

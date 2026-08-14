@@ -141,7 +141,7 @@ export async function POST(req) {
         resolveX402PaymentNetwork,
         explorerTxUrl,
         OpenDomeFacilitator,
-        resolveUsdcRpcUrl,
+        resolveUsdcRpcUrls,
       } = nodeRequire('opendome/dist/x402.js');
 
       let cfg;
@@ -213,7 +213,7 @@ export async function POST(req) {
           process.env.MERCHANT_PRIVATE_KEY,
           {
             chain: cfg.key,
-            rpcUrl: resolveUsdcRpcUrl(cfg),
+            rpcUrls: resolveUsdcRpcUrls(cfg),
             usdc: cfg.usdc,
           },
         );

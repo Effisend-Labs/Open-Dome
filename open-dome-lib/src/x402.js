@@ -1,4 +1,4 @@
-import { createWalletClient, createPublicClient, http, verifyTypedData } from 'viem';
+import { createWalletClient, createPublicClient, http, fallback, verifyTypedData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import * as viemChains from 'viem/chains';
 import {
@@ -8,7 +8,7 @@ import {
   splitEip712Signature,
   USDC_EIP3009_ABI,
 } from './eip3009.js';
-import { getUsdcChain, resolveUsdcRpcUrl } from './usdcChains.js';
+import { getUsdcChain, resolveUsdcRpcUrl, resolveUsdcRpcUrls } from './usdcChains.js';
 
 export {
   USDC_BASE,
@@ -59,7 +59,26 @@ export class OpenDomeFacilitator {
     this.usdc = options.usdc || cfg.usdc || USDC_BASE;
     this.chainId = options.chainId || cfg.chainId || 8453;
     this.rpcUrl = options.rpcUrl || resolveUsdcRpcUrl(cfg);
+    this.rpcUrls = Array.isArray(options.rpcUrls) && options.rpcUrls.length
+      ? options.rpcUrls
+      : resolveUsdcRpcUrls(cfg);
+    if (this.rpcUrl && !this.rpcUrls.includes(this.rpcUrl)) {
+      this.rpcUrls = [this.rpcUrl, ...this.rpcUrls];
+    }
     this.viemChain = options.chainDef || resolveViemChain(cfg);
+  }
+
+  buildTransport() {
+    const urls = (this.rpcUrls || []).filter(Boolean);
+    if (!urls.length) {
+      return this.rpcUrl ? http(this.rpcUrl) : http();
+    }
+    if (urls.length === 1) return http(urls[0]);
+    // EffisendTDC-style failover: try curated RPCs in order on receipt/read failures.
+    return fallback(
+      urls.map((url) => http(url)),
+      { rank: false, retryCount: 1 },
+    );
   }
 
   async verifyAndRelay(payload, signature) {
@@ -71,7 +90,7 @@ export class OpenDomeFacilitator {
   }
 
   async relayAuthorization(payload, signature, functionName) {
-    const transport = this.rpcUrl ? http(this.rpcUrl) : http();
+    const transport = this.buildTransport();
     const publicClient = createPublicClient({ chain: this.viemChain, transport });
     const account = privateKeyToAccount(this.privateKey);
     const walletClient = createWalletClient({
