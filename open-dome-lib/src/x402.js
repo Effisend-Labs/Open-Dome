@@ -1,6 +1,6 @@
 import { createWalletClient, createPublicClient, http, verifyTypedData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { base } from 'viem/chains';
+import * as viemChains from 'viem/chains';
 import {
   USDC_BASE,
   getUsdcDomain,
@@ -8,6 +8,7 @@ import {
   splitEip712Signature,
   USDC_EIP3009_ABI,
 } from './eip3009.js';
+import { getUsdcChain, resolveUsdcRpcUrl } from './usdcChains.js';
 
 export {
   USDC_BASE,
@@ -19,11 +20,34 @@ export {
   usdPriceToUsdcAtomic,
 } from './x402Challenge.js';
 export { sponsorUsdcTransfer } from './sponsorUsdcTransfer.js';
+export {
+  USDC_CHAINS,
+  getUsdcChain,
+  listSendUsdcChains,
+  normalizeUsdcChainKey,
+  isSponsoredUsdcChain,
+  resolveUsdcRpcUrl,
+} from './usdcChains.js';
 
+function resolveViemChain(cfg) {
+  if (!cfg?.viemKey) return viemChains.base;
+  return viemChains[cfg.viemKey] || viemChains.base;
+}
+
+/**
+ * Relays EIP-3009 USDC authorizations.
+ * Defaults to Base. Pass { chain: 'ARB'|'OP'|…, rpcUrl, usdc } for other L2s.
+ * Merchant key must hold native gas on the target chain.
+ */
 export class OpenDomeFacilitator {
   constructor(privateKey, options = {}) {
     this.privateKey = privateKey;
-    this.rpcUrl = options.rpcUrl;
+    const cfg = getUsdcChain(options.chain || options.blockchain || 'BASE');
+    this.chainConfig = cfg;
+    this.usdc = options.usdc || cfg.usdc || USDC_BASE;
+    this.chainId = options.chainId || cfg.chainId || 8453;
+    this.rpcUrl = options.rpcUrl || resolveUsdcRpcUrl(cfg);
+    this.viemChain = options.chainDef || resolveViemChain(cfg);
   }
 
   async verifyAndRelay(payload, signature) {
@@ -36,18 +60,23 @@ export class OpenDomeFacilitator {
 
   async relayAuthorization(payload, signature, functionName) {
     const transport = this.rpcUrl ? http(this.rpcUrl) : http();
-    const publicClient = createPublicClient({ chain: base, transport });
+    const publicClient = createPublicClient({ chain: this.viemChain, transport });
     const account = privateKeyToAccount(this.privateKey);
-    const walletClient = createWalletClient({ account, chain: base, transport });
+    const walletClient = createWalletClient({
+      account,
+      chain: this.viemChain,
+      transport,
+    });
 
     const primaryType =
       functionName === 'transferWithAuthorization'
         ? 'TransferWithAuthorization'
         : 'ReceiveWithAuthorization';
 
+    const domain = getUsdcDomain(this.usdc, this.chainId);
     const isValid = await verifyTypedData({
       address: payload.from,
-      domain: getUsdcDomain(USDC_BASE),
+      domain,
       types: getEip3009Types(primaryType),
       primaryType,
       message: payload,
@@ -60,7 +89,7 @@ export class OpenDomeFacilitator {
 
     const { v, r, s } = splitEip712Signature(signature);
     const { request } = await publicClient.simulateContract({
-      address: USDC_BASE,
+      address: this.usdc,
       abi: USDC_EIP3009_ABI,
       functionName,
       args: [

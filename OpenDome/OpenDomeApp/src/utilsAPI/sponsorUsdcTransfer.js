@@ -5,12 +5,17 @@ function x402() {
   return nodeRequire('opendome/dist/x402.js');
 }
 
+/**
+ * Sponsor a same-chain USDC transfer on a sponsored L2 via EIP-3009.
+ * @param {{ client, walletId, fromAddress, destination, amount, blockchain?: string }} args
+ */
 export async function sponsorUsdcTransferWithCircle({
   client,
   walletId,
   fromAddress,
   destination,
   amount,
+  blockchain = 'BASE',
 }) {
   const merchantKey = process.env.MERCHANT_PRIVATE_KEY;
   if (!merchantKey) {
@@ -22,15 +27,32 @@ export async function sponsorUsdcTransferWithCircle({
   }
 
   try {
-    const { OpenDomeFacilitator, sponsorUsdcTransfer } = x402();
+    const {
+      OpenDomeFacilitator,
+      sponsorUsdcTransfer,
+      getUsdcChain,
+      resolveUsdcRpcUrl,
+      isSponsoredUsdcChain,
+    } = x402();
+
+    if (!isSponsoredUsdcChain(blockchain)) {
+      return { error: `Facilitator does not sponsor ${blockchain}` };
+    }
+
+    const cfg = getUsdcChain(blockchain);
     const facilitator = new OpenDomeFacilitator(merchantKey, {
-      rpcUrl: process.env.RPC_URL || 'https://mainnet.base.org',
+      chain: cfg.key,
+      rpcUrl: resolveUsdcRpcUrl(cfg),
+      usdc: cfg.usdc,
     });
 
     return await sponsorUsdcTransfer({
       from: fromAddress,
       to: destination,
       amount,
+      chain: cfg.key,
+      usdc: cfg.usdc,
+      chainId: cfg.chainId,
       facilitator,
       signTypedData: async (typedData) => {
         const res = await client.signTypedData({

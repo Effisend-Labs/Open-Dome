@@ -8,6 +8,7 @@ import {
 } from './circleTools.js';
 import { listNftsForWallet, listNftsForUserWallets } from './circleNftBalance.js';
 import { createSolanaPayRequest } from './cctp/solanaPay.js';
+import { nodeRequire } from './nodeRequire.js';
 
 function fail(err) {
   return { error: err.response?.data?.message || err.message || String(err) };
@@ -115,23 +116,25 @@ export async function runCircleAgentTool(name, args = {}, ctx = {}) {
       return { transaction: res.data?.transaction || res.data };
     }
     if (name === 'estimate_transfer_fee') {
-      const tokenId = args.tokenId || BASE_USDC_TOKEN_ID;
-      if (tokenId === BASE_USDC_TOKEN_ID) {
+      const { isSponsoredUsdcChain, getUsdcChain } = nodeRequire('opendome/dist/x402.js');
+      const chain = chainKey(args) || 'BASE';
+      const cfg = getUsdcChain(chain);
+      if (isSponsoredUsdcChain(chain)) {
         return {
           sponsored: true,
           paidBy: 'facilitator',
           userFee: '0',
-          note: 'OpenDome facilitator pays Base ETH gas for USDC transfers. User only needs USDC.',
+          blockchain: cfg.key,
+          note: `OpenDome facilitator pays ${cfg.gasToken} gas on ${cfg.label}. User only needs USDC.`,
         };
       }
-      const res = await client.estimateTransferFee({
-        walletId: userWalletId,
-        destinationAddress: args.destination,
-        amounts: [String(args.amount)],
-        tokenId,
-        fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
-      });
-      return res.data || res;
+      return {
+        sponsored: false,
+        paidBy: 'user',
+        userFee: 'network',
+        blockchain: cfg.key,
+        note: `User pays ${cfg.gasToken} gas on ${cfg.label}.`,
+      };
     }
     if (name === 'validate_address') {
       const res = await client.validateAddress({
@@ -144,11 +147,18 @@ export async function runCircleAgentTool(name, args = {}, ctx = {}) {
       return createCircleAgentWallet(args.blockchains);
     }
     if (name === 'create_transaction') {
+      const chain = chainKey(args) || 'BASE';
+      const walletId =
+        userWalletId ||
+        (chain.startsWith('SOL')
+          ? ctx.solWalletId || ctx.walletIds?.SOL || ctx.walletIds?.SOLANA
+          : ctx.walletIds?.[chain] || ctx.walletId);
       return executeCircleNanoPayment({
         amount: args.amount,
         destination: args.destination,
         tokenId: args.tokenId,
-        walletId: userWalletId,
+        walletId,
+        blockchain: chain.startsWith('SOL') ? 'SOL' : chain || 'BASE',
       });
     }
     if (name === 'create_solana_pay') {

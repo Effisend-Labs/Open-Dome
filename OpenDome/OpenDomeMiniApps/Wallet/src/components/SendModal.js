@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, Modal, TouchableOpacity, TextInput } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  Modal,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+} from 'react-native';
 import { useSponsoredTransfer } from '../features/send/useSponsoredTransfer';
 import { sanitizeUsdcAmount, isUsdcAmountReady } from '../features/send/sanitizeUsdcAmount';
 import { SendLoading, SendSuccess } from '../features/send/SendProgress';
@@ -9,6 +17,12 @@ import {
   isDestinationAddress,
   destinationChain,
 } from '../features/send/destinationAddress';
+import {
+  SEND_USDC_CHAINS,
+  getSendUsdcChain,
+  gasNoteForSend,
+  isValidSendPair,
+} from '../features/send/sendChains';
 
 export default function SendModal({
   visible,
@@ -19,6 +33,7 @@ export default function SendModal({
 }) {
   const [amount, setAmount] = useState('');
   const [destination, setDestination] = useState('');
+  const [sourceKey, setSourceKey] = useState('BASE');
   const [status, setStatus] = useState('idle');
   const [scanning, setScanning] = useState(false);
   const { send, error, result, reset } = useSponsoredTransfer();
@@ -28,9 +43,17 @@ export default function SendModal({
     setStatus('idle');
     setAmount('');
     setDestination('');
+    setSourceKey('BASE');
     setScanning(false);
     reset();
   }, [visible, reset]);
+
+  const source = getSendUsdcChain(sourceKey);
+  const destChain = destinationChain(destination);
+  const pairOk =
+    !destination ||
+    !isDestinationAddress(destination) ||
+    isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm');
 
   const handleAmount = (raw) => {
     setAmount(sanitizeUsdcAmount(raw));
@@ -39,9 +62,12 @@ export default function SendModal({
 
   const handleAction = async () => {
     if (status === 'loading') return;
+    if (!isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm')) {
+      return;
+    }
     setStatus('loading');
     try {
-      await send({ amount, destination });
+      await send({ amount, destination, blockchain: sourceKey });
       setStatus('success');
     } catch {
       setStatus('error');
@@ -55,6 +81,9 @@ export default function SendModal({
 
   const fillMySolana = () => {
     if (!solanaAddress) return;
+    if (sourceKey !== 'BASE' && sourceKey !== 'SOL') {
+      setSourceKey('BASE');
+    }
     setDestination(solanaAddress);
     if (status === 'error') setStatus('idle');
   };
@@ -65,10 +94,22 @@ export default function SendModal({
     if (status === 'error') setStatus('idle');
   }, [status]);
 
-  const destChain = destinationChain(destination);
-  const canProceed = isUsdcAmountReady(amount) && isDestinationAddress(destination);
+  const canProceed =
+    isUsdcAmountReady(amount) &&
+    isDestinationAddress(destination) &&
+    isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm');
   const destIncomplete = destination.length > 0 && !isDestinationAddress(destination);
   const toOwnSolana = Boolean(solanaAddress) && destination === solanaAddress;
+  const bridging = destChain === 'solana' && sourceKey === 'BASE';
+  const gasNote = gasNoteForSend({ sourceKey, destChain });
+
+  const fromLabel =
+    bridging
+      ? `${source.label} USDC → Solana`
+      : `${source.label} USDC`;
+
+  const destPlaceholder =
+    sourceKey === 'SOL' ? 'Solana address' : '0x… or Solana address (Base only)';
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -113,18 +154,58 @@ export default function SendModal({
               amount={amount}
               destination={destination}
               tokens={tokens}
-              chain={destChain}
+              chain={bridging ? 'solana' : destChain}
             />
           ) : (
-            <View style={styles.content}>
+            <ScrollView
+              style={styles.contentScroll}
+              contentContainerStyle={styles.content}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
                   From
                 </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.chainRow}
+                >
+                  {SEND_USDC_CHAINS.map((chain) => {
+                    const active = sourceKey === chain.key;
+                    return (
+                      <TouchableOpacity
+                        key={chain.key}
+                        onPress={() => {
+                          setSourceKey(chain.key);
+                          if (status === 'error') setStatus('idle');
+                        }}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.chainChip,
+                          {
+                            backgroundColor: active ? tokens.ACCENT_SOFT : tokens.SURFACE,
+                            borderColor: active ? tokens.ACCENT : tokens.BORDER,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: active ? tokens.ACCENT : tokens.FG,
+                            fontFamily: tokens.font.primary,
+                            fontSize: 13,
+                            fontWeight: active ? '600' : '500',
+                          }}
+                        >
+                          {chain.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
                 <View style={[styles.network, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
-                  <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary }}>
-                    {destChain === 'solana' ? 'Base USDC → Solana' : 'Base USDC'}
-                  </Text>
+                  <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary }}>{fromLabel}</Text>
                 </View>
               </View>
 
@@ -157,12 +238,15 @@ export default function SendModal({
                       styles.destInput,
                       {
                         backgroundColor: tokens.SURFACE,
-                        borderColor: destIncomplete ? (tokens.DANGER || tokens.ACCENT) : tokens.BORDER,
+                        borderColor:
+                          destIncomplete || (destination && !pairOk)
+                            ? tokens.DANGER || tokens.ACCENT
+                            : tokens.BORDER,
                         color: tokens.FG,
                         fontFamily: tokens.font.mono,
                       },
                     ]}
-                    placeholder="0x… or Solana address"
+                    placeholder={destPlaceholder}
                     placeholderTextColor={tokens.MUTED}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -179,7 +263,7 @@ export default function SendModal({
                     </Text>
                   </TouchableOpacity>
                 </View>
-                {solanaAddress ? (
+                {solanaAddress && (sourceKey === 'BASE' || sourceKey === 'SOL') ? (
                   <TouchableOpacity onPress={fillMySolana} activeOpacity={0.7} style={styles.solChipWrap}>
                     <Text
                       style={[
@@ -196,15 +280,22 @@ export default function SendModal({
                 ) : null}
                 {destIncomplete ? (
                   <Text style={[styles.destHint, { color: tokens.DANGER || tokens.ACCENT, fontFamily: tokens.font.primary }]}>
-                    Paste a Base 0x address or a Solana address
+                    {sourceKey === 'SOL'
+                      ? 'Paste a Solana address'
+                      : 'Paste a 0x address, or a Solana address when source is Base'}
+                  </Text>
+                ) : null}
+                {destination && isDestinationAddress(destination) && !pairOk ? (
+                  <Text style={[styles.destHint, { color: tokens.DANGER || tokens.ACCENT, fontFamily: tokens.font.primary }]}>
+                    {destChain === 'solana'
+                      ? 'Solana destinations require Base (bridge) or Solana source'
+                      : 'Switch source off Solana to send to a 0x address'}
                   </Text>
                 ) : null}
               </View>
 
               <Text style={[styles.gasNote, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
-                {destChain === 'solana'
-                  ? 'Bridges your Base USDC to native USDC on Solana via Circle CCTP. A small USDC bridge fee applies.'
-                  : 'OpenDome sponsors gas with Circle Gas Station — you only need USDC.'}
+                {gasNote}
               </Text>
 
               {status === 'error' && error ? (
@@ -237,13 +328,13 @@ export default function SendModal({
                   {status === 'error'
                     ? 'Try again'
                     : amount
-                      ? destChain === 'solana'
+                      ? bridging
                         ? `Bridge ${amount} USDC to Solana`
                         : `Send ${amount} USDC`
                       : 'Send USDC'}
                 </Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -260,6 +351,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingBottom: 32,
+    maxHeight: '92%',
   },
   header: {
     flexDirection: 'row',
@@ -275,6 +367,9 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 4,
   },
+  contentScroll: {
+    flexGrow: 0,
+  },
   content: {
     padding: 20,
   },
@@ -287,6 +382,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  chainRow: {
+    gap: 8,
+    paddingBottom: 10,
+  },
+  chainChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   network: {
     borderWidth: 1,

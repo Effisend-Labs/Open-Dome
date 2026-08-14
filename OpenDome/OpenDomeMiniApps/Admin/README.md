@@ -8,8 +8,8 @@ OD_APP_TOKEN=…            # Admin dock token (server-only)
 GCP_PROJECT_ID=
 GCP_CLIENT_EMAIL=
 GCP_PRIVATE_KEY=
-MERCHANT_PRIVATE_KEY=     # mint + scanner
-MERCHANT_ADDRESS=
+MERCHANT_PRIVATE_KEY=     # mint + scanner + facilitator gas
+MERCHANT_ADDRESS=         # EVM merchant (balances + x402); derived from key if omitted
 CONTRACT_ADDRESS=
 RPC_URL=https://mainnet.base.org
 ADMIN_SCANNER_TOKEN=
@@ -20,7 +20,11 @@ ADMIN_SCANNER_TOKEN=
 ```
 OPENDOME_APP_URL=…        # override JWT verify host
 FIRESTORE_ENV=dev|production   # override auto-detect
+MERCHANT_SOLANA_ADDRESS=… # Solana merchant pubkey (Admin SOL + USDC balances)
+RPC_URL_BASE= / RPC_URL_ARB= / RPC_URL_OP= / RPC_URL_MATIC= / RPC_URL_AVAX= / RPC_URL_ETH= / RPC_URL_SOL=
 ```
+
+Admin home shows **Merchant balances** (native + USDC) on Base, Arbitrum, Optimism, Polygon, Avalanche, Ethereum, and Solana when configured.
 
 ## Dev vs prod (auto)
 

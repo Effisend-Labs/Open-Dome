@@ -1,7 +1,11 @@
 import jwt from 'jsonwebtoken';
 import { Wallets } from '../../utilsAPI/passkeyDb';
-import { executeCircleNanoPayment } from '../../utilsAPI/circleTools.js';
+import {
+  executeCircleNanoPayment,
+  executeSolanaUsdcTransfer,
+} from '../../utilsAPI/circleTools.js';
 import { isSolanaAddress } from '../../utilsAPI/cctp/solanaAddress.js';
+import { nodeRequire } from '../../utilsAPI/nodeRequire.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +21,19 @@ export async function OPTIONS() {
 
 function json(body, status = 200) {
   return Response.json(body, { status, headers: CORS });
+}
+
+function pickWalletId(walletData, blockchain) {
+  const ids = walletData.walletIds || {};
+  const key = String(blockchain || 'BASE').toUpperCase();
+  if (ids[key]) return ids[key];
+  if (key === 'BASE' || key === 'ETH') {
+    return ids.BASE || ids.ETH || walletData.evm?.id || null;
+  }
+  if (key === 'SOL' || key === 'SOLANA') {
+    return ids.SOL || ids.SOLANA || walletData.sol?.id || null;
+  }
+  return null;
 }
 
 export async function POST(req) {
@@ -42,9 +59,31 @@ export async function POST(req) {
     if (!amount || !destination) {
       return json({ error: 'amount and destination are required' }, 400);
     }
+
+    const { normalizeUsdcChainKey, getUsdcChain } = nodeRequire('opendome/dist/x402.js');
+    const blockchain = normalizeUsdcChainKey(body.blockchain || body.chain || 'BASE') || 'BASE';
+    const cfg = getUsdcChain(blockchain);
+
     const toSolana = isSolanaAddress(destination);
-    if (!toSolana && !EVM_ADDRESS.test(destination)) {
-      return json({ error: 'destination must be a Base (0x) or Solana address' }, 400);
+    const toEvm = EVM_ADDRESS.test(destination);
+    if (!toSolana && !toEvm) {
+      return json({ error: 'destination must be a 0x or Solana address' }, 400);
+    }
+
+    if (toSolana && blockchain !== 'BASE' && blockchain !== 'SOL') {
+      return json(
+        {
+          error:
+            'Solana destinations require Base (CCTP bridge) or Solana (same-chain) as source',
+        },
+        400,
+      );
+    }
+    if (toEvm && blockchain === 'SOL') {
+      return json({ error: 'Solana USDC can only be sent to a Solana address' }, 400);
+    }
+    if (toSolana && blockchain === 'ETH') {
+      return json({ error: 'Ethereum → Solana bridge is not supported in v1' }, 400);
     }
 
     const walletDoc = await Wallets.doc(decoded.userId).get();
@@ -52,25 +91,28 @@ export async function POST(req) {
       return json({ error: 'No wallet found for user' }, 400);
     }
     const walletData = walletDoc.data() || {};
-    const walletId =
-      walletData.walletIds?.BASE ||
-      walletData.walletIds?.ETH ||
-      walletData.evm?.id;
+    const walletId = pickWalletId(walletData, blockchain);
     if (!walletId) {
-      return json({ error: 'No Base Circle wallet for this user' }, 400);
+      return json({ error: `No Circle wallet for ${cfg.label}` }, 400);
     }
 
-    const result = await executeCircleNanoPayment({
-      amount,
-      destination,
-      walletId,
-    });
+    const result =
+      blockchain === 'SOL'
+        ? await executeSolanaUsdcTransfer({ amount, destination, walletId })
+        : await executeCircleNanoPayment({
+            amount,
+            destination,
+            walletId,
+            blockchain,
+          });
+
     if (result?.error) return json({ error: result.error }, 400);
     return json({
       success: true,
       sponsored: Boolean(result.sponsored),
       bridged: Boolean(result.bridged),
-      chain: result.chain || (toSolana ? 'solana' : 'base'),
+      chain: result.chain || (toSolana ? 'solana' : cfg.key.toLowerCase()),
+      blockchain: result.blockchain || cfg.circleBlockchain,
       txHash: result.txHash || null,
       mintTxHash: result.mintTxHash || null,
       transactionId: result.transactionId || result.txHash || null,

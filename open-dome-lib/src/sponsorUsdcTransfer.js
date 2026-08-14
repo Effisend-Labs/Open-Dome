@@ -3,10 +3,11 @@ import {
   getEip3009TypedData,
   usdcAmountToAtomic,
 } from './eip3009.js';
+import { getUsdcChain } from './usdcChains.js';
 
 /**
  * User signs EIP-3009 TransferWithAuthorization (no gas).
- * Facilitator submits it on Base and pays ETH.
+ * Facilitator submits on the selected L2 and pays native gas.
  */
 export async function sponsorUsdcTransfer({
   from,
@@ -14,6 +15,9 @@ export async function sponsorUsdcTransfer({
   amount,
   signTypedData,
   facilitator,
+  chain = 'BASE',
+  usdc,
+  chainId,
 }) {
   if (!from || !to || amount == null) {
     throw new Error('from, to, and amount are required');
@@ -25,9 +29,21 @@ export async function sponsorUsdcTransfer({
     throw new Error('facilitator.relayTransfer is required');
   }
 
+  const cfg = getUsdcChain(chain);
+  if (!cfg?.sponsored) {
+    throw new Error(`Facilitator sponsorship is not available on ${cfg?.label || chain}`);
+  }
+  const asset = usdc || cfg.usdc;
+  const id = chainId || cfg.chainId;
+
   const value = usdcAmountToAtomic(amount);
   const payload = buildEip3009Payload({ from, to, value });
-  const typedData = getEip3009TypedData(payload, 'TransferWithAuthorization');
+  const typedData = getEip3009TypedData(
+    payload,
+    'TransferWithAuthorization',
+    asset,
+    id,
+  );
   const signature = await signTypedData(typedData);
   if (!signature) {
     throw new Error('No EIP-712 signature returned');
@@ -37,6 +53,8 @@ export async function sponsorUsdcTransfer({
   return {
     success: true,
     sponsored: true,
+    chain: cfg.key.toLowerCase(),
+    blockchain: cfg.circleBlockchain,
     txHash,
     transactionId: txHash,
     from: payload.from,

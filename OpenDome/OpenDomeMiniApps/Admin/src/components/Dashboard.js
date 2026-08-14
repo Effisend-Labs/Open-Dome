@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { adminFetch, setHostJwt } from '../core/adminApi';
 import { getClientRuntimeLabel } from '../core/runtimeLabel';
 import MintPassPicker from '../features/mint/MintPassPicker';
+import MerchantBalancesPanel from '../features/merchant/MerchantBalancesPanel';
 
 const COLORS = {
   bg: '#09090b',
@@ -391,6 +392,8 @@ export default function Dashboard({ currentUser, hostToken }) {
             {currentUser.name} · {currentUser.role} · {isDev ? 'DevUsers' : 'Users'}
           </Text>
         </View>
+
+        <MerchantBalancesPanel />
 
         <View style={s.tiles}>
           {HOME_TILES.map((tile) => (

@@ -21,6 +21,10 @@ function getClient() {
   return _circleClient;
 }
 
+function usdcLib() {
+  return nodeRequire('opendome/dist/x402.js');
+}
+
 async function getOrCreateWalletSet() {
   const client = getClient();
   try {
@@ -60,30 +64,63 @@ export async function createCircleAgentWallet(blockchains) {
   }
 }
 
-async function resolveSourceWallet(client, walletId) {
+async function resolveSourceWallet(client, walletId, blockchain = 'BASE') {
   if (walletId) {
     const res = await client.getWallet({ id: walletId });
     return res.data?.wallet || res.data;
   }
+  const { getUsdcChain } = usdcLib();
+  const cfg = getUsdcChain(blockchain);
   const walletSetId = await getOrCreateWalletSet();
   const walletsRes = await client.listWallets({ walletSetId });
   const wallets = walletsRes.data?.wallets || [];
-  return wallets.find((w) => w.blockchain === 'BASE') || wallets[0] || null;
+  return (
+    wallets.find((w) => w.blockchain === cfg.circleBlockchain) ||
+    wallets.find((w) => w.blockchain === 'BASE') ||
+    wallets[0] ||
+    null
+  );
 }
 
-function isUsdcToken(tokenId) {
-  return !tokenId || tokenId === BASE_USDC_TOKEN_ID;
+async function resolveUsdcTokenId(client, walletId, blockchain) {
+  try {
+    const balRes = await client.getWalletTokenBalance({ id: walletId });
+    const rows = balRes.data?.tokenBalances || balRes.tokenBalances || [];
+    const usdc = rows.find((row) => {
+      const sym = String(row.token?.symbol || '').toUpperCase();
+      const name = String(row.token?.name || '').toUpperCase();
+      return sym === 'USDC' || name.includes('USD COIN');
+    });
+    if (usdc?.token?.id) return usdc.token.id;
+  } catch (err) {
+    console.warn('[Circle] USDC tokenId lookup failed:', err.message);
+  }
+  if (String(blockchain).toUpperCase() === 'BASE') return BASE_USDC_TOKEN_ID;
+  return null;
 }
 
-export async function executeCircleNanoPayment({ amount, destination, tokenId, walletId }) {
+/**
+ * @param {{ amount, destination, tokenId?, walletId?, blockchain? }} args
+ */
+export async function executeCircleNanoPayment({
+  amount,
+  destination,
+  tokenId,
+  walletId,
+  blockchain = 'BASE',
+}) {
   const client = getClient();
   try {
-    const sourceWallet = await resolveSourceWallet(client, walletId);
+    const { getUsdcChain, isSponsoredUsdcChain } = usdcLib();
+    const cfg = getUsdcChain(blockchain);
+    const chainKey = cfg.key;
+    const sourceWallet = await resolveSourceWallet(client, walletId, chainKey);
     if (!sourceWallet?.id) {
-      return { error: 'No agent wallets available.' };
+      return { error: `No Circle wallet available for ${cfg.label}.` };
     }
 
-    if (isSolanaAddress(destination)) {
+    const toSolana = isSolanaAddress(destination);
+    if (toSolana && chainKey === 'BASE') {
       return bridgeUsdcToSolana({
         client,
         walletId: sourceWallet.id,
@@ -91,8 +128,42 @@ export async function executeCircleNanoPayment({ amount, destination, tokenId, w
         amount,
       });
     }
+    if (toSolana && chainKey === 'SOL') {
+      const resolvedTokenId =
+        tokenId || (await resolveUsdcTokenId(client, sourceWallet.id, 'SOL'));
+      if (!resolvedTokenId) {
+        return { error: 'No USDC token balance/id on Solana wallet' };
+      }
+      const response = await client.createTransaction({
+        walletId: sourceWallet.id,
+        tokenId: resolvedTokenId,
+        destinationAddress: destination,
+        amounts: [amount],
+        fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+        idempotencyKey: randomUUID(),
+      });
+      return {
+        success: true,
+        transactionId: response.data?.id || response.data?.transaction?.id,
+        sponsored: false,
+        chain: 'solana',
+        blockchain: 'SOL',
+      };
+    }
+    if (toSolana) {
+      return {
+        error:
+          'Bridge to Solana is only supported from Base USDC. Switch source to Base, or send Solana USDC from the Solana wallet.',
+      };
+    }
+    if (chainKey === 'SOL') {
+      return {
+        error: 'Solana USDC can only be sent to a Solana address',
+      };
+    }
 
-    if (isUsdcToken(tokenId) && process.env.MERCHANT_PRIVATE_KEY) {
+    // Sponsored L2s: EIP-3009 facilitator. Fail closed (no silent gas burn).
+    if (isSponsoredUsdcChain(chainKey) && process.env.MERCHANT_PRIVATE_KEY) {
       const { sponsorUsdcTransferWithCircle } = await import('./sponsorUsdcTransfer.js');
       const sponsored = await sponsorUsdcTransferWithCircle({
         client,
@@ -100,25 +171,80 @@ export async function executeCircleNanoPayment({ amount, destination, tokenId, w
         fromAddress: sourceWallet.address,
         destination,
         amount,
+        blockchain: chainKey,
       });
       if (sponsored?.success) return sponsored;
-      console.warn(
-        '[Circle] facilitator sponsor failed, wallet pays gas:',
-        sponsored?.error,
-      );
+      return {
+        error:
+          sponsored?.error ||
+          `Facilitator sponsorship failed on ${cfg.label}. Try again or fund merchant gas.`,
+      };
+    }
+
+    // Ethereum (and any non-sponsored EVM): user pays gas via Circle createTransaction.
+    const resolvedTokenId =
+      tokenId || (await resolveUsdcTokenId(client, sourceWallet.id, chainKey));
+    if (!resolvedTokenId) {
+      return { error: `Could not resolve USDC token id on ${cfg.label}` };
     }
 
     const response = await client.createTransaction({
       walletId: sourceWallet.id,
-      tokenId: tokenId || BASE_USDC_TOKEN_ID,
+      tokenId: resolvedTokenId,
       destinationAddress: destination,
       amounts: [amount],
       fee: { type: 'level', config: { feeLevel: 'HIGH' } },
       idempotencyKey: randomUUID(),
     });
-    return { success: true, transactionId: response.data.id, sponsored: false };
+    return {
+      success: true,
+      transactionId: response.data?.id || response.data?.transaction?.id,
+      sponsored: false,
+      chain: cfg.key.toLowerCase(),
+      blockchain: cfg.circleBlockchain,
+    };
   } catch (err) {
     console.error('executeCircleNanoPayment error:', err.response?.data || err.message);
+    return { error: err.response?.data?.message || err.message };
+  }
+}
+
+/** Same-chain Solana USDC transfer (user pays SOL). */
+export async function executeSolanaUsdcTransfer({
+  amount,
+  destination,
+  walletId,
+}) {
+  const client = getClient();
+  try {
+    if (!isSolanaAddress(destination)) {
+      return { error: 'destination must be a Solana address' };
+    }
+    const sourceWallet = await resolveSourceWallet(client, walletId, 'SOL');
+    if (!sourceWallet?.id) {
+      return { error: 'No Solana Circle wallet for this user' };
+    }
+    const tokenId = await resolveUsdcTokenId(client, sourceWallet.id, 'SOL');
+    if (!tokenId) {
+      return { error: 'No USDC token balance/id on Solana wallet' };
+    }
+    const response = await client.createTransaction({
+      walletId: sourceWallet.id,
+      tokenId,
+      destinationAddress: destination,
+      amounts: [amount],
+      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+      idempotencyKey: randomUUID(),
+    });
+    return {
+      success: true,
+      transactionId: response.data?.id || response.data?.transaction?.id,
+      sponsored: false,
+      chain: 'solana',
+      blockchain: 'SOL',
+    };
+  } catch (err) {
+    console.error('executeSolanaUsdcTransfer error:', err.response?.data || err.message);
     return { error: err.response?.data?.message || err.message };
   }
 }

@@ -15,6 +15,7 @@ export * from './agentTariff';
 export * from './openAgentPrompt';
 export * from './agentSkills';
 export * from './x402';
+export * from './usdcChains';
 export * from './devBypass';
 export * from './platformMint';
 export * from './explorer';

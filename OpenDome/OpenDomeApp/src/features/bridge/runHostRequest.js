@@ -36,6 +36,7 @@ export async function runHostRequest(payload, token) {
     return hostPost('/api/transfer', token, {
       amount: payload.amount,
       destination: payload.destination,
+      blockchain: payload.blockchain || payload.chain || 'BASE',
     });
   }
 

@@ -190,6 +190,17 @@ Object.keys(_x).forEach(function (key) {
     }
   });
 });
+var _usdcChains = require("./usdcChains");
+Object.keys(_usdcChains).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (key in exports && exports[key] === _usdcChains[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _usdcChains[key];
+    }
+  });
+});
 var _devBypass = require("./devBypass");
 Object.keys(_devBypass).forEach(function (key) {
   if (key === "default" || key === "__esModule") return;

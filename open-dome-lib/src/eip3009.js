@@ -1,6 +1,7 @@
 import crypto from 'crypto';
+import { USDC_BASE, getUsdcChain } from './usdcChains.js';
 
-export const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+export { USDC_BASE } from './usdcChains.js';
 
 function getAddress(value) {
   const addr = String(value || '').trim();
@@ -19,11 +20,15 @@ const AUTH_FIELDS = [
   { name: 'nonce', type: 'bytes32' },
 ];
 
-export function getUsdcDomain(asset = USDC_BASE) {
+/**
+ * @param {string} [asset]
+ * @param {number} [chainId]
+ */
+export function getUsdcDomain(asset = USDC_BASE, chainId = 8453) {
   return {
     name: 'USD Coin',
     version: '2',
-    chainId: 8453,
+    chainId: Number(chainId),
     verifyingContract: asset,
   };
 }
@@ -68,9 +73,29 @@ export function buildEip3009Payload({ from, to, value }) {
   };
 }
 
-export function getEip3009TypedData(payload, primaryType, asset = USDC_BASE) {
+/**
+ * @param {object} payload
+ * @param {string} primaryType
+ * @param {string} [asset]
+ * @param {number|string} [chainOrId] chain key (BASE/ARB/…) or numeric chainId
+ */
+export function getEip3009TypedData(
+  payload,
+  primaryType,
+  asset = USDC_BASE,
+  chainOrId = 8453,
+) {
+  let chainId = 8453;
+  let verifying = asset;
+  if (typeof chainOrId === 'string' && /[A-Za-z]/.test(chainOrId)) {
+    const cfg = getUsdcChain(chainOrId);
+    chainId = cfg.chainId ?? 8453;
+    verifying = asset || cfg.usdc;
+  } else if (chainOrId != null) {
+    chainId = Number(chainOrId);
+  }
   return {
-    domain: getUsdcDomain(asset),
+    domain: getUsdcDomain(verifying, chainId),
     types: getEip3009Types(primaryType),
     primaryType,
     message: payload,
