@@ -2,10 +2,14 @@ import {
   requireBridgeActor,
   resolveMintTargetsFromPasskeyIds,
 } from '../../utilsAPI/adminDb';
-import { mintPassesToAddresses } from '../../utilsAPI/mintService';
+import {
+  mintPassesToAddresses,
+  readAuthToken,
+} from '../../utilsAPI/mintService';
 
 /**
  * GOD-only multi-user batch assign (Admin UI).
+ * Resolves targets locally, mints via OpenDomeApp platform key.
  * Body: { userIds, ticketIds, amounts, network? }
  */
 export async function POST(request) {
@@ -14,10 +18,11 @@ export async function POST(request) {
     if (!actor || actor.type !== 'god-jwt') {
       return Response.json(
         { error: 'Unauthorized — OpenDome JWT for @altaga (god) required' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
+    const authToken = readAuthToken(request);
     const { userIds, ticketIds, amounts, network } = await request.json();
     if (!userIds?.length || !ticketIds?.length || !amounts?.length) {
       return Response.json({ error: 'Invalid payload' }, { status: 400 });
@@ -32,12 +37,13 @@ export async function POST(request) {
       targets,
       ticketIds,
       amounts,
-      network || 'base'
+      network || 'base',
+      authToken,
     );
 
     return Response.json({
       success: true,
-      message: `Assigned tickets to ${targets.length} users`,
+      message: `Assigned tickets to ${targets.length} users via OpenDomeApp`,
       results,
     });
   } catch (err) {

@@ -1,33 +1,34 @@
 import { mintPassesAsPlatform } from 'opendome/dist/platformMint.js';
 import { assignTicketsAsPlatform } from '../../utilsAPI/ticketsDb.js';
+import { verifyStaffFromRequest } from '../../utilsAPI/staffAuth.js';
 
 /**
- * Platform mint — signs with MERCHANT_PRIVATE_KEY and assigns tickets.
+ * Platform mint — OpenDomeApp holds MERCHANT_PRIVATE_KEY.
+ * Auth: @altaga god JWT (Admin mini-app) OR ADMIN_SCANNER_TOKEN (hotfix/service).
  */
 export async function POST(request) {
   try {
-    const authHeader =
-      request.headers.get('Authorization') ||
-      request.headers.get('authorization') ||
-      '';
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-    const scannerToken = process.env.ADMIN_SCANNER_TOKEN;
-
-    if (!token) {
+    const actor = await verifyStaffFromRequest(request);
+    const allowed =
+      actor?.role === 'god' || actor?.type === 'scanner-token';
+    if (!allowed) {
       return Response.json(
-        { message: 'Authorization required — GOD JWT or ADMIN_SCANNER_TOKEN' },
+        {
+          error:
+            'Unauthorized — OpenDome god JWT (@altaga) or ADMIN_SCANNER_TOKEN required',
+          message:
+            'Unauthorized — OpenDome god JWT (@altaga) or ADMIN_SCANNER_TOKEN required',
+        },
         { status: 401 },
       );
     }
 
-    const isService = token === scannerToken;
-    if (!isService && token.length < 20) {
-      return Response.json({ message: 'Unauthorized mint access' }, { status: 401 });
-    }
-
     if (!process.env.MERCHANT_PRIVATE_KEY) {
       return Response.json(
-        { message: 'Merchant wallet not configured on OpenDomeApp' },
+        {
+          error: 'Merchant wallet not configured on OpenDomeApp',
+          message: 'Merchant wallet not configured on OpenDomeApp',
+        },
         { status: 500 },
       );
     }
@@ -43,11 +44,16 @@ export async function POST(request) {
       contractAddress: body.contractAddress,
     });
 
-    await assignTicketsAsPlatform(result.to, result.ids, result.amounts);
+    await assignTicketsAsPlatform(result.to, result.ids, result.amounts, {
+      mintTxHash: result.txHash,
+      paymentTxHash: body.paymentTxHash || null,
+      assignedBy: actor.type === 'scanner-token' ? 'hotfix' : 'admin',
+    });
 
     return Response.json({
       ...result,
       message: 'Platform minted and assigned tickets',
+      signedBy: 'opendomeapp',
     });
   } catch (err) {
     const status = err.status || 500;

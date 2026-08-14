@@ -1,16 +1,19 @@
 /**
- * Platform-signed ERC-1155 mint (Sandbox / OpenDomeApp).
- * Ticket assignment lives in each host's utilsAPI/ticketsDb.js
- * (platform writes Firestore itself — Admin is hotfix-only).
+ * Platform-signed ERC-1155 mint (OpenDomeApp).
+ * Ticket assignment lives in the host's utilsAPI/ticketsDb.js.
+ * Admin mini-app proxies here with god JWT — it does not hold the merchant key.
  */
 
-const RPC_URLS = {
-  base: 'https://mainnet.base.org',
-  arbitrum: 'https://arb1.arbitrum.io/rpc',
-  optimism: 'https://mainnet.optimism.io',
-  mainnet: 'https://eth.llamarpc.com',
-  polygon: 'https://polygon-rpc.com',
-  avalanche: 'https://api.avax.network/ext/bc/C/rpc',
+import { resolveUsdcRpcUrl } from './usdcChains.js';
+
+const LEGACY_RPC = {
+  base: 'BASE',
+  arbitrum: 'ARB',
+  optimism: 'OP',
+  mainnet: 'ETH',
+  ethereum: 'ETH',
+  polygon: 'MATIC',
+  avalanche: 'AVAX',
 };
 
 const MINT_ABI = [
@@ -64,7 +67,11 @@ export async function mintPassesAsPlatform({
   });
 
   const chain = String(network || 'base').toLowerCase();
-  const rpc = rpcUrl || process.env.RPC_URL || RPC_URLS[chain];
+  const chainKey = LEGACY_RPC[chain] || chain.toUpperCase();
+  const rpc =
+    rpcUrl ||
+    process.env.RPC_URL ||
+    resolveUsdcRpcUrl(chainKey === 'ETH' ? 'ETH' : chainKey);
   if (!rpc) {
     throw Object.assign(new Error(`Unsupported network: ${chain}`), { status: 400 });
   }

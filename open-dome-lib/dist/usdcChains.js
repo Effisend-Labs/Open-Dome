@@ -11,6 +11,7 @@ exports.listSendUsdcChains = listSendUsdcChains;
 exports.listX402PaymentChains = listX402PaymentChains;
 exports.normalizeUsdcChainKey = normalizeUsdcChainKey;
 exports.resolveUsdcRpcUrl = resolveUsdcRpcUrl;
+exports.resolveUsdcRpcUrls = resolveUsdcRpcUrls;
 exports.resolveX402PaymentNetwork = resolveX402PaymentNetwork;
 exports.x402NetworkCaip = x402NetworkCaip;
 /**
@@ -19,8 +20,9 @@ exports.x402NetworkCaip = x402NetworkCaip;
  * Ethereum uses Circle createTransaction (user pays gas) — not offered for x402.
  * Solana x402 settles via Circle USDC transfer (user pays SOL fees).
  *
- * Merchant MERCHANT_PRIVATE_KEY must hold native gas on each sponsored L2
- * (ETH on Base/Arb/OP, POL on Polygon, AVAX on Avalanche).
+ * RPC curation follows EffisendTDC: ordered public `rpcs[]` per chain.
+ * Optional env RPC_URL_* prepends as highest priority (see resolveUsdcRpcUrls).
+ * EVM: use setupUsdcFallbackProvider from rpcProviders.js.
  */
 
 /** OpenAgent / x402 source networks (no Ethereum — mainnet gas is too expensive). */
@@ -51,6 +53,7 @@ const SOLANA_USDC_MINT = exports.SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybap
  *   usdc: string,
  *   rpcEnv: string,
  *   defaultRpc: string,
+ *   rpcs: string[],
  *   sponsored: boolean,
  *   viemKey: string | null,
  *   gasToken: string,
@@ -64,7 +67,9 @@ const USDC_CHAINS = exports.USDC_CHAINS = {
     chainId: 8453,
     usdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
     rpcEnv: 'RPC_URL_BASE',
-    defaultRpc: 'https://mainnet.base.org',
+    defaultRpc: 'https://base-rpc.publicnode.com',
+    // Curated from EffisendTDC (llamarpc disabled — flaky / CF).
+    rpcs: ['https://base-rpc.publicnode.com', 'https://developer-access-mainnet.base.org', 'https://mainnet.base.org', 'https://base.drpc.org', 'https://base.gateway.tenderly.co', 'https://1rpc.io/base', 'https://base-mainnet.public.blastapi.io'],
     sponsored: true,
     viemKey: 'base',
     gasToken: 'ETH'
@@ -76,7 +81,8 @@ const USDC_CHAINS = exports.USDC_CHAINS = {
     chainId: 42161,
     usdc: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
     rpcEnv: 'RPC_URL_ARB',
-    defaultRpc: 'https://arb1.arbitrum.io/rpc',
+    defaultRpc: 'https://arbitrum-one-rpc.publicnode.com',
+    rpcs: ['https://arbitrum-one-rpc.publicnode.com', 'https://arbitrum.drpc.org', 'https://arb1.arbitrum.io/rpc', 'https://arbitrum-one.public.blastapi.io', 'https://arbitrum.public.blockpi.network/v1/rpc/public', 'https://arbitrum.gateway.tenderly.co', 'https://arbitrum-one-public.nodies.app', 'https://arbitrum-one.rpc.sentio.xyz', 'https://arb-one.api.pocket.network'],
     sponsored: true,
     viemKey: 'arbitrum',
     gasToken: 'ETH'
@@ -88,7 +94,8 @@ const USDC_CHAINS = exports.USDC_CHAINS = {
     chainId: 10,
     usdc: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
     rpcEnv: 'RPC_URL_OP',
-    defaultRpc: 'https://mainnet.optimism.io',
+    defaultRpc: 'https://optimism-rpc.publicnode.com',
+    rpcs: ['https://optimism-rpc.publicnode.com', 'https://mainnet.optimism.io', 'https://optimism.drpc.org', 'https://1rpc.io/op', 'https://optimism-mainnet.public.blastapi.io', 'https://optimism.gateway.tenderly.co'],
     sponsored: true,
     viemKey: 'optimism',
     gasToken: 'ETH'
@@ -100,7 +107,9 @@ const USDC_CHAINS = exports.USDC_CHAINS = {
     chainId: 137,
     usdc: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',
     rpcEnv: 'RPC_URL_MATIC',
-    defaultRpc: 'https://polygon-rpc.com',
+    defaultRpc: 'https://polygon-bor-rpc.publicnode.com',
+    // Avoid polygon-rpc.com (tenant/API key failures).
+    rpcs: ['https://polygon-bor-rpc.publicnode.com', 'https://polygon.drpc.org', 'https://1rpc.io/matic', 'https://polygon-mainnet.public.blastapi.io', 'https://polygon.gateway.tenderly.co', 'https://rpc-mainnet.matic.quiknode.pro'],
     sponsored: true,
     viemKey: 'polygon',
     gasToken: 'POL'
@@ -112,7 +121,8 @@ const USDC_CHAINS = exports.USDC_CHAINS = {
     chainId: 43114,
     usdc: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
     rpcEnv: 'RPC_URL_AVAX',
-    defaultRpc: 'https://api.avax.network/ext/bc/C/rpc',
+    defaultRpc: 'https://avalanche-c-chain-rpc.publicnode.com',
+    rpcs: ['https://avalanche-c-chain-rpc.publicnode.com', 'https://api.avax.network/ext/bc/C/rpc', 'https://avalanche.drpc.org', 'https://1rpc.io/avax/c', 'https://ava-mainnet.public.blastapi.io/ext/bc/C/rpc'],
     sponsored: true,
     viemKey: 'avalanche',
     gasToken: 'AVAX'
@@ -124,7 +134,9 @@ const USDC_CHAINS = exports.USDC_CHAINS = {
     chainId: 1,
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     rpcEnv: 'RPC_URL_ETH',
-    defaultRpc: 'https://eth.llamarpc.com',
+    defaultRpc: 'https://ethereum-rpc.publicnode.com',
+    // Avoid eth.llamarpc.com (Cloudflare challenge).
+    rpcs: ['https://ethereum-rpc.publicnode.com', 'https://ethereum.publicnode.com', 'https://1rpc.io/eth', 'https://eth.drpc.org', 'https://rpc.ankr.com/eth', 'https://eth-mainnet.public.blastapi.io'],
     sponsored: false,
     viemKey: 'mainnet',
     gasToken: 'ETH'
@@ -137,6 +149,8 @@ const USDC_CHAINS = exports.USDC_CHAINS = {
     usdc: SOLANA_USDC_MINT,
     rpcEnv: 'RPC_URL_SOL',
     defaultRpc: 'https://public.rpc.solanavibestation.com',
+    // Curated from EffisendTDC Solana list + publicnode.
+    rpcs: ['https://public.rpc.solanavibestation.com', 'https://solana-rpc.publicnode.com', 'https://solana.api.pocket.network', 'https://solana.rpc.laine.co', 'https://api.mainnet-beta.solana.com'],
     sponsored: false,
     viemKey: null,
     gasToken: 'SOL'
@@ -156,11 +170,31 @@ function getUsdcChain(raw = 'BASE') {
 function listSendUsdcChains() {
   return Object.values(USDC_CHAINS);
 }
-function resolveUsdcRpcUrl(chain, env = process.env) {
+
+/**
+ * Ordered RPC URLs: optional env override first, then curated list.
+ * Dedupes while preserving priority (Effisend-style list + OpenDome env inject).
+ */
+function resolveUsdcRpcUrls(chain, env = process.env) {
   const cfg = typeof chain === 'string' ? getUsdcChain(chain) : chain;
-  if (!cfg) return USDC_CHAINS.BASE.defaultRpc;
+  if (!cfg) return [...USDC_CHAINS.BASE.rpcs];
   const fromEnv = env?.[cfg.rpcEnv] || (cfg.key === 'BASE' ? env?.RPC_URL : null);
-  return fromEnv || cfg.defaultRpc;
+  const curated = Array.isArray(cfg.rpcs) && cfg.rpcs.length ? cfg.rpcs : [cfg.defaultRpc].filter(Boolean);
+  const urls = [];
+  const seen = new Set();
+  for (const url of [fromEnv, ...curated].filter(Boolean)) {
+    const u = String(url).trim();
+    if (!u || seen.has(u)) continue;
+    seen.add(u);
+    urls.push(u);
+  }
+  return urls.length ? urls : [cfg.defaultRpc].filter(Boolean);
+}
+
+/** First RPC only — prefer resolveUsdcRpcUrls / setupUsdcFallbackProvider. */
+function resolveUsdcRpcUrl(chain, env = process.env) {
+  const urls = resolveUsdcRpcUrls(chain, env);
+  return urls[0] || USDC_CHAINS.BASE.defaultRpc;
 }
 function isSponsoredUsdcChain(raw) {
   return Boolean(getUsdcChain(raw)?.sponsored);

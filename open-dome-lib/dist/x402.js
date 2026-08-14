@@ -94,10 +94,28 @@ Object.defineProperty(exports, "resolveUsdcRpcUrl", {
     return _usdcChains.resolveUsdcRpcUrl;
   }
 });
+Object.defineProperty(exports, "resolveUsdcRpcUrls", {
+  enumerable: true,
+  get: function () {
+    return _usdcChains.resolveUsdcRpcUrls;
+  }
+});
 Object.defineProperty(exports, "resolveX402PaymentNetwork", {
   enumerable: true,
   get: function () {
     return _usdcChains.resolveX402PaymentNetwork;
+  }
+});
+Object.defineProperty(exports, "setupUsdcFallbackProvider", {
+  enumerable: true,
+  get: function () {
+    return _rpcProviders.setupUsdcFallbackProvider;
+  }
+});
+Object.defineProperty(exports, "solanaRpcWithFallback", {
+  enumerable: true,
+  get: function () {
+    return _rpcProviders.solanaRpcWithFallback;
   }
 });
 Object.defineProperty(exports, "sponsorUsdcTransfer", {
@@ -137,6 +155,7 @@ var _eip = require("./eip3009.js");
 var _usdcChains = require("./usdcChains.js");
 var _x402Challenge = require("./x402Challenge.js");
 var _sponsorUsdcTransfer = require("./sponsorUsdcTransfer.js");
+var _rpcProviders = require("./rpcProviders.js");
 function _interopRequireWildcard(e, t) { if ("function" == typeof WeakMap) var r = new WeakMap(), n = new WeakMap(); return (_interopRequireWildcard = function (e, t) { if (!t && e && e.__esModule) return e; var o, i, f = { __proto__: null, default: e }; if (null === e || "object" != typeof e && "function" != typeof e) return f; if (o = t ? n : r) { if (o.has(e)) return o.get(e); o.set(e, f); } for (const t in e) "default" !== t && {}.hasOwnProperty.call(e, t) && ((i = (o = Object.defineProperty) && Object.getOwnPropertyDescriptor(e, t)) && (i.get || i.set) ? o(f, t, i) : f[t] = e[t]); return f; })(e, t); }
 function resolveViemChain(cfg) {
   if (!cfg?.viemKey) return viemChains.base;

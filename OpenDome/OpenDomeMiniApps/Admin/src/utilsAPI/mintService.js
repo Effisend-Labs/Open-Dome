@@ -1,46 +1,9 @@
 /**
- * On-chain ERC-1155 mint core.
- * Call from API routes (GOD JWT) or later from other server functions directly.
+ * Admin mint client — does NOT hold MERCHANT_PRIVATE_KEY.
+ * Forwards to OpenDomeApp /api/mint with the caller's god JWT (or scanner token for hotfix).
  */
 
-import { addTickets } from './adminDb';
-import { loadEthers } from './loadEthers';
-
-const RPC_URLS = {
-  base: 'https://mainnet.base.org',
-  arbitrum: 'https://arb1.arbitrum.io/rpc',
-  optimism: 'https://mainnet.optimism.io',
-  mainnet: 'https://eth.llamarpc.com',
-  polygon: 'https://polygon-rpc.com',
-  avalanche: 'https://api.avax.network/ext/bc/C/rpc',
-};
-
-const MINT_ABI = [
-  'function mint(address to, uint256 id, uint256 amount, bytes data) external',
-  'function mintBatch(address to, uint256[] ids, uint256[] amounts, bytes data) external',
-];
-
-function resolveRpc(network) {
-  const chain = String(network || 'base').toLowerCase();
-  const rpcUrl = process.env.RPC_URL || RPC_URLS[chain];
-  if (!rpcUrl) {
-    const err = new Error(`Unsupported network: ${chain}`);
-    err.status = 400;
-    throw err;
-  }
-  return { chain, rpcUrl };
-}
-
-function requireMerchantConfig(contractAddress) {
-  const merchantKey = process.env.MERCHANT_PRIVATE_KEY;
-  const address = contractAddress || process.env.CONTRACT_ADDRESS;
-  if (!merchantKey || !address) {
-    const err = new Error('MERCHANT_PRIVATE_KEY and CONTRACT_ADDRESS are required');
-    err.status = 500;
-    throw err;
-  }
-  return { merchantKey, address };
-}
+import { getOpenDomeAppUrl } from './runtimeEnv';
 
 function normalizeIdsAmounts({ ids, amounts, tokenId, amount }) {
   const resolvedIds =
@@ -67,13 +30,25 @@ function normalizeIdsAmounts({ ids, amounts, tokenId, amount }) {
   return { ids: resolvedIds, amounts: resolvedAmounts };
 }
 
+export function readAuthToken(request) {
+  const auth =
+    request.headers.get('Authorization') ||
+    request.headers.get('authorization') ||
+    '';
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  if (match) return match[1].trim();
+  const alt =
+    request.headers.get('x-opendome-jwt') ||
+    request.headers.get('X-OpenDome-Jwt') ||
+    '';
+  return alt.trim() || null;
+}
+
 /**
- * Mint pass(es) to a single EVM address (single id or ERC-1155 mintBatch).
- * Safe to call from other Admin server modules without HTTP.
- *
- * @returns {{ success: true, txHash: string, contractAddress: string, to: string, ids: any[], amounts: any[], network: string }}
+ * Mint via OpenDomeApp platform merchant key.
  */
 export async function mintPassesToAddress({
+  authToken,
   to,
   ids,
   amounts,
@@ -81,12 +56,18 @@ export async function mintPassesToAddress({
   amount,
   network = 'base',
   contractAddress,
-  recordTickets = true,
   paymentTxHash = null,
 } = {}) {
   if (!to) {
     const err = new Error('to (recipient address) is required');
     err.status = 400;
+    throw err;
+  }
+  if (!authToken) {
+    const err = new Error(
+      'Host JWT required — Admin mints through OpenDomeApp, not a local merchant key',
+    );
+    err.status = 401;
     throw err;
   }
 
@@ -96,41 +77,43 @@ export async function mintPassesToAddress({
     tokenId,
     amount,
   });
-  const { chain, rpcUrl } = resolveRpc(network);
-  const { merchantKey, address } = requireMerchantConfig(contractAddress);
 
-  const ethers = loadEthers();
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const wallet = new ethers.Wallet(merchantKey, provider);
-  const contract = new ethers.Contract(address, MINT_ABI, wallet);
-
-  let tx;
-  if (resolvedIds.length === 1) {
-    tx = await contract.mint(to, resolvedIds[0], resolvedAmounts[0], '0x');
-  } else {
-    tx = await contract.mintBatch(to, resolvedIds, resolvedAmounts, '0x');
-  }
-  const receipt = await tx.wait();
-
-  let explorer = null;
-  if (recordTickets) {
-    ({ explorer } = await addTickets(to, resolvedIds, resolvedAmounts, {
-      mintTxHash: receipt.hash,
+  const base = getOpenDomeAppUrl();
+  const res = await fetch(`${base}/api/mint`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({
+      to,
+      ids: resolvedIds,
+      amounts: resolvedAmounts,
+      network: network || 'base',
+      contractAddress,
       paymentTxHash,
-      contractAddress: address,
-      assignedBy: 'admin',
-    }));
+    }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(
+      data.error || data.message || `OpenDomeApp mint failed (${res.status})`,
+    );
+    err.status = res.status >= 400 ? res.status : 500;
+    throw err;
   }
 
   return {
     success: true,
-    txHash: receipt.hash,
-    contractAddress: address,
-    to,
-    ids: resolvedIds,
-    amounts: resolvedAmounts,
-    network: chain,
-    explorer,
+    txHash: data.txHash,
+    contractAddress: data.contractAddress,
+    to: data.to || to,
+    ids: data.ids || resolvedIds,
+    amounts: data.amounts || resolvedAmounts,
+    network: data.network || String(network || 'base').toLowerCase(),
+    explorer: data.explorer || null,
+    signedBy: data.signedBy || 'opendomeapp',
   };
 }
 
@@ -138,7 +121,13 @@ export async function mintPassesToAddress({
  * Mint the same ticket set to many recipients (Admin batch assign).
  * Stops on first failure.
  */
-export async function mintPassesToAddresses(targets, ticketIds, amounts, network = 'base') {
+export async function mintPassesToAddresses(
+  targets,
+  ticketIds,
+  amounts,
+  network = 'base',
+  authToken,
+) {
   if (!targets?.length) {
     const err = new Error('No mint targets');
     err.status = 400;
@@ -149,15 +138,22 @@ export async function mintPassesToAddresses(targets, ticketIds, amounts, network
     err.status = 400;
     throw err;
   }
+  if (!authToken) {
+    const err = new Error(
+      'Host JWT required — Admin mints through OpenDomeApp, not a local merchant key',
+    );
+    err.status = 401;
+    throw err;
+  }
 
   const results = [];
   for (const target of targets) {
     const minted = await mintPassesToAddress({
+      authToken,
       to: target.address,
       ids: ticketIds,
       amounts,
       network,
-      recordTickets: true,
     });
     results.push({
       userId: target.passkeyUserId || target.userId || null,

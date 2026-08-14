@@ -1,19 +1,18 @@
-import { mintPassesToAddress } from '../../utilsAPI/mintService';
+import {
+  mintPassesToAddress,
+  readAuthToken,
+} from '../../utilsAPI/mintService';
 
 const SERVICE_TOKEN = process.env.ADMIN_SCANNER_TOKEN;
 
 function authorizeService(request) {
-  const authHeader =
-    request.headers.get('Authorization') ||
-    request.headers.get('authorization') ||
-    '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  return token && token === SERVICE_TOKEN;
+  const token = readAuthToken(request);
+  return Boolean(token && SERVICE_TOKEN && token === SERVICE_TOKEN);
 }
 
 /**
  * Admin HOTFIX only — recover when agent payment succeeded but platform mint/assign failed.
- * Happy-path agent checkout does NOT call this (Sandbox/App mint + assign themselves).
+ * Proxies to OpenDomeApp /api/mint with ADMIN_SCANNER_TOKEN (no local merchant key).
  *
  * Auth: Bearer ADMIN_SCANNER_TOKEN
  * Body: { mode?: 'hotfix', to, ids, amounts, ... }
@@ -24,6 +23,7 @@ export async function POST(request) {
       return Response.json({ error: 'Unauthorized service token' }, { status: 401 });
     }
 
+    const authToken = readAuthToken(request);
     const body = await request.json();
     const {
       to,
@@ -33,7 +33,6 @@ export async function POST(request) {
       orderId,
       paymentTxHash,
       quoteId,
-      mintTxHash,
     } = body;
 
     if (!to) {
@@ -53,24 +52,24 @@ export async function POST(request) {
 
     const resolvedAmounts = amounts || ids.map(() => 1);
 
-    console.warn('[Admin fulfill] HOTFIX — Admin signing recovery mint');
+    console.warn('[Admin fulfill] HOTFIX — proxy mint to OpenDomeApp');
     const result = await mintPassesToAddress({
+      authToken,
       to,
       ids,
       amounts: resolvedAmounts,
       network: network || 'base',
-      recordTickets: true,
       paymentTxHash,
     });
 
     return Response.json({
       ...result,
       mode: 'hotfix',
-      signedBy: 'admin',
+      signedBy: result.signedBy || 'opendomeapp',
       orderId,
       paymentTxHash,
       quoteId,
-      message: 'Hotfix: passes minted and indexed by Admin',
+      message: 'Hotfix: passes minted via OpenDomeApp',
     });
   } catch (err) {
     const status = err.status || 500;

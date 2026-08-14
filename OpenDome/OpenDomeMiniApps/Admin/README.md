@@ -1,5 +1,12 @@
 # Admin (Server Bridge) — GOD mini-app (@altaga only)
 
+## Auth model
+
+1. `@altaga` signs in on **OpenDomeApp** (passkey).
+2. Host injects the user JWT into the Admin mini-app.
+3. Admin APIs verify that JWT via OpenDomeApp `POST /api/verify` (god only).
+4. **Minting** is proxied to OpenDomeApp `POST /api/mint` — the merchant private key lives only on OpenDomeApp.
+
 ## Required env
 
 ```
@@ -8,33 +15,33 @@ OD_APP_TOKEN=…            # Admin dock token (server-only)
 GCP_PROJECT_ID=
 GCP_CLIENT_EMAIL=
 GCP_PRIVATE_KEY=
-MERCHANT_PRIVATE_KEY=     # mint + scanner + facilitator gas
-MERCHANT_ADDRESS=         # EVM merchant (balances + x402); derived from key if omitted
-CONTRACT_ADDRESS=
-RPC_URL=https://mainnet.base.org
-ADMIN_SCANNER_TOKEN=
+MERCHANT_ADDRESS=         # public EVM address (balances UI)
+ADMIN_SCANNER_TOKEN=      # shared with OpenDomeApp for hotfix mint + hardware scanner
 ```
 
 ## Optional
 
 ```
-OPENDOME_APP_URL=…        # override JWT verify host
-FIRESTORE_ENV=dev|production   # override auto-detect
-MERCHANT_SOLANA_ADDRESS=…      # Solana merchant pubkey (Admin SOL + USDC balances)
-MERCHANT_SOLANA_PRIVATE_KEY=… # base58 secret (gitignored .env only; same wallet as address)
-RPC_URL_BASE= / RPC_URL_ARB= / RPC_URL_OP= / RPC_URL_MATIC= / RPC_URL_AVAX= / RPC_URL_ETH= / RPC_URL_SOL=
+OPENDOME_APP_URL=…              # default: localhost:8082 (dev) / https://app.opendome.xyz (prod)
+FIRESTORE_ENV=dev|production
+MERCHANT_SOLANA_ADDRESS=…       # public Solana pubkey (balances UI)
+MERCHANT_PRIVATE_KEY=…          # ONLY for Admin /api/scanner burn (legacy). Not used for mint.
+CONTRACT_ADDRESS=               # scanner burn fallback
+RPC_URL= / RPC_URL_BASE= / …    # optional RPC overrides (curated fallbacks in opendome)
 ```
 
-Admin home shows **Merchant balances** (native + USDC) on Base, Arbitrum, Optimism, Polygon, Avalanche, Ethereum, and Solana when configured.
+**Mint does not use Admin’s merchant key.** Admin forwards the god JWT to OpenDomeApp; OpenDomeApp signs with its `MERCHANT_PRIVATE_KEY`.
+
+**Balances are read-only** — `MERCHANT_ADDRESS` / `MERCHANT_SOLANA_ADDRESS` only.
+
+**RPCs** follow EffisendTDC: curated `rpcs[]` + ethers `FallbackProvider` / Solana sequential failover.
 
 ## Dev vs prod (auto)
 
-| Signal | Mode | Firestore | Verify host |
+| Signal | Mode | Firestore | Verify / mint host |
 |---|---|---|---|
 | Local (`npm run web`) | **DEV** | `DevAdminUsers`, `DevUsers`, … | `http://localhost:8082` |
 | Vercel / `*.opendome.xyz` | **PROD** | `AdminUsers`, `Users`, … | `https://app.opendome.xyz` |
-
-UI shows a **DEV** / **PROD** badge. No Circle / JWT_SECRET / password envs.
 
 ## Local
 
@@ -47,4 +54,4 @@ npm run web   # port 8090
 ## Deploy
 
 Vercel root: `OpenDome/OpenDomeMiniApps/Admin` · domain `admin.opendome.xyz`  
-OpenDomeApp: `ADMIN_BRIDGE_URL=https://admin.opendome.xyz`
+OpenDomeApp must have `MERCHANT_PRIVATE_KEY` + matching `ADMIN_SCANNER_TOKEN` for mint/hotfix.

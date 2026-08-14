@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { adminFetch, setHostJwt } from '../core/adminApi';
 import { getClientRuntimeLabel } from '../core/runtimeLabel';
 import MintPanel from '../features/mint/MintPanel';
-import MerchantBalancesPanel from '../features/merchant/MerchantBalancesPanel';
+import MerchantBalancesScreen from '../features/merchant/MerchantBalancesScreen';
 
 const COLORS = {
   bg: '#09090b',
@@ -32,6 +32,12 @@ const COLORS = {
 const ROLE_OPTIONS = ['USER', 'ADMIN', 'SCANNER'];
 
 const HOME_TILES = [
+  {
+    id: 'balances',
+    title: 'Balances',
+    subtitle: 'Merchant gas + USDC across L2s, Ethereum, and Solana',
+    icon: 'wallet-outline',
+  },
   {
     id: 'users',
     title: 'Users',
@@ -393,8 +399,6 @@ export default function Dashboard({ currentUser, hostToken }) {
           </Text>
         </View>
 
-        <MerchantBalancesPanel />
-
         <View style={s.tiles}>
           {HOME_TILES.map((tile) => (
             <TouchableOpacity
@@ -415,6 +419,22 @@ export default function Dashboard({ currentUser, hostToken }) {
           ))}
         </View>
       </ScrollView>
+    );
+  }
+
+  if (screen === 'balances') {
+    return (
+      <View style={s.root}>
+        <View style={s.listChrome}>
+          <ScreenHeader
+            title="Balances"
+            onBack={goHome}
+            runtimeLabel={runtimeLabel}
+            isDev={isDev}
+          />
+        </View>
+        <MerchantBalancesScreen />
+      </View>
     );
   }
 

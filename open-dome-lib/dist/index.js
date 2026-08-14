@@ -201,6 +201,17 @@ Object.keys(_usdcChains).forEach(function (key) {
     }
   });
 });
+var _rpcProviders = require("./rpcProviders");
+Object.keys(_rpcProviders).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (key in exports && exports[key] === _rpcProviders[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function () {
+      return _rpcProviders[key];
+    }
+  });
+});
 var _devBypass = require("./devBypass");
 Object.keys(_devBypass).forEach(function (key) {
   if (key === "default" || key === "__esModule") return;

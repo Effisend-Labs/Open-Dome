@@ -1,12 +1,19 @@
 /**
  * Merchant wallet balances across USDC-compatible chains (EVM L1/L2 + Solana).
- * Used by Admin home so ops can spot low gas / USDC before facilitator fails.
+ *
+ * Balance reads are public — only MERCHANT_ADDRESS / MERCHANT_SOLANA_ADDRESS
+ * are required. MERCHANT_PRIVATE_KEY is optional here (address derivation
+ * fallback only). The private key is for mint + facilitator signing, not reads.
+ *
+ * RPCs: Effisend-style curated lists + ethers FallbackProvider / Solana sequential.
  */
 
 import {
   listSendUsdcChains,
-  resolveUsdcRpcUrl,
+  resolveUsdcRpcUrls,
   SOLANA_USDC_MINT,
+  setupUsdcFallbackProvider,
+  solanaRpcWithFallback,
 } from 'opendome';
 import { loadEthers } from './loadEthers';
 import { normalizePrivateKey } from './adminDb';
@@ -29,6 +36,28 @@ const LOW_USDC = 1;
 function strip(value) {
   if (value == null) return '';
   return String(value).trim().replace(/^['"]|['"]$/g, '');
+}
+
+/** Short ops-friendly RPC error (no Cloudflare HTML / ethers coalesce dumps). */
+export function summarizeRpcError(err) {
+  const raw = String(err?.shortMessage || err?.message || err || 'RPC failed');
+  if (/no backend is currently healthy/i.test(raw)) {
+    return 'RPC temporarily unhealthy — retry or set RPC_URL_*';
+  }
+  if (/API key disabled|tenant disabled|-32051/i.test(raw)) {
+    return 'Public RPC rejected request — set RPC_URL_* for this chain';
+  }
+  if (/Just a moment|cloudflare|403 Forbidden/i.test(raw)) {
+    return 'RPC blocked (Cloudflare) — set RPC_URL_* to a provider URL';
+  }
+  if (/401 Unauthorized/i.test(raw)) {
+    return 'RPC unauthorized — set a working RPC_URL_* for this chain';
+  }
+  if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|fetch failed|All .* RPCs failed/i.test(raw)) {
+    return 'All curated RPCs failed — set RPC_URL_* or retry';
+  }
+  const oneLine = raw.replace(/\s+/g, ' ').trim();
+  return oneLine.length > 140 ? `${oneLine.slice(0, 137)}…` : oneLine;
 }
 
 export function resolveMerchantEvmAddress(ethers) {
@@ -65,8 +94,7 @@ function formatUnits(raw, decimals) {
 }
 
 async function fetchEvmBalances(ethers, chain, address) {
-  const rpcUrl = resolveUsdcRpcUrl(chain);
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const provider = setupUsdcFallbackProvider(ethers, chain);
   const usdc = new ethers.Contract(chain.usdc, ERC20_ABI, provider);
 
   const [nativeWei, usdcRaw, decimals] = await Promise.all([
@@ -101,32 +129,11 @@ async function fetchEvmBalances(ethers, chain, address) {
   };
 }
 
-async function solanaRpc(rpcUrl, method, params) {
-  const res = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method,
-      params,
-    }),
-  });
-  if (!res.ok) {
-    throw new Error(`Solana RPC HTTP ${res.status}`);
-  }
-  const body = await res.json();
-  if (body.error) {
-    throw new Error(body.error.message || 'Solana RPC error');
-  }
-  return body.result;
-}
-
 async function fetchSolanaBalances(chain, address) {
-  const rpcUrl = resolveUsdcRpcUrl(chain);
+  const urls = resolveUsdcRpcUrls(chain);
   const [balanceRes, tokenRes] = await Promise.all([
-    solanaRpc(rpcUrl, 'getBalance', [address]),
-    solanaRpc(rpcUrl, 'getTokenAccountsByOwner', [
+    solanaRpcWithFallback(urls, 'getBalance', [address]),
+    solanaRpcWithFallback(urls, 'getTokenAccountsByOwner', [
       address,
       { mint: SOLANA_USDC_MINT },
       { encoding: 'jsonParsed' },
@@ -193,7 +200,8 @@ export async function getMerchantBalances() {
               address: null,
               native: null,
               usdc: null,
-              error: 'Set MERCHANT_SOLANA_ADDRESS to show Solana balances',
+              error:
+                'Set MERCHANT_SOLANA_ADDRESS (public pubkey) to show Solana balances',
             };
           }
           return await fetchSolanaBalances(chain, solanaAddress);
@@ -207,7 +215,7 @@ export async function getMerchantBalances() {
             address: null,
             native: null,
             usdc: null,
-            error: 'Set MERCHANT_ADDRESS or MERCHANT_PRIVATE_KEY',
+            error: 'Set MERCHANT_ADDRESS (0x…) to show EVM balances',
           };
         }
         return await fetchEvmBalances(ethers, chain, evmAddress);
@@ -220,13 +228,12 @@ export async function getMerchantBalances() {
           address: chain.key === 'SOL' ? solanaAddress : evmAddress,
           native: null,
           usdc: null,
-          error: err?.message || 'Failed to fetch balances',
+          error: summarizeRpcError(err),
         };
       }
     }),
   );
 
-  // Sponsored L2s first (facilitator gas), then ETH, then SOL
   const order = { BASE: 0, ARB: 1, OP: 2, MATIC: 3, AVAX: 4, ETH: 5, SOL: 6 };
   results.sort((a, b) => (order[a.key] ?? 99) - (order[b.key] ?? 99));
 

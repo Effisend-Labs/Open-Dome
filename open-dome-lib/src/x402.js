@@ -29,12 +29,17 @@ export {
   normalizeUsdcChainKey,
   isSponsoredUsdcChain,
   resolveUsdcRpcUrl,
+  resolveUsdcRpcUrls,
   resolveX402PaymentNetwork,
   x402NetworkCaip,
   explorerTxUrl,
   X402_PAYMENT_CHAIN_KEYS,
   SOLANA_USDC_MINT,
 } from './usdcChains.js';
+export {
+  setupUsdcFallbackProvider,
+  solanaRpcWithFallback,
+} from './rpcProviders.js';
 
 function resolveViemChain(cfg) {
   if (!cfg?.viemKey) return viemChains.base;

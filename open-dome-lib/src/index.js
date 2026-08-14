@@ -16,6 +16,7 @@ export * from './openAgentPrompt';
 export * from './agentSkills';
 export * from './x402';
 export * from './usdcChains';
+export * from './rpcProviders';
 export * from './devBypass';
 export * from './platformMint';
 export * from './explorer';
