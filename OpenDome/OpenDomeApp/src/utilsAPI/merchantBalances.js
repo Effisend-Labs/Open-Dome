@@ -1,25 +1,24 @@
 /**
  * Merchant wallet balances across USDC-compatible chains (EVM L1/L2 + Solana).
- *
- * Balance reads are public — only MERCHANT_ADDRESS / MERCHANT_SOLANA_ADDRESS
- * are required. Mint/signing keys live on OpenDomeApp, not Admin.
+ * Runs on OpenDomeApp only — uses MERCHANT_ADDRESS / MERCHANT_SOLANA_ADDRESS.
  */
 
 import {
   listSendUsdcChains,
   resolveUsdcRpcUrls,
   SOLANA_USDC_MINT,
+} from 'opendome/dist/usdcChains.js';
+import {
   setupUsdcFallbackProvider,
   solanaRpcWithFallback,
-} from 'opendome';
-import { loadEthers } from './loadEthers';
+} from 'opendome/dist/rpcProviders.js';
+import { nodeRequire } from './nodeRequire';
 
 const ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
   'function decimals() view returns (uint8)',
 ];
 
-/** Native gas below this → warn (ops attention). Units are whole tokens. */
 const LOW_NATIVE = {
   ETH: 0.002,
   POL: 0.5,
@@ -34,7 +33,10 @@ function strip(value) {
   return String(value).trim().replace(/^['"]|['"]$/g, '');
 }
 
-/** Short ops-friendly RPC error (no Cloudflare HTML / ethers coalesce dumps). */
+function loadEthers() {
+  return nodeRequire('ethers');
+}
+
 export function summarizeRpcError(err) {
   const raw = String(err?.shortMessage || err?.message || err || 'RPC failed');
   if (/no backend is currently healthy/i.test(raw)) {
@@ -163,14 +165,6 @@ async function fetchSolanaBalances(chain, address) {
   };
 }
 
-/**
- * @returns {Promise<{
- *   evmAddress: string | null,
- *   solanaAddress: string | null,
- *   chains: object[],
- *   fetchedAt: string,
- * }>}
- */
 export async function getMerchantBalances() {
   const ethers = loadEthers();
   const evmAddress = resolveMerchantEvmAddress(ethers);

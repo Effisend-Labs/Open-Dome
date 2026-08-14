@@ -153,6 +153,10 @@ credential.json
 # Local cursor: last commit SHA reviewed for credential leaks (never commit)
 creds.log
 
+# Local agent inventory dumps (not part of the package)
+open-dome-lib/_fn_inventory.json
+open-dome-lib/_exports.json
+
 # App-local scripts (tests, smoke, sweeps — often hold keys). Keep CI bump helpers.
 OpenDome/**/scripts/**
 !OpenDome/**/scripts/update-packages.js

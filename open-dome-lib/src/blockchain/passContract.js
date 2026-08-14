@@ -8,7 +8,7 @@ export const OPENDOME_PASS_NETWORK = 'base';
 export const OPENDOME_PASS_CHAIN_ID = 8453;
 
 /** Default Server Bridge (Admin local). Override via EVMAdapter options or env. */
-export const DEFAULT_BRIDGE_URL = 'http://localhost:8090';
+export const DEFAULT_BRIDGE_URL = 'http://localhost:8082';
 
 export const OPENDOME_PASS_ABI = [
   'function mint(address to, uint256 id, uint256 amount, bytes data) external',

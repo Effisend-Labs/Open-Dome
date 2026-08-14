@@ -8,10 +8,6 @@ import {
   pushRecentScan,
 } from '../history/recentScans';
 
-const DEFAULT_CONTRACT =
-  process.env.EXPO_PUBLIC_CONTRACT_ADDRESS ||
-  '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
-
 function clampBurnAmount(pass, amount) {
   const max = Math.max(1, Math.floor(Number(pass?.amount) || 1));
   const n = Math.floor(Number(amount));
@@ -29,9 +25,24 @@ export default function useGuestLookup() {
   const [passes, setPasses] = useState([]);
   const [recent, setRecent] = useState([]);
   const [stats, setStats] = useState({ lookups: 0, used: 0 });
+  const [passContractAddress, setPassContractAddress] = useState(null);
 
   useEffect(() => {
     loadRecentScans().then(setRecent);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Host.platformConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        const addr = cfg?.passContractAddress || cfg?.contractAddress || null;
+        if (addr) setPassContractAddress(addr);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const parsed = useMemo(() => parseScanQuery(query), [query]);
@@ -107,9 +118,15 @@ export default function useGuestLookup() {
       setError('');
       setFlash('');
       try {
+        const contractAddress =
+          pass.contractAddress || passContractAddress || null;
+        if (!contractAddress) {
+          setError('Pass contract not loaded from host yet — retry');
+          return false;
+        }
         const data = await Host.scanPass({
           network: 'base',
-          contractAddress: pass.contractAddress || DEFAULT_CONTRACT,
+          contractAddress,
           tokenId: pass.tokenId,
           amount: burnAmount,
           account: profile.evmAddress,
@@ -141,7 +158,7 @@ export default function useGuestLookup() {
         setUsingId(null);
       }
     },
-    [profile, query],
+    [profile, query, passContractAddress],
   );
 
   const pasteClipboard = useCallback(async () => {

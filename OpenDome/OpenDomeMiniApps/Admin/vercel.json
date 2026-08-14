@@ -1,11 +1,11 @@
 {
-  "installCommand": "npm install --legacy-peer-deps && node api/pack-vendor.js && cd ../../../open-dome-lib && npm install --legacy-peer-deps",
+  "installCommand": "npm install --legacy-peer-deps && cd ../../../open-dome-lib && npm install --legacy-peer-deps",
   "buildCommand": "npm run build --prefix ../../../open-dome-lib && npm run build",
   "outputDirectory": "dist/client",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/OpenDome/OpenDomeMiniApps/Admin :/open-dome-lib 2>/dev/null || exit 1",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{dist/server/**,api/vendor/**}",
+      "includeFiles": "dist/server/**",
       "maxDuration": 30
     }
   },

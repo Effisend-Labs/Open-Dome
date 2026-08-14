@@ -1,27 +1,28 @@
+import { verifyStaffFromRequest } from '../../utilsAPI/staffAuth';
 import {
-  requireBridgeActor,
-  isGodRole,
   canAssignRole,
+  isGodRole,
+} from '../../utilsAPI/roles';
+import {
   searchPasskeyUsers,
   bulkUpdatePasskeyRoles,
   deletePasskeyUser,
-} from '../../utilsAPI/adminDb';
-import { getRuntimeLabel, firestoreCollection } from '../../utilsAPI/runtimeEnv';
+  usersListMeta,
+} from '../../utilsAPI/adminUsers';
 
-async function requireGodJwt(request) {
-  const actor = await requireBridgeActor(request);
-  if (!actor || actor.type !== 'god-jwt') return null;
+async function requireGod(request) {
+  const actor = await verifyStaffFromRequest(request);
+  if (!actor || actor.role !== 'god') return null;
   return actor;
 }
 
 /**
- * List onboarded passkey users for current runtime.
- * ?scope=mint includes GOD (for batch mint targets).
- * Optional ?q= filters after fetch.
+ * List onboarded passkey users.
+ * ?scope=mint includes GOD (batch mint targets). Optional ?q=
  */
 export async function GET(request) {
   try {
-    const actor = await requireGodJwt(request);
+    const actor = await requireGod(request);
     if (!actor) {
       return Response.json(
         { error: 'Unauthorized — OpenDome JWT for @altaga (god) required' },
@@ -42,31 +43,23 @@ export async function GET(request) {
     return Response.json({
       users,
       total: users.length,
-      collection: firestoreCollection('Users'),
-      env: getRuntimeLabel(),
-      scope,
+      ...usersListMeta(scope),
     });
   } catch (e) {
-    console.error('[Admin /api/users GET]', e);
+    console.error('[App /api/users GET]', e);
     return Response.json(
-      {
-        error:
-          e.message ||
-          'Failed to load users — check Admin GCP credentials and Firestore packing',
-      },
+      { error: e.message || 'Failed to load users' },
       { status: 500 },
     );
   }
 }
 
 /**
- * Bulk role update:
- *   { updates: [{ id, role }, ...] }
- * or single: { id, role }
+ * Bulk role update: { updates: [{ id, role }, ...] } or { id, role }
  */
 export async function PUT(request) {
   try {
-    const actor = await requireGodJwt(request);
+    const actor = await requireGod(request);
     if (!actor) {
       return Response.json(
         { error: 'Unauthorized — OpenDome JWT for @altaga (god) required' },
@@ -101,7 +94,7 @@ export async function PUT(request) {
     const results = await bulkUpdatePasskeyRoles(updates, 'GOD');
     return Response.json({ success: true, results });
   } catch (e) {
-    console.error('[Admin /api/users PUT]', e);
+    console.error('[App /api/users PUT]', e);
     return Response.json({ error: e.message }, { status: e.status || 500 });
   }
 }
@@ -109,7 +102,7 @@ export async function PUT(request) {
 /** Delete onboarded passkey user: ?id= */
 export async function DELETE(request) {
   try {
-    const actor = await requireGodJwt(request);
+    const actor = await requireGod(request);
     if (!actor) {
       return Response.json(
         { error: 'Unauthorized — OpenDome JWT for @altaga (god) required' },
@@ -124,7 +117,7 @@ export async function DELETE(request) {
     await deletePasskeyUser(id, 'GOD');
     return Response.json({ success: true });
   } catch (e) {
-    console.error('[Admin /api/users DELETE]', e);
+    console.error('[App /api/users DELETE]', e);
     return Response.json({ error: e.message }, { status: e.status || 500 });
   }
 }

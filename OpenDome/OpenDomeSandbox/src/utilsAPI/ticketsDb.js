@@ -124,3 +124,50 @@ export async function assignTicketsAsPlatform(to, ticketIds, amounts, meta = {})
     explorer,
   };
 }
+
+export async function getTicketsByAddress(address) {
+  if (!address) return [];
+  const owner = String(address).toLowerCase();
+  const firestore = getDb();
+  const snap = await firestore
+    .collection(ticketsCollectionName())
+    .where('address', '==', owner)
+    .get();
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+/**
+ * Decrement indexed pass units after an on-chain scanPass.
+ */
+export async function consumeTickets(address, tokenId, amount) {
+  const burn = Math.floor(Number(amount));
+  if (!address || tokenId == null || !Number.isFinite(burn) || burn < 1) {
+    return { updated: 0 };
+  }
+
+  const firestore = getDb();
+  const col = firestore.collection(ticketsCollectionName());
+  const rows = (await getTicketsByAddress(address))
+    .filter((row) => String(row.ticketId) === String(tokenId))
+    .sort((a, b) => (a.assignedAt || 0) - (b.assignedAt || 0));
+
+  let remaining = burn;
+  const batch = firestore.batch();
+  let updated = 0;
+
+  for (const row of rows) {
+    if (remaining <= 0) break;
+    const current = Math.max(0, Math.floor(Number(row.amount) || 0));
+    if (current <= 0) continue;
+    const take = Math.min(current, remaining);
+    const next = current - take;
+    const ref = col.doc(row.id);
+    if (next <= 0) batch.delete(ref);
+    else batch.update(ref, { amount: next, lastScannedAt: Date.now() });
+    remaining -= take;
+    updated += 1;
+  }
+
+  if (updated) await batch.commit();
+  return { updated, leftover: remaining };
+}

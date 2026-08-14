@@ -73,7 +73,23 @@ graph TD
 
 ---
 
-## 🛠️ Testing & Configuration
+## Host bridge (mini-apps)
+
+Sandbox relays `OPENDOME_HOST_REQUEST` via `runHostRequest` to same-origin APIs:
+
+| Action | API |
+|--------|-----|
+| `scanLookup` / `scanPass` | `/api/scan-lookup`, `/api/scan-pass` |
+| `transfer` / `listNfts` | `/api/transfer`, `/api/nfts` |
+| `listUsers` / `updateUsers` / `deleteUser` | `/api/users` (god) |
+| `assign` | `/api/assign` (god) |
+| `merchantBalances` | `/api/merchant-balances` (god) |
+| `platformConfig` | `/api/platform-config` (public) |
+
+Mint: god JWT **or** `ADMIN_SCANNER_TOKEN` → `POST /api/mint`.  
+Hotfix after checkout fails: same `/api/mint` with scanner token (not Admin fulfill).
+
+See `.env.example` for host secrets. Mini-apps only need `EXPO_PUBLIC_OD_SKIP_AUTH`, `EXPO_PUBLIC_OD_APP_ID`, `OD_APP_TOKEN`.
 
 ### Context Injection
 Modify the **Context Variables** to test how your app reacts to different environments:

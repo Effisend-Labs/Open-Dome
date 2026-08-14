@@ -2,7 +2,17 @@
 
 Venue verifier mini-app for **SCANNER**, **ADMIN**, and **GOD** (`@altaga`).
 
-UI only. Talk to the host through `opendome` (`useOpenDome`, `Host.scanLookup`, `Host.scanPass`). No host URLs, no CORS.
+UI only. Talk to the host through `opendome` (`useOpenDome`, `Host.scanLookup`, `Host.scanPass`, `Host.platformConfig`). No host URLs, no CORS, no contract/merchant env.
+
+## Required env (only)
+
+```
+EXPO_PUBLIC_OD_SKIP_AUTH=false
+EXPO_PUBLIC_OD_APP_ID=…
+OD_APP_TOKEN=…
+```
+
+Pass contract and other public facts come from `Host.platformConfig()` on OpenDomeApp.
 
 ## Local
 

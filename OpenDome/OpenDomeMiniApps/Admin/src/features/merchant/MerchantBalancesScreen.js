@@ -10,7 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { adminFetch } from '../../core/adminApi';
+import { Host } from 'opendome';
 
 const COLORS = {
   bg: '#09090b',
@@ -194,9 +194,7 @@ export default function MerchantBalancesScreen() {
     else setLoading(true);
     setError('');
     try {
-      const res = await adminFetch('/api/merchant-balances');
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      const body = await Host.merchantBalances();
       setData(body);
       // Expand first chain with a low flag or error by default
       const first = (body.chains || []).find(
@@ -260,12 +258,12 @@ export default function MerchantBalancesScreen() {
         {data?.evmAddress ? (
           <Text style={s.addrLine}>EVM · {shortAddr(data.evmAddress)}</Text>
         ) : (
-          <Text style={s.addrLine}>EVM · set MERCHANT_ADDRESS</Text>
+          <Text style={s.addrLine}>EVM · not configured on host</Text>
         )}
         {data?.solanaAddress ? (
           <Text style={s.addrLine}>SOL · {shortAddr(data.solanaAddress)}</Text>
         ) : (
-          <Text style={s.addrLine}>SOL · set MERCHANT_SOLANA_ADDRESS</Text>
+          <Text style={s.addrLine}>SOL · not configured on host</Text>
         )}
       </View>
 

@@ -1,119 +1,64 @@
-import { ethers } from 'ethers';
-
-const MERCHANT_PRIVATE_KEY = process.env.MERCHANT_PRIVATE_KEY;
-const VALID_ADMIN_TOKEN = process.env.ADMIN_SCANNER_TOKEN;
-const DEFAULT_CONTRACT =
-  process.env.CONTRACT_ADDRESS ||
-  '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
-
-const RPC_URLS = {
-  base: process.env.RPC_URL || 'https://mainnet.base.org',
-  arbitrum: 'https://arb1.arbitrum.io/rpc',
-  optimism: 'https://mainnet.optimism.io',
-};
-
-const MINT_ABI = [
-  'function mint(address to, uint256 id, uint256 amount, bytes data) external',
-  'function mintBatch(address to, uint256[] ids, uint256[] amounts, bytes data) external',
-];
+import { mintPassesAsPlatform } from 'opendome/dist/platformMint.js';
+import { assignTicketsAsPlatform } from '../../utilsAPI/ticketsDb.js';
+import { verifyStaffFromRequest } from '../../utilsAPI/staffAuth.js';
 
 /**
- * Sandbox mint bridge for OpenDomeERC1155Pass.
- * POST { to, ids|tokenId, amounts|amount, network?, contractAddress? }
- * Authorization: Bearer ADMIN_SCANNER_TOKEN
+ * Platform mint — Sandbox holds MERCHANT_PRIVATE_KEY.
+ * Auth: @altaga god JWT OR ADMIN_SCANNER_TOKEN (hotfix/service).
  */
-export async function POST(req) {
+export async function POST(request) {
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || authHeader !== `Bearer ${VALID_ADMIN_TOKEN}`) {
-      return Response.json({ message: 'Unauthorized mint access' }, { status: 401 });
-    }
-
-    if (!MERCHANT_PRIVATE_KEY) {
+    const actor = await verifyStaffFromRequest(request);
+    const allowed =
+      actor?.role === 'god' || actor?.type === 'scanner-token';
+    if (!allowed) {
       return Response.json(
-        { message: 'Merchant wallet not configured on sandbox' },
-        { status: 500 }
+        {
+          error:
+            'Unauthorized — OpenDome god JWT (@altaga) or ADMIN_SCANNER_TOKEN required',
+          message:
+            'Unauthorized — OpenDome god JWT (@altaga) or ADMIN_SCANNER_TOKEN required',
+        },
+        { status: 401 },
       );
     }
 
-    const body = await req.json();
-    const {
-      to,
-      ids: rawIds,
-      amounts: rawAmounts,
-      tokenId,
-      amount,
-      network = 'base',
-      contractAddress,
-    } = body;
-
-    if (!to) {
-      return Response.json({ message: 'to (recipient address) is required' }, { status: 400 });
-    }
-
-    const ids =
-      Array.isArray(rawIds) && rawIds.length
-        ? rawIds
-        : tokenId != null
-          ? [tokenId]
-          : null;
-    const amounts =
-      Array.isArray(rawAmounts) && rawAmounts.length
-        ? rawAmounts
-        : [amount != null ? amount : 1];
-
-    if (!ids?.length) {
+    if (!process.env.MERCHANT_PRIVATE_KEY) {
       return Response.json(
-        { message: 'ids or tokenId is required' },
-        { status: 400 }
-      );
-    }
-    if (ids.length !== amounts.length) {
-      return Response.json(
-        { message: 'ids and amounts length mismatch' },
-        { status: 400 }
+        {
+          error: 'Merchant wallet not configured on OpenDomeSandbox',
+          message: 'Merchant wallet not configured on OpenDomeSandbox',
+        },
+        { status: 500 },
       );
     }
 
-    const chain = String(network).toLowerCase();
-    const rpcUrl = RPC_URLS[chain];
-    if (!rpcUrl) {
-      return Response.json({ message: `Unsupported network: ${network}` }, { status: 400 });
-    }
+    const body = await request.json();
+    const result = await mintPassesAsPlatform({
+      to: body.to,
+      ids: body.ids,
+      amounts: body.amounts,
+      tokenId: body.tokenId,
+      amount: body.amount,
+      network: body.network || 'base',
+      contractAddress: body.contractAddress,
+    });
 
-    const address = contractAddress || DEFAULT_CONTRACT;
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const wallet = new ethers.Wallet(MERCHANT_PRIVATE_KEY, provider);
-    const contract = new ethers.Contract(address, MINT_ABI, wallet);
-
-    let tx;
-    if (ids.length === 1) {
-      tx = await contract.mint(to, ids[0], amounts[0], '0x');
-    } else {
-      tx = await contract.mintBatch(to, ids, amounts, '0x');
-    }
-    const receipt = await tx.wait();
-
-    try {
-      const { assignTicketsAsPlatform } = await import('../../utilsAPI/ticketsDb.js');
-      await assignTicketsAsPlatform(to, ids, amounts);
-    } catch (indexErr) {
-      console.warn('[Sandbox Mint API] Ticket assign failed:', indexErr.message);
-    }
+    await assignTicketsAsPlatform(result.to, result.ids, result.amounts, {
+      mintTxHash: result.txHash,
+      paymentTxHash: body.paymentTxHash || null,
+      assignedBy: actor.type === 'scanner-token' ? 'hotfix' : 'admin',
+    });
 
     return Response.json({
-      success: true,
-      txHash: receipt.hash,
-      contractAddress: address,
-      to,
-      ids,
-      amounts,
-      signedBy: 'platform',
+      ...result,
       message: 'Platform minted and assigned tickets',
+      signedBy: 'opendomesandbox',
     });
-  } catch (error) {
-    console.error('[Sandbox Mint API]', error);
-    const errorMsg = error.reason || error.data?.message || error.message;
-    return Response.json({ message: errorMsg }, { status: 500 });
+  } catch (err) {
+    const status = err.status || 500;
+    const message = err.reason || err.data?.message || err.message;
+    console.error('[Sandbox mint]', message);
+    return Response.json({ error: message, message }, { status });
   }
 }

@@ -1,42 +1,22 @@
-# Admin (Server Bridge) — GOD mini-app (@altaga only)
+# Admin — thin Host bridge UI (@altaga via OpenDomeApp godOnly store)
 
-## Auth model
+## Model
 
-1. `@altaga` signs in on **OpenDomeApp** (passkey).
-2. Host injects the user JWT into the Admin mini-app.
-3. Admin APIs verify that JWT via OpenDomeApp `POST /api/verify` (god only).
-4. **Minting** proxies to OpenDomeApp `POST /api/mint` (merchant key only on OpenDomeApp).
-5. **Scanner burns** go through OpenDomeApp `Host.scanPass` (not Admin).
+1. Sign in on **OpenDomeApp**.
+2. Host docks this mini-app and injects the user session over the bridge.
+3. Admin UI calls `Host.listUsers` / `updateUsers` / `deleteUser` / `assign` / `merchantBalances`.
+4. **OpenDomeApp** verifies JWT + god role and runs mint / Firestore / balances.
+5. This mini-app never holds GCP, merchant keys, or scanner tokens.
 
-## Required env
+## Required env (only)
 
 ```
+EXPO_PUBLIC_OD_SKIP_AUTH=false
 EXPO_PUBLIC_OD_APP_ID=…
 OD_APP_TOKEN=…
-GCP_PROJECT_ID=
-GCP_CLIENT_EMAIL=
-GCP_PRIVATE_KEY=
-MERCHANT_ADDRESS=              # public EVM address (balances)
-MERCHANT_SOLANA_ADDRESS=       # public Solana pubkey (balances)
-ADMIN_SCANNER_TOKEN=           # shared with OpenDomeApp for hotfix mint only
 ```
 
-## Optional
-
-```
-OPENDOME_APP_URL=…             # default localhost:8082 / https://app.opendome.xyz
-FIRESTORE_ENV=dev|production
-RPC_URL_BASE= / RPC_URL_*=…    # optional RPC overrides (curated fallbacks in opendome)
-```
-
-**Do not put on Admin:** `MERCHANT_PRIVATE_KEY`, `MERCHANT_SOLANA_PRIVATE_KEY`, `CONTRACT_ADDRESS` — those belong on OpenDomeApp (mint + scan).
-
-## Dev vs prod (auto)
-
-| Signal | Mode | Firestore | Verify / mint host |
-|---|---|---|---|
-| Local (`npm run web`) | **DEV** | `Dev*` collections | `http://localhost:8082` |
-| Vercel / `*.opendome.xyz` | **PROD** | prod collections | `https://app.opendome.xyz` |
+All platform secrets live on **OpenDomeApp** (`GCP_*`, `MERCHANT_*`, `JWT_SECRET`, `ADMIN_SCANNER_TOKEN`, `RPC_URL_*`, …).
 
 ## Local
 
@@ -46,7 +26,8 @@ npm install --legacy-peer-deps
 npm run web   # port 8090
 ```
 
+Open from the host store while signed in as @altaga.
+
 ## Deploy
 
-Vercel root: `OpenDome/OpenDomeMiniApps/Admin` · domain `admin.opendome.xyz`  
-OpenDomeApp must have `MERCHANT_PRIVATE_KEY` + matching `ADMIN_SCANNER_TOKEN`.
+Vercel root: `OpenDome/OpenDomeMiniApps/Admin` · domain `admin.opendome.xyz`

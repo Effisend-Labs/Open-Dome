@@ -14,9 +14,7 @@
     "@expo/metro-runtime": "^57.0.8",
     "@expo/server": "^0.7.5",
     "@expo/vector-icons": "15.1.1",
-    "@google-cloud/firestore": "^8.7.0",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "ethers": "^6.17.0",
     "expo": "57.0.9",
     "expo-constants": "57.0.8",
     "expo-linking": "57.0.4",
@@ -38,7 +36,6 @@
     "react": "$react",
     "react-dom": "$react-dom",
     "react-native-worklets": "$react-native-worklets",
-    "typescript": "$typescript",
-    "eslint": "$eslint"
+    "react-native-worklets-core": "$react-native-worklets-core"
   }
 }

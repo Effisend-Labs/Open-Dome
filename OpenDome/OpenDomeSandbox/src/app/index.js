@@ -4,6 +4,7 @@ import { startRegistration, startAuthentication } from '@simplewebauthn/browser'
 import SmartProvider from '../components/SmartProvider';
 import EventBoard from '../components/EventBoard';
 import LogoO from '../assets/logoopen.png';
+import { runHostRequest } from '../features/bridge/runHostRequest';
 
 const verifyTokenOnServer = async (token) => {
   console.log(`[Open-Dome Sandbox Frontend] Calling Server API to verify token...`);
@@ -723,47 +724,7 @@ export default function App() {
         const { id, payload: hostPayload } = event.data;
         const action = hostPayload?.action;
         addLog(`[BRIDGE] Host request: ${action || 'unknown'}`);
-        const headers = {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${verifiedTokenRef.current}`,
-        };
-        const path =
-          action === 'scanLookup'
-            ? '/api/scan-lookup'
-            : action === 'scanPass'
-              ? '/api/scan-pass'
-              : action === 'transfer'
-                ? '/api/transfer'
-                : action === 'listNfts'
-                  ? '/api/nfts'
-                  : null;
-        if (!path) {
-          event.source.postMessage({
-            type: 'OPENDOME_HOST_RESPONSE',
-            id,
-            error: `Unknown host action: ${action}`,
-          }, event.origin);
-          return;
-        }
-        const body =
-          action === 'scanLookup'
-            ? { query: hostPayload.query }
-            : action === 'transfer' || action === 'listNfts'
-              ? { amount: hostPayload.amount, destination: hostPayload.destination }
-              : {
-                  action: hostPayload.scanAction || 'scanPass',
-                  network: hostPayload.network || 'base',
-                  contractAddress: hostPayload.contractAddress,
-                  tokenId: hostPayload.tokenId,
-                  amount: hostPayload.amount,
-                  account: hostPayload.account,
-                };
-        fetch(path, { method: 'POST', headers, body: JSON.stringify(body) })
-          .then(async (res) => {
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.error || data.message || 'Host request failed');
-            return data;
-          })
+        runHostRequest(hostPayload, verifiedTokenRef.current)
           .then((response) => {
             event.source.postMessage({
               type: 'OPENDOME_HOST_RESPONSE',

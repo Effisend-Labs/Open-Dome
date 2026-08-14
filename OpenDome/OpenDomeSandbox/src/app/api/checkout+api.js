@@ -92,7 +92,7 @@ export async function POST(req) {
         console.error('[Checkout API] Platform mint/assign failed:', mintErr.message);
         return Response.json(
           {
-            error: `Payment succeeded but platform ticket assignment failed: ${mintErr.message}. Use Admin /api/fulfill hotfix to recover.`,
+            error: `Payment succeeded but platform ticket assignment failed: ${mintErr.message}. Retry via Sandbox POST /api/mint with ADMIN_SCANNER_TOKEN.`,
             paymentTxHash,
             orderId,
           },

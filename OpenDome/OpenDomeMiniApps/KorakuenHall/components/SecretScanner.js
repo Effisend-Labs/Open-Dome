@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useOpenDome } from 'opendome';
+import { useOpenDome, Host } from 'opendome';
 import { Ionicons } from '@expo/vector-icons';
 
 const ADMIN_PASSWORD = "OpenDomeX402";
-const DEFAULT_CONTRACT =
-  process.env.EXPO_PUBLIC_CONTRACT_ADDRESS ||
-  '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
 
 export default function SecretScanner({ tokens }) {
   const { blockchain } = useOpenDome();
@@ -18,7 +15,7 @@ export default function SecretScanner({ tokens }) {
 
   // Scanner State
   const [network, setNetwork] = useState('base');
-  const [contractAddress, setContractAddress] = useState(DEFAULT_CONTRACT);
+  const [contractAddress, setContractAddress] = useState('');
   const [tokenId, setTokenId] = useState('');
   const [isReusable, setIsReusable] = useState(false);
   const [consumeAmount, setConsumeAmount] = useState(1);
@@ -30,6 +27,20 @@ export default function SecretScanner({ tokens }) {
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Host.platformConfig()
+      .then((cfg) => {
+        if (cancelled) return;
+        const addr = cfg?.passContractAddress || cfg?.contractAddress || '';
+        if (addr) setContractAddress(addr);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const checkAuth = async () => {

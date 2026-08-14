@@ -1,8 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useOpenDome, OpenDomeLockScreen } from 'opendome';
 import Dashboard from '../components/Dashboard';
-import { setHostJwt } from '../core/adminApi';
 
 const COLORS = {
   bg: '#09090b',
@@ -17,20 +16,14 @@ function normalizeUsername(name) {
     .replace(/^@/, '');
 }
 
-function isAltaga(user) {
-  return normalizeUsername(user?.username) === 'altaga';
-}
-
+/**
+ * Thin UI shell — no JWT/role verification here.
+ * Host dock + OpenDomeApp APIs enforce god permission; failures surface in UI.
+ */
 export default function Home() {
   const { isAuthorized, isLocked, token, user, loading } = useOpenDome({
     blockchain: false,
   });
-
-  if (token) setHostJwt(token);
-
-  useEffect(() => {
-    setHostJwt(token || null);
-  }, [token]);
 
   if (loading) {
     return (
@@ -50,18 +43,7 @@ export default function Home() {
       <View style={s.center}>
         <Text style={s.title}>Admin locked</Text>
         <Text style={s.muted}>
-          Sign in to OpenDome as @altaga, then open this mini-app from the host.
-        </Text>
-      </View>
-    );
-  }
-
-  if (!isAltaga(user)) {
-    return (
-      <View style={s.center}>
-        <Text style={s.title}>Access denied</Text>
-        <Text style={s.muted}>
-          This mini-app is only available to @altaga (god).
+          Open this mini-app from OpenDome after signing in. Permission is checked on the host.
         </Text>
       </View>
     );
@@ -69,10 +51,11 @@ export default function Home() {
 
   return (
     <Dashboard
-      hostToken={token}
       currentUser={{
-        name: `@${normalizeUsername(user.username)}`,
-        role: 'GOD',
+        name: user.username
+          ? `@${normalizeUsername(user.username)}`
+          : 'OpenDome user',
+        role: String(user.role || 'user').toUpperCase(),
         evmAddress: user.evmAddress,
       }}
     />

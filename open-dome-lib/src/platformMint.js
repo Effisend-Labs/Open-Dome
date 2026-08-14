@@ -107,7 +107,8 @@ export async function mintPassesAsPlatform({
 }
 
 /**
- * Admin hotfix only — recover when platform mint/assign failed after payment.
+ * Hotfix mint via OpenDomeApp — recover when platform mint/assign failed after payment.
+ * `bridgeUrl` should be the OpenDomeApp origin (default localhost:8082).
  */
 export async function hotfixMintViaAdmin({
   bridgeUrl,
@@ -117,15 +118,14 @@ export async function hotfixMintViaAdmin({
   paymentTxHash,
   orderId,
 }) {
-  const base = String(bridgeUrl || 'http://localhost:8090').replace(/\/$/, '');
-  const res = await fetch(`${base}/api/fulfill`, {
+  const base = String(bridgeUrl || 'http://localhost:8082').replace(/\/$/, '');
+  const res = await fetch(`${base}/api/mint`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${serviceToken}`,
     },
     body: JSON.stringify({
-      mode: 'hotfix',
       to,
       ids: quote.tokenIds,
       amounts: quote.amounts,
@@ -137,7 +137,7 @@ export async function hotfixMintViaAdmin({
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error || data.message || `Hotfix fulfill failed (${res.status})`);
+    throw new Error(data.error || data.message || `Hotfix mint failed (${res.status})`);
   }
   return data;
 }

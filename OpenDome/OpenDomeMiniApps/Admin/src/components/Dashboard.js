@@ -12,7 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { adminFetch, setHostJwt } from '../core/adminApi';
+import { Host } from 'opendome';
 import { getClientRuntimeLabel } from '../core/runtimeLabel';
 import MintPanel from '../features/mint/MintPanel';
 import MerchantBalancesScreen from '../features/merchant/MerchantBalancesScreen';
@@ -101,7 +101,7 @@ function parseUsersPayload(data) {
   };
 }
 
-export default function Dashboard({ currentUser, hostToken }) {
+export default function Dashboard({ currentUser }) {
   const runtimeLabel = getClientRuntimeLabel();
   const isDev = runtimeLabel === 'DEV';
   const collectionHint = isDev ? 'DevUsers' : 'Users';
@@ -123,34 +123,22 @@ export default function Dashboard({ currentUser, hostToken }) {
   const [isAssigning, setIsAssigning] = useState(false);
   const [status, setStatus] = useState('');
 
-  useEffect(() => {
-    if (hostToken) setHostJwt(hostToken);
-  }, [hostToken]);
-
-  const fetchUsers = useCallback(
-    async () => {
-      if (hostToken) setHostJwt(hostToken);
-      setLoadingUsers(true);
-      setLoadError('');
-      try {
-        const scope = screen === 'mint' ? 'mint' : 'roles';
-        const res = await adminFetch(`/api/users?scope=${scope}`, { token: hostToken });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data.error || `Failed to load users (${res.status})`);
-        }
-        const parsed = parseUsersPayload(data);
-        setUsers(parsed.users);
-        if (parsed.collection) setCollectionName(parsed.collection);
-      } catch (e) {
-        setUsers([]);
-        setLoadError(e.message || 'Failed to load users');
-      } finally {
-        setLoadingUsers(false);
-      }
-    },
-    [hostToken, screen],
-  );
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    setLoadError('');
+    try {
+      const scope = screen === 'mint' ? 'mint' : 'roles';
+      const data = await Host.listUsers({ scope });
+      const parsed = parseUsersPayload(data);
+      setUsers(parsed.users);
+      if (parsed.collection) setCollectionName(parsed.collection);
+    } catch (e) {
+      setUsers([]);
+      setLoadError(e.message || 'Failed to load users');
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [screen]);
 
   useEffect(() => {
     if (screen === 'users' || screen === 'mint') {
@@ -235,14 +223,7 @@ export default function Dashboard({ currentUser, hostToken }) {
     setSavingRoles(true);
     setStatus('');
     try {
-      if (hostToken) setHostJwt(hostToken);
-      const res = await adminFetch('/api/users', {
-        method: 'PUT',
-        token: hostToken,
-        body: JSON.stringify({ updates: payload }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Save failed');
+      await Host.updateUsers(payload);
       setDraftRoles({});
       setStatus(`Saved roles for ${payload.length} user(s)`);
       await fetchUsers();
@@ -273,13 +254,7 @@ export default function Dashboard({ currentUser, hostToken }) {
     if (!ok) return;
     setStatus('');
     try {
-      if (hostToken) setHostJwt(hostToken);
-      const res = await adminFetch(`/api/users?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        token: hostToken,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      await Host.deleteUser(id);
       setSelectedUsers((prev) => prev.filter((x) => x !== id));
       setStatus(`Deleted ${u.name}`);
       await fetchUsers();
@@ -304,19 +279,12 @@ export default function Dashboard({ currentUser, hostToken }) {
     setIsAssigning(true);
     setStatus('');
     try {
-      if (hostToken) setHostJwt(hostToken);
-      const res = await adminFetch('/api/assign', {
-        method: 'POST',
-        token: hostToken,
-        body: JSON.stringify({
-          userIds: selectedUsers,
-          ticketIds: [tokenId],
-          amounts: [qty],
-          network,
-        }),
+      const data = await Host.assign({
+        userIds: selectedUsers,
+        ticketIds: [tokenId],
+        amounts: [qty],
+        network,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Assign failed');
       const label = selectedPass?.label || `token ${tokenId}`;
       setStatus(`Minted ${label} ×${qty} on ${network}: ${data.results?.[0]?.txHash || 'ok'}`);
       setSelectedUsers([]);

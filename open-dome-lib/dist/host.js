@@ -9,6 +9,11 @@ exports.HostAPI = exports.Host = void 0;
  */
 const REQUEST = 'OPENDOME_HOST_REQUEST';
 const RESPONSE = 'OPENDOME_HOST_RESPONSE';
+function defaultTimeout(action) {
+  if (action === 'scanPass' || action === 'assign') return 90000;
+  if (action === 'listNfts' || action === 'merchantBalances') return 45000;
+  return 20000;
+}
 class HostAPI {
   constructor() {
     this.resolvers = new Map();
@@ -32,7 +37,7 @@ class HostAPI {
   }
 
   /**
-   * @param {'scanLookup' | 'scanPass' | 'transfer' | 'listNfts'} action
+   * @param {string} action
    * @param {object} payload
    * @param {{ timeoutMs?: number }} [options]
    */
@@ -40,7 +45,7 @@ class HostAPI {
     if (typeof window === 'undefined' || window.parent === window) {
       throw new Error('Host.request must run inside the OpenDome iframe');
     }
-    const timeoutMs = options.timeoutMs ?? (action === 'scanPass' ? 90000 : action === 'listNfts' ? 45000 : 20000);
+    const timeoutMs = options.timeoutMs ?? defaultTimeout(action);
     return new Promise((resolve, reject) => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const timer = setTimeout(() => {
@@ -84,6 +89,42 @@ class HostAPI {
   listNfts() {
     return this.request('listNfts', {}, {
       timeoutMs: 45000
+    });
+  }
+  listUsers({
+    scope = 'roles',
+    q = ''
+  } = {}) {
+    return this.request('listUsers', {
+      scope,
+      q
+    });
+  }
+  updateUsers(updates) {
+    return this.request('updateUsers', {
+      updates
+    });
+  }
+  deleteUser(id) {
+    return this.request('deleteUser', {
+      id
+    });
+  }
+  assign(payload) {
+    return this.request('assign', payload, {
+      timeoutMs: 120000
+    });
+  }
+  merchantBalances() {
+    return this.request('merchantBalances', {}, {
+      timeoutMs: 60000
+    });
+  }
+
+  /** Public pass contract + merchant addresses from OpenDomeApp. */
+  platformConfig() {
+    return this.request('platformConfig', {}, {
+      timeoutMs: 15000
     });
   }
 }

@@ -198,7 +198,7 @@ export function buildFulfillmentFromQuote(quote, {
   };
 }
 
-/** Call Admin bridge to mint passes after checkout payment. */
+/** Call OpenDomeApp /api/mint after checkout payment (service token). */
 export async function fulfillPassesViaAdminBridge({
   bridgeUrl,
   serviceToken,
@@ -211,8 +211,8 @@ export async function fulfillPassesViaAdminBridge({
     return { skipped: true };
   }
 
-  const base = String(bridgeUrl || 'http://localhost:8090').replace(/\/$/, '');
-  const res = await fetch(`${base}/api/fulfill`, {
+  const base = String(bridgeUrl || 'http://localhost:8082').replace(/\/$/, '');
+  const res = await fetch(`${base}/api/mint`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
