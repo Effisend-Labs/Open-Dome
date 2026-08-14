@@ -104,11 +104,17 @@ export default function Main() {
 
   useEffect(() => {
     try {
-      const allEvents = Events.getAll();
-      if (allEvents && allEvents.length > 0) {
-        // Just take the first one
-        setNextEvent(allEvents[0]);
-      }
+      const now = Date.now();
+      const all = Events.getAll();
+      if (!all?.length) return;
+      // Soonest by start time — closest to now, past or future
+      const soonest = all.reduce((best, event) => {
+        if (!best) return event;
+        const bestDelta = Math.abs((best.from || 0) - now);
+        const delta = Math.abs((event.from || 0) - now);
+        return delta < bestDelta ? event : best;
+      }, null);
+      setNextEvent(soonest);
     } catch (e) {
       console.warn('Failed to fetch events', e);
     }
