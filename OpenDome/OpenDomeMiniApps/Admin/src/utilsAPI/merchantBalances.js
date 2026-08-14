@@ -2,10 +2,7 @@
  * Merchant wallet balances across USDC-compatible chains (EVM L1/L2 + Solana).
  *
  * Balance reads are public — only MERCHANT_ADDRESS / MERCHANT_SOLANA_ADDRESS
- * are required. MERCHANT_PRIVATE_KEY is optional here (address derivation
- * fallback only). The private key is for mint + facilitator signing, not reads.
- *
- * RPCs: Effisend-style curated lists + ethers FallbackProvider / Solana sequential.
+ * are required. Mint/signing keys live on OpenDomeApp, not Admin.
  */
 
 import {
@@ -16,7 +13,6 @@ import {
   solanaRpcWithFallback,
 } from 'opendome';
 import { loadEthers } from './loadEthers';
-import { normalizePrivateKey } from './adminDb';
 
 const ERC20_ABI = [
   'function balanceOf(address) view returns (uint256)',
@@ -65,13 +61,7 @@ export function resolveMerchantEvmAddress(ethers) {
   if (fromEnv && /^0x[a-fA-F0-9]{40}$/.test(fromEnv)) {
     return ethers.getAddress(fromEnv);
   }
-  const key = normalizePrivateKey(process.env.MERCHANT_PRIVATE_KEY);
-  if (!key) return null;
-  try {
-    return new ethers.Wallet(key).address;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 export function resolveMerchantSolanaAddress() {
