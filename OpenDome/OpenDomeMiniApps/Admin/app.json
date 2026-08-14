@@ -17,7 +17,13 @@
     },
     "owner": "altaga",
     "server": {
-      "nodeModules": ["@google-cloud/firestore", "ethers"]
+      "nodeModules": [
+        "@google-cloud/firestore",
+        "ethers",
+        "google-gax",
+        "google-auth-library",
+        "protobufjs"
+      ]
     }
   }
 }

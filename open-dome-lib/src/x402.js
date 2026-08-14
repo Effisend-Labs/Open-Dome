@@ -18,15 +18,22 @@ export {
   OpenDomeBuyer,
   OpenDomeSeller,
   usdPriceToUsdcAtomic,
+  usdcAtomicToDecimal,
 } from './x402Challenge.js';
 export { sponsorUsdcTransfer } from './sponsorUsdcTransfer.js';
 export {
   USDC_CHAINS,
   getUsdcChain,
   listSendUsdcChains,
+  listX402PaymentChains,
   normalizeUsdcChainKey,
   isSponsoredUsdcChain,
   resolveUsdcRpcUrl,
+  resolveX402PaymentNetwork,
+  x402NetworkCaip,
+  explorerTxUrl,
+  X402_PAYMENT_CHAIN_KEYS,
+  SOLANA_USDC_MINT,
 } from './usdcChains.js';
 
 function resolveViemChain(cfg) {

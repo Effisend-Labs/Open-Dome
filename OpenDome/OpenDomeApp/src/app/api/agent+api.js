@@ -132,21 +132,60 @@ export async function POST(req) {
     const price = tariff.x402Amount;
 
     let paymentTxHash = null;
+    let paymentChain = null;
 
     // Per-prompt x402 is OpenAgent only. Dome consultant and Wallet Circle chat are free.
     if (isOpenAgent) {
-      const { OpenDomeSeller } = nodeRequire('opendome/dist/x402Challenge.js');
-      const merchantAddress = process.env.MERCHANT_ADDRESS;
-      if (!merchantAddress) {
-        return Response.json({ error: 'MERCHANT_ADDRESS is not set' }, { status: 500 });
+      const {
+        OpenDomeSeller,
+        resolveX402PaymentNetwork,
+        explorerTxUrl,
+        OpenDomeFacilitator,
+        resolveUsdcRpcUrl,
+      } = nodeRequire('opendome/dist/x402.js');
+
+      let cfg;
+      try {
+        cfg = resolveX402PaymentNetwork(
+          req.headers.get('x-payment-network') || 'base',
+        );
+      } catch (err) {
+        return Response.json(
+          { error: err.message },
+          { status: err.status || 400 },
+        );
       }
-      const seller = new OpenDomeSeller(merchantAddress);
+      paymentChain = cfg;
+
+      const payTo =
+        cfg.key === 'SOL'
+          ? process.env.MERCHANT_SOLANA_ADDRESS
+          : process.env.MERCHANT_ADDRESS;
+      if (!payTo) {
+        return Response.json(
+          {
+            error:
+              cfg.key === 'SOL'
+                ? 'MERCHANT_SOLANA_ADDRESS is not set'
+                : 'MERCHANT_ADDRESS is not set',
+          },
+          { status: 500 },
+        );
+      }
+
+      const seller = new OpenDomeSeller(payTo);
       const paymentSignatureBase64 = req.headers.get('payment-signature');
 
       if (!paymentSignatureBase64) {
         return new Response(null, {
           status: 402,
-          headers: { 'x402-challenge': seller.generateChallenge(price) },
+          headers: {
+            'x402-challenge': seller.generateChallenge(price, {
+              chain: cfg.key,
+              payTo,
+              asset: cfg.usdc,
+            }),
+          },
         });
       }
 
@@ -160,19 +199,36 @@ export async function POST(req) {
         return Response.json({ error: err.message }, { status: 400 });
       }
 
-      const { OpenDomeFacilitator } = nodeRequire('opendome/dist/x402.js');
-      const facilitator = new OpenDomeFacilitator(
-        process.env.MERCHANT_PRIVATE_KEY,
-      );
-      try {
-        paymentTxHash = await facilitator.verifyAndRelay(
-          parsedPayment.payload,
-          parsedPayment.signature,
+      if (parsedPayment.scheme === 'solana-circle') {
+        paymentTxHash = parsedPayment.transactionId;
+        console.log(`[Host Agent] x402 Solana settled. Id: ${paymentTxHash}`);
+      } else {
+        if (!process.env.MERCHANT_PRIVATE_KEY) {
+          return Response.json(
+            { error: 'MERCHANT_PRIVATE_KEY is not set' },
+            { status: 500 },
+          );
+        }
+        const facilitator = new OpenDomeFacilitator(
+          process.env.MERCHANT_PRIVATE_KEY,
+          {
+            chain: cfg.key,
+            rpcUrl: resolveUsdcRpcUrl(cfg),
+            usdc: cfg.usdc,
+          },
         );
-        console.log(`[Host Agent] x402 settled. Hash: ${paymentTxHash}`);
-      } catch (err) {
-        console.error('[Host Agent] Facilitator relay failed:', err.message);
-        return Response.json({ error: err.message }, { status: 500 });
+        try {
+          paymentTxHash = await facilitator.verifyAndRelay(
+            parsedPayment.payload,
+            parsedPayment.signature,
+          );
+          console.log(
+            `[Host Agent] x402 settled on ${cfg.key}. Hash: ${paymentTxHash}`,
+          );
+        } catch (err) {
+          console.error('[Host Agent] Facilitator relay failed:', err.message);
+          return Response.json({ error: err.message }, { status: 500 });
+        }
       }
 
       if (!decoded) decoded = { userId: 'x402-user', username: 'x402 Payer' };
@@ -247,8 +303,14 @@ export async function POST(req) {
         modelLabel,
         tariff,
         paymentTxHash,
+        paymentNetwork: paymentChain?.key || null,
         explorerUrl: paymentTxHash
-          ? `https://basescan.org/tx/${paymentTxHash}`
+          ? (paymentChain
+              ? nodeRequire('opendome/dist/x402.js').explorerTxUrl(
+                  paymentChain,
+                  paymentTxHash,
+                )
+              : `https://basescan.org/tx/${paymentTxHash}`)
           : null,
         ...(solanaPay ? { extra: { solana_pay: solanaPay } } : {}),
       });
@@ -260,14 +322,16 @@ export async function POST(req) {
       config,
     });
 
+    const { explorerTxUrl } = nodeRequire('opendome/dist/x402.js');
     return Response.json({
       response: geminiText(response) || response.text,
       model: targetModel,
       modelLabel,
       tariff,
       paymentTxHash,
+      paymentNetwork: paymentChain?.key || null,
       explorerUrl: paymentTxHash
-        ? `https://basescan.org/tx/${paymentTxHash}`
+        ? explorerTxUrl(paymentChain || 'BASE', paymentTxHash)
         : null,
     });
   } catch (error) {

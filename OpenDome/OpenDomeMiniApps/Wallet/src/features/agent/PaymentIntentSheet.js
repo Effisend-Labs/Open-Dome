@@ -8,7 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 
-const NETWORKS = ['base', 'arbitrum', 'optimism', 'polygon', 'avalanche', 'mainnet', 'solana', 'monad'];
+const NETWORKS = ['base', 'arbitrum', 'optimism', 'polygon', 'avalanche', 'solana'];
 
 /**
  * x402 payment confirmation sheet — theme tokens only (no forced white card).

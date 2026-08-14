@@ -2,6 +2,15 @@ import { useCallback, useState } from 'react';
 import { Agent } from 'opendome';
 import { quotePromptTariff, GEMINI_CHAT_MODELS } from 'opendome/src/agentTariff.js';
 
+const NETWORK_LABEL = {
+  base: 'Base',
+  arbitrum: 'Arbitrum',
+  optimism: 'Optimism',
+  polygon: 'Polygon',
+  avalanche: 'Avalanche',
+  solana: 'Solana',
+};
+
 export function useAgentChat({ isAuthorized, onNeedAuth, onPaid, modelId: modelIdProp, onChangeModel }) {
   const [messages, setMessages] = useState([]);
   const [prompt, setPrompt] = useState('');
@@ -43,6 +52,8 @@ export function useAgentChat({ isAuthorized, onNeedAuth, onPaid, modelId: modelI
     ]);
     setIsTyping(true);
 
+    const networkLabel = NETWORK_LABEL[selectedNetwork] || selectedNetwork;
+
     try {
       const res = await Agent.pay('/api/agent', intent.quote.x402Amount, {
         method: 'POST',
@@ -71,13 +82,10 @@ export function useAgentChat({ isAuthorized, onNeedAuth, onPaid, modelId: modelI
           role: 'agent',
           content: payload?.response || res.response || JSON.stringify(res),
           model: payload?.modelLabel || intent.quote.modelLabel,
-          costLabel: `${intent.quote.totalLabel} USDC · Base`,
+          costLabel: `${intent.quote.totalLabel} USDC · ${networkLabel}`,
           tariff: payload?.tariff || intent.quote,
           paymentTxHash,
-          explorerUrl:
-            res.explorerUrl ||
-            payload?.explorerUrl ||
-            (paymentTxHash ? `https://basescan.org/tx/${paymentTxHash}` : null),
+          explorerUrl: res.explorerUrl || payload?.explorerUrl || null,
         },
       ]);
       onPaid?.();

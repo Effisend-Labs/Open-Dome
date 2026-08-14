@@ -5,7 +5,7 @@ export function loadEthers() {
     return nodeRequire('ethers');
   } catch (err) {
     const wrapped = new Error(
-      'Scanner backend could not load ethers. Redeploy Admin with ethers packed into the serverless function.',
+      'Admin backend could not load ethers. Redeploy Admin so api/vendor packs ethers into the serverless function.',
     );
     wrapped.cause = err;
     wrapped.status = 500;

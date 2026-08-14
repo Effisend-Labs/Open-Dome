@@ -3,21 +3,41 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.USDC_CHAINS = exports.USDC_BASE = exports.SOLANA_USDC_MINT = void 0;
+exports.X402_PAYMENT_CHAIN_KEYS = exports.USDC_CHAINS = exports.USDC_BASE = exports.SOLANA_USDC_MINT = void 0;
+exports.explorerTxUrl = explorerTxUrl;
 exports.getUsdcChain = getUsdcChain;
 exports.isSponsoredUsdcChain = isSponsoredUsdcChain;
 exports.listSendUsdcChains = listSendUsdcChains;
+exports.listX402PaymentChains = listX402PaymentChains;
 exports.normalizeUsdcChainKey = normalizeUsdcChainKey;
 exports.resolveUsdcRpcUrl = resolveUsdcRpcUrl;
+exports.resolveX402PaymentNetwork = resolveX402PaymentNetwork;
+exports.x402NetworkCaip = x402NetworkCaip;
 /**
  * Canonical USDC + Circle blockchain keys for OpenDome transfers.
  * Sponsored L2s use EIP-3009 facilitator (merchant pays native gas).
- * Ethereum / Solana use Circle createTransaction (user pays gas).
+ * Ethereum uses Circle createTransaction (user pays gas) — not offered for x402.
+ * Solana x402 settles via Circle USDC transfer (user pays SOL fees).
  *
  * Merchant MERCHANT_PRIVATE_KEY must hold native gas on each sponsored L2
  * (ETH on Base/Arb/OP, POL on Polygon, AVAX on Avalanche).
  */
 
+/** OpenAgent / x402 source networks (no Ethereum — mainnet gas is too expensive). */
+const X402_PAYMENT_CHAIN_KEYS = exports.X402_PAYMENT_CHAIN_KEYS = ['BASE', 'ARB', 'OP', 'MATIC', 'AVAX', 'SOL'];
+const X402_UI_ALIASES = {
+  base: 'BASE',
+  arbitrum: 'ARB',
+  arb: 'ARB',
+  optimism: 'OP',
+  op: 'OP',
+  polygon: 'MATIC',
+  matic: 'MATIC',
+  avalanche: 'AVAX',
+  avax: 'AVAX',
+  solana: 'SOL',
+  sol: 'SOL'
+};
 const SOLANA_USDC_MINT = exports.SOLANA_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 /** @typedef {'BASE'|'ARB'|'OP'|'MATIC'|'AVAX'|'ETH'|'SOL'} CircleBlockchain */
@@ -144,4 +164,54 @@ function resolveUsdcRpcUrl(chain, env = process.env) {
 }
 function isSponsoredUsdcChain(raw) {
   return Boolean(getUsdcChain(raw)?.sponsored);
+}
+
+/** Chains allowed for OpenAgent x402 (L2s + Solana). */
+function listX402PaymentChains() {
+  return X402_PAYMENT_CHAIN_KEYS.map(key => USDC_CHAINS[key]);
+}
+
+/**
+ * Resolve UI / header network → USDC chain config for x402.
+ * Rejects Ethereum mainnet and unknown networks.
+ */
+function resolveX402PaymentNetwork(raw = 'base') {
+  const s = String(raw || 'base').trim().toLowerCase();
+  if (['mainnet', 'ethereum', 'eth'].includes(s)) {
+    const err = new Error('Ethereum mainnet is not supported for x402 (gas too expensive). Use an L2 or Solana.');
+    err.status = 400;
+    throw err;
+  }
+  if (s === 'monad') {
+    const err = new Error('Monad is not supported for x402 yet. Use Base, Arbitrum, Optimism, Polygon, Avalanche, or Solana.');
+    err.status = 400;
+    throw err;
+  }
+  const key = normalizeUsdcChainKey(s) || X402_UI_ALIASES[s] || (USDC_CHAINS[String(raw || '').toUpperCase()] ? String(raw).toUpperCase() : null);
+  if (!key || !X402_PAYMENT_CHAIN_KEYS.includes(key)) {
+    const err = new Error(`Unsupported x402 network: ${raw}. Use Base, Arbitrum, Optimism, Polygon, Avalanche, or Solana.`);
+    err.status = 400;
+    throw err;
+  }
+  return USDC_CHAINS[key];
+}
+function x402NetworkCaip(cfgOrKey) {
+  const cfg = typeof cfgOrKey === 'string' ? getUsdcChain(cfgOrKey) : cfgOrKey;
+  if (!cfg) return 'eip155:8453';
+  if (cfg.key === 'SOL') return 'solana:mainnet';
+  return `eip155:${cfg.chainId}`;
+}
+function explorerTxUrl(cfgOrKey, txHash) {
+  if (!txHash) return null;
+  const cfg = typeof cfgOrKey === 'string' ? getUsdcChain(cfgOrKey) : cfgOrKey;
+  if (!cfg) return `https://basescan.org/tx/${txHash}`;
+  if (cfg.key === 'SOL') return `https://solscan.io/tx/${txHash}`;
+  const hosts = {
+    BASE: 'https://basescan.org/tx/',
+    ARB: 'https://arbiscan.io/tx/',
+    OP: 'https://optimistic.etherscan.io/tx/',
+    MATIC: 'https://polygonscan.com/tx/',
+    AVAX: 'https://snowtrace.io/tx/'
+  };
+  return `${hosts[cfg.key] || hosts.BASE}${txHash}`;
 }

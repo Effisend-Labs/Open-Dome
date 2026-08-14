@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { adminFetch, setHostJwt } from '../core/adminApi';
 import { getClientRuntimeLabel } from '../core/runtimeLabel';
-import MintPassPicker from '../features/mint/MintPassPicker';
+import MintPanel from '../features/mint/MintPanel';
 import MerchantBalancesPanel from '../features/merchant/MerchantBalancesPanel';
 
 const COLORS = {
@@ -418,13 +418,46 @@ export default function Dashboard({ currentUser, hostToken }) {
     );
   }
 
-  const listTitle = screen === 'users' ? 'Users' : 'Mint';
+  if (screen === 'mint') {
+    return (
+      <View style={s.root}>
+        <View style={s.listChrome}>
+          <ScreenHeader
+            title="Mint"
+            onBack={goHome}
+            runtimeLabel={runtimeLabel}
+            isDev={isDev}
+          />
+        </View>
+        <MintPanel
+          users={users}
+          selectedUsers={selectedUsers}
+          onToggleUser={toggleUser}
+          loadingUsers={loadingUsers}
+          loadError={loadError}
+          collectionLabel={collectionName || collectionHint}
+          selectedPass={selectedPass}
+          onSelectPass={(pass) => {
+            setSelectedPass(pass);
+            setTicketId(String(pass.tokenId));
+          }}
+          network={network}
+          onNetworkChange={setNetwork}
+          amount={amount}
+          onAmountChange={setAmount}
+          onAssign={handleAssign}
+          isAssigning={isAssigning}
+          status={status}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={s.root}>
       <View style={s.listChrome}>
         <ScreenHeader
-          title={listTitle}
+          title="Users"
           onBack={goHome}
           runtimeLabel={runtimeLabel}
           isDev={isDev}
@@ -454,70 +487,30 @@ export default function Dashboard({ currentUser, hostToken }) {
           ) : null}
         </View>
 
-        {screen === 'users' ? (
-          <View style={s.bulkBar}>
-            <Text style={s.bulkLabel}>{selectedUsers.length} selected</Text>
-            <RolePicker value={bulkRole} onChange={setBulkRole} />
-            <TouchableOpacity
-              style={s.secondaryBtn}
-              onPress={applyBulkRoleToSelected}
-              disabled={!selectedUsers.length}
-            >
-              <Text style={s.secondaryBtnText}>Apply to selected</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.primaryBtn, savingRoles && { opacity: 0.6 }]}
-              disabled={savingRoles}
-              onPress={handleSaveRoles}
-            >
-              {savingRoles ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={s.primaryBtnText}>
-                  Save roles{dirtyCount ? ` (${dirtyCount})` : ''}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={s.bulkBar}>
-            <Text style={s.bulkLabel}>{selectedUsers.length} selected for mint</Text>
-            <MintPassPicker
-              selected={selectedPass}
-              onSelect={(pass) => {
-                setSelectedPass(pass);
-                setTicketId(String(pass.tokenId));
-              }}
-            />
-            <TextInput
-              style={s.input}
-              placeholder="Network (base…)"
-              placeholderTextColor={COLORS.muted}
-              value={network}
-              onChangeText={setNetwork}
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={s.input}
-              placeholder="Amount"
-              placeholderTextColor={COLORS.muted}
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="number-pad"
-            />
-            <TouchableOpacity
-              style={[s.primaryBtn, isAssigning && { opacity: 0.6 }]}
-              disabled={isAssigning}
-              onPress={handleAssign}
-            >
-              {isAssigning ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={s.primaryBtnText}>Execute batch mint</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+        <View style={s.bulkBar}>
+          <Text style={s.bulkLabel}>{selectedUsers.length} selected</Text>
+          <RolePicker value={bulkRole} onChange={setBulkRole} />
+          <TouchableOpacity
+            style={s.secondaryBtn}
+            onPress={applyBulkRoleToSelected}
+            disabled={!selectedUsers.length}
+          >
+            <Text style={s.secondaryBtnText}>Apply to selected</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.primaryBtn, savingRoles && { opacity: 0.6 }]}
+            disabled={savingRoles}
+            onPress={handleSaveRoles}
+          >
+            {savingRoles ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={s.primaryBtnText}>
+                Save roles{dirtyCount ? ` (${dirtyCount})` : ''}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {status ? <Text style={s.status}>{status}</Text> : null}
         {loadError ? <Text style={s.error}>{loadError}</Text> : null}

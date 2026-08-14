@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView } from 'react-native';
 
-const NETWORKS = ['base', 'arbitrum', 'optimism', 'polygon', 'avalanche', 'mainnet', 'solana', 'monad'];
+const NETWORKS = ['base', 'arbitrum', 'optimism', 'polygon', 'avalanche', 'solana'];
 
 export function PaymentIntentSheet({
   tokens,

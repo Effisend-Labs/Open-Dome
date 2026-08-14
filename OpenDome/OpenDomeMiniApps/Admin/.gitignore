@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Built on Vercel install — ethers/Firestore for the serverless function
+/api/vendor
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
