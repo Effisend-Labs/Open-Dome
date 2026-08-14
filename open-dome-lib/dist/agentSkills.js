@@ -100,6 +100,8 @@ USDC the user holds for spend lives on Base. They also have a Solana wallet — 
 
 To send USDC onto Solana, call create_transaction with destination set to the Solana address (base58). The host bridges Base USDC to native Solana USDC via Circle CCTP. Do not refuse this. Do not ask for an Ethereum 0x destination when they want Solana. Same-chain Base sends still use a 0x address and are gasless (EIP-3009). CCTP to Solana burns on Base and mints on Solana; a small USDC bridge fee applies.
 
+When the user wants to receive Solana USDC via QR (Phantom / Solana Pay scan), call create_solana_pay with the USDC amount. Recipient defaults to their Circle Solana wallet. Tell them to scan the QR in Phantom. Never invent a solana: URL. Never paste the raw solana: payment URL into chat text — the app renders the QR from the tool result.
+
 Do not plan Tokyo Dome itineraries. Do not charge a per-prompt fee.`;
 const WALLET_CIRCLE_TOOLS = exports.WALLET_CIRCLE_TOOLS = [{
   functionDeclarations: [{
@@ -253,6 +255,29 @@ const WALLET_CIRCLE_TOOLS = exports.WALLET_CIRCLE_TOOLS = [{
         }
       },
       required: ['amount', 'destination']
+    }
+  }, {
+    name: 'create_solana_pay',
+    description: 'Create a Solana Pay QR request so someone can pay native Solana USDC into the signed-in user Circle Solana wallet (Phantom scan).',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        amount: {
+          type: 'STRING',
+          description: 'USDC amount, e.g. "0.50"'
+        },
+        recipient: {
+          type: 'STRING',
+          description: 'Optional Solana address. Defaults to the user Circle Solana wallet.'
+        },
+        label: {
+          type: 'STRING'
+        },
+        message: {
+          type: 'STRING'
+        }
+      },
+      required: ['amount']
     }
   }, {
     name: 'sign_message',

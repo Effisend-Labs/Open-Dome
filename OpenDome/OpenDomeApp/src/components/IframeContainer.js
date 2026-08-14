@@ -418,7 +418,13 @@ export default function IframeContainer({
             sourceWindow.postMessage({
               type: 'OPENDOME_AI_RESPONSE',
               id,
-              response: data.response
+              response: {
+                response: data.response,
+                modelLabel: data.modelLabel || null,
+                tools: data.tools || null,
+                explorerUrl: data.explorerUrl || null,
+                extra: data.extra || null,
+              },
             }, origin);
             onAddLog(`[Bridge] AI Response Success. Dispatching to Mini App.`);
           }

@@ -207,6 +207,10 @@ export async function POST(req) {
           walletId: ids.BASE || ids.ETH || walletData.evm?.id || null,
           solWalletId: ids.SOL || ids.SOLANA || null,
           walletIds: ids,
+          solanaAddress:
+            walletData.solanaAddress ||
+            walletData.sol?.address ||
+            null,
         };
       }
 
@@ -225,6 +229,16 @@ export async function POST(req) {
         },
       });
 
+      const solanaPay =
+        ran.lastResult?.payment_url && ran.lastResult?.reference
+          ? {
+              payment_url: ran.lastResult.payment_url,
+              reference: ran.lastResult.reference,
+              amount: ran.lastResult.amount || null,
+              recipient: ran.lastResult.recipient || null,
+            }
+          : null;
+
       return Response.json({
         response: ran.text || 'No response from the agent.',
         tool_executed: ran.tools?.[0] || null,
@@ -236,6 +250,7 @@ export async function POST(req) {
         explorerUrl: paymentTxHash
           ? `https://basescan.org/tx/${paymentTxHash}`
           : null,
+        ...(solanaPay ? { extra: { solana_pay: solanaPay } } : {}),
       });
     }
 

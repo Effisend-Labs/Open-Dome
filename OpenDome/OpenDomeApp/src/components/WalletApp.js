@@ -568,47 +568,23 @@ export default function WalletApp({ verifiedToken }) {
                 ))}
               </View>
 
-              {(selected?.mintTxUrl ||
-                selected?.explorer?.mintTxUrl ||
-                selected?.tokenInventoryUrl ||
-                selected?.explorer?.tokenInventoryUrl) && (
+              {(selected?.mintTxUrl || selected?.explorer?.mintTxUrl) && (
                 <View style={s.explorerLinks}>
-                  {(selected.mintTxUrl || selected.explorer?.mintTxUrl) && (
-                    <Pressable
-                      style={s.explorerLink}
-                      onPress={() =>
-                        Linking.openURL(
-                          selected.mintTxUrl || selected.explorer.mintTxUrl,
-                        ).catch(() => {})
-                      }
-                    >
-                      <Text style={s.explorerLinkText}>Mint on BaseScan</Text>
-                      <Ionicons
-                        name="open-outline"
-                        size={n(14)}
-                        color={theme.text.primary}
-                      />
-                    </Pressable>
-                  )}
-                  {(selected.tokenInventoryUrl ||
-                    selected.explorer?.tokenInventoryUrl) && (
-                    <Pressable
-                      style={s.explorerLink}
-                      onPress={() =>
-                        Linking.openURL(
-                          selected.tokenInventoryUrl ||
-                            selected.explorer.tokenInventoryUrl,
-                        ).catch(() => {})
-                      }
-                    >
-                      <Text style={s.explorerLinkText}>NFT inventory</Text>
-                      <Ionicons
-                        name="open-outline"
-                        size={n(14)}
-                        color={theme.text.primary}
-                      />
-                    </Pressable>
-                  )}
+                  <Pressable
+                    style={s.explorerLink}
+                    onPress={() =>
+                      Linking.openURL(
+                        selected.mintTxUrl || selected.explorer.mintTxUrl,
+                      ).catch(() => {})
+                    }
+                  >
+                    <Text style={s.explorerLinkText}>Mint on BaseScan</Text>
+                    <Ionicons
+                      name="open-outline"
+                      size={n(14)}
+                      color={theme.text.primary}
+                    />
+                  </Pressable>
                 </View>
               )}
             </View>

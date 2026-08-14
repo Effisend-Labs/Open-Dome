@@ -805,7 +805,13 @@ export default function App() {
           event.source.postMessage({
             type: 'OPENDOME_AI_RESPONSE',
             id,
-            response: data.response
+            response: {
+              response: data.response,
+              modelLabel: data.modelLabel || null,
+              tools: data.tools || null,
+              explorerUrl: data.explorerUrl || null,
+              extra: data.extra || null,
+            },
           }, event.origin);
           addLog(`[AGENT] Success. Response sent to Mini App.`);
         })

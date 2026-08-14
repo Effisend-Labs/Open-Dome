@@ -7,6 +7,7 @@ import {
   BASE_USDC_TOKEN_ID,
 } from './circleTools.js';
 import { listNftsForWallet, listNftsForUserWallets } from './circleNftBalance.js';
+import { createSolanaPayRequest } from './cctp/solanaPay.js';
 
 function fail(err) {
   return { error: err.response?.data?.message || err.message || String(err) };
@@ -148,6 +149,30 @@ export async function runCircleAgentTool(name, args = {}, ctx = {}) {
         destination: args.destination,
         tokenId: args.tokenId,
         walletId: userWalletId,
+      });
+    }
+    if (name === 'create_solana_pay') {
+      let recipient =
+        args.recipient ||
+        ctx.solanaAddress ||
+        null;
+      if (!recipient) {
+        const solId =
+          ctx.solWalletId || ctx.walletIds?.SOL || ctx.walletIds?.SOLANA || null;
+        if (solId) {
+          const walletRes = await client.getWallet({ id: solId });
+          const wallet = walletRes.data?.wallet || walletRes.data;
+          recipient = wallet?.address || null;
+        }
+      }
+      if (!recipient) {
+        return { error: 'No Solana wallet address for this user' };
+      }
+      return createSolanaPayRequest({
+        recipient,
+        amount: args.amount,
+        label: args.label || 'OpenDome',
+        message: args.message,
       });
     }
     if (name === 'sign_message') {

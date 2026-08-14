@@ -13,7 +13,15 @@ import {
 import { useOpenDome } from 'opendome';
 import { USE_NATIVE_DRIVER } from '../utils/styleCompat';
 import { useAgentConversation } from '../features/agent/AgentConversationContext';
-import { GEMINI_CHAT_MODELS, resolveGeminiChatModel } from '../config/agentSettings';
+import { SolanaPayQrCard } from '../features/agent/SolanaPayQrCard';
+import { resolveWalletAgentModel } from '../config/agentSettings';
+
+function stripSolanaPayUrls(text) {
+  return String(text || '')
+    .replace(/solana:[^\s]+/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 const PulsingDots = ({ color }) => {
   const dot1 = useRef(new Animated.Value(0.3)).current;
@@ -81,8 +89,8 @@ const AnimatedMessage = ({ children }) => {
 const QUICK_ACTIONS = [
   { id: 'balance', label: "What's my USDC balance?", prompt: "What's my USDC balance on Base?" },
   { id: 'wallets', label: 'List my Circle wallets', prompt: 'List my Circle wallets.' },
+  { id: 'solpay', label: 'Request USDC via Solana Pay', prompt: 'Create a Solana Pay QR so I can receive 0.50 USDC on Solana.' },
   { id: 'txs', label: 'Show recent transactions', prompt: 'Show my recent Circle transactions.' },
-  { id: 'send', label: 'How do I send USDC?', prompt: 'How do I send USDC from my Circle wallet on Base?' },
 ];
 
 export default function AgentView({
@@ -96,13 +104,10 @@ export default function AgentView({
   const {
     conversation,
     setConversation,
-    selectedModel,
-    setSelectedModel,
   } = useAgentConversation();
   const [prompt, setPrompt] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [inputHeight, setInputHeight] = useState(48);
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const scrollViewRef = useRef(null);
 
   useEffect(() => {
@@ -121,7 +126,8 @@ export default function AgentView({
     return () => cancelAnimationFrame(id);
   }, [conversation.length]);
 
-  const activeModelLabel = resolveGeminiChatModel(selectedModel).label;
+  const walletModel = resolveWalletAgentModel();
+  const activeModelLabel = walletModel.label;
 
   const executeSend = async (text) => {
     if (!text || isTyping) return;
@@ -129,23 +135,30 @@ export default function AgentView({
       onGoToAccount?.();
       return;
     }
-    const model = resolveGeminiChatModel(selectedModel);
     setPrompt('');
     setConversation((prev) => [...prev, { id: Date.now().toString(), role: 'user', content: text }]);
     setIsTyping(true);
 
     try {
-      const res = await Agent.prompt(text, { mode: 'wallet', modelId: model.id });
+      const res = await Agent.prompt(text, { mode: 'wallet', modelId: walletModel.id });
       const payload = typeof res === 'string' ? { response: res } : res?.data || res || {};
       const responseText =
         payload.response || (typeof res === 'string' ? res : JSON.stringify(res));
+      const solanaPay = payload.extra?.solana_pay || null;
       setConversation((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: 'agent',
-          content: responseText,
-          model: payload.modelLabel || model.label,
+          content: stripSolanaPayUrls(responseText),
+          model: payload.modelLabel || walletModel.label,
+          ...(payload.explorerUrl ? { explorerUrl: payload.explorerUrl } : {}),
+          ...(solanaPay?.payment_url
+            ? {
+                solanaPayUrl: solanaPay.payment_url,
+                solanaPayReference: solanaPay.reference || null,
+              }
+            : {}),
         },
       ]);
     } catch (err) {
@@ -341,6 +354,13 @@ export default function AgentView({
                 >
                   {msg.content}
                 </Text>
+                {msg.role === 'agent' && msg.solanaPayUrl ? (
+                  <SolanaPayQrCard
+                    paymentUrl={msg.solanaPayUrl}
+                    reference={msg.solanaPayReference}
+                    tokens={tokens}
+                  />
+                ) : null}
               </View>
               {msg.role === 'agent' && msg.explorerUrl ? (
                 <TouchableOpacity
@@ -387,65 +407,6 @@ export default function AgentView({
         ) : null}
       </ScrollView>
 
-      {modelDropdownOpen ? (
-        <>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => setModelDropdownOpen(false)}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10 }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              bottom: 76,
-              left: 16,
-              right: 16,
-              backgroundColor: tokens.SURFACE_ELEVATED,
-              borderRadius: 14,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: tokens.BORDER,
-              zIndex: 20,
-              overflow: 'hidden',
-            }}
-          >
-            {GEMINI_CHAT_MODELS.map((model, idx) => (
-              <TouchableOpacity
-                key={model.id}
-                onPress={() => {
-                  setSelectedModel(model.id);
-                  setModelDropdownOpen(false);
-                }}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingHorizontal: 16,
-                  paddingVertical: 14,
-                  borderBottomWidth: idx < GEMINI_CHAT_MODELS.length - 1 ? StyleSheet.hairlineWidth : 0,
-                  borderBottomColor: tokens.BORDER,
-                  backgroundColor: selectedModel === model.id ? tokens.ACCENT_SOFT : 'transparent',
-                }}
-              >
-                <Text
-                  style={{
-                    color: selectedModel === model.id ? tokens.ACCENT : tokens.FG,
-                    fontSize: 14,
-                    fontFamily: tokens.font.primary,
-                    fontWeight: selectedModel === model.id ? '600' : '400',
-                    letterSpacing: -0.2,
-                  }}
-                >
-                  {model.label}
-                </Text>
-                {selectedModel === model.id ? (
-                  <Text style={{ color: tokens.ACCENT, fontSize: 14 }}>✓</Text>
-                ) : null}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      ) : null}
-
       <View
         style={{
           backgroundColor: tokens.BG,
@@ -457,8 +418,7 @@ export default function AgentView({
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-          <TouchableOpacity
-            onPress={() => setModelDropdownOpen(!modelDropdownOpen)}
+          <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -468,7 +428,6 @@ export default function AgentView({
               borderRadius: 14,
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: tokens.BORDER,
-              gap: 4,
             }}
           >
             <Text
@@ -481,8 +440,7 @@ export default function AgentView({
             >
               {activeModelLabel}
             </Text>
-            <Text style={{ fontSize: 8, color: tokens.MUTED }}>▼</Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>

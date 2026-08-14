@@ -14,6 +14,13 @@ export const GEMINI_CHAT_MODELS = [
   },
 ];
 
+/** Wallet Circle agent always uses Flash — better for tool calling. */
+export const WALLET_AGENT_MODEL_ID = 'fast';
+
 export function resolveGeminiChatModel(modelId) {
   return GEMINI_CHAT_MODELS.find((m) => m.id === modelId) || GEMINI_CHAT_MODELS[1];
+}
+
+export function resolveWalletAgentModel() {
+  return resolveGeminiChatModel(WALLET_AGENT_MODEL_ID);
 }
