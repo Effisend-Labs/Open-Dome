@@ -13,6 +13,8 @@ function defaultTimeout(action) {
 export class HostAPI {
   constructor() {
     this.resolvers = new Map();
+    this.cache = new Map();
+    this.inflight = new Map();
 
     if (typeof window !== 'undefined') {
       window.addEventListener('message', (event) => {
@@ -64,6 +66,27 @@ export class HostAPI {
     });
   }
 
+  memoize(key, load, fallbackTtlMs) {
+    const cached = this.cache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return Promise.resolve(cached.value);
+    }
+    if (this.inflight.has(key)) return this.inflight.get(key);
+
+    const promise = load()
+      .then((value) => {
+        const ttlMs = Number(value?.ttlMs) || fallbackTtlMs;
+        this.cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+        return value;
+      })
+      .finally(() => {
+        this.inflight.delete(key);
+      });
+
+    this.inflight.set(key, promise);
+    return promise;
+  }
+
   scanLookup(query) {
     const q = typeof query === 'string' ? query : query?.query;
     return this.request('scanLookup', { query: q });
@@ -98,17 +121,33 @@ export class HostAPI {
   }
 
   merchantBalances() {
-    return this.request('merchantBalances', {}, { timeoutMs: 60000 });
+    return this.memoize(
+      'merchantBalances',
+      () => this.request('merchantBalances', {}, { timeoutMs: 60000 }),
+      60_000,
+    );
   }
 
   /** Public pass contract + merchant addresses from OpenDomeApp. */
   platformConfig() {
-    return this.request('platformConfig', {}, { timeoutMs: 15000 });
+    return this.memoize(
+      'platformConfig',
+      () => this.request('platformConfig', {}, { timeoutMs: 15000 }),
+      Number.MAX_SAFE_INTEGER,
+    );
   }
 
-  /** Cached USD prices from OpenDomeApp (15s server TTL). */
+  /** Cached USD prices from OpenDomeApp (60s server TTL). */
   tokenPrices({ tickers } = {}) {
-    return this.request('tokenPrices', { tickers }, { timeoutMs: 15000 });
+    const list = Array.isArray(tickers)
+      ? [...new Set(tickers.map((ticker) => String(ticker).toUpperCase()))].sort()
+      : [];
+    const key = `tokenPrices:${list.join(',') || 'all'}`;
+    return this.memoize(
+      key,
+      () => this.request('tokenPrices', { tickers: list }, { timeoutMs: 15000 }),
+      60_000,
+    );
   }
 }
 

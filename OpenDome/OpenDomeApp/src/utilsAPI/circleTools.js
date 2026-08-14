@@ -99,6 +99,85 @@ async function resolveUsdcTokenId(client, walletId, blockchain) {
   return null;
 }
 
+async function resolveNativeTokenId(client, walletId, blockchain) {
+  const nativeSymbol = {
+    BASE: 'ETH',
+    ARB: 'ETH',
+    OP: 'ETH',
+    ETH: 'ETH',
+    MATIC: 'POL',
+    AVAX: 'AVAX',
+    SOL: 'SOL',
+  }[String(blockchain).toUpperCase()];
+  const balRes = await client.getWalletTokenBalance({ id: walletId });
+  const rows = balRes.data?.tokenBalances || balRes.tokenBalances || [];
+  const native = rows.find((row) => {
+    const token = row?.token || {};
+    return (
+      token.isNative ||
+      token.isNativeToken ||
+      String(token.symbol || row?.symbol || '').toUpperCase() === nativeSymbol
+    );
+  });
+  return native?.token?.id || native?.tokenId || null;
+}
+
+export async function executeCircleNativeTransfer({
+  amount,
+  destination,
+  walletId,
+  blockchain = 'BASE',
+}) {
+  const client = getClient();
+  try {
+    const { getUsdcChain } = usdcLib();
+    const cfg = getUsdcChain(blockchain);
+    const chainKey = cfg.key;
+    const sourceWallet = await resolveSourceWallet(client, walletId, chainKey);
+    if (!sourceWallet?.id) return { error: `No Circle wallet available for ${cfg.label}.` };
+
+    const toSolana = isSolanaAddress(destination);
+    if ((chainKey === 'SOL') !== toSolana) {
+      return { error: `${cfg.label} native tokens can only be sent on the same network.` };
+    }
+    if (chainKey === 'SOL') {
+      const { sponsorSolanaTransferWithCircle } = await import(
+        './sponsorSolanaTransfer.js'
+      );
+      return sponsorSolanaTransferWithCircle({
+        client,
+        walletId: sourceWallet.id,
+        fromAddress: sourceWallet.address,
+        destination,
+        amount,
+        asset: 'NATIVE',
+      });
+    }
+
+    const tokenId = await resolveNativeTokenId(client, sourceWallet.id, chainKey);
+    if (!tokenId) return { error: `Could not resolve the native token on ${cfg.label}.` };
+
+    const response = await client.createTransaction({
+      walletId: sourceWallet.id,
+      tokenId,
+      destinationAddress: destination,
+      amounts: [amount],
+      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
+      idempotencyKey: randomUUID(),
+    });
+    return {
+      success: true,
+      transactionId: response.data?.id || response.data?.transaction?.id,
+      sponsored: false,
+      chain: cfg.key.toLowerCase(),
+      blockchain: cfg.circleBlockchain,
+    };
+  } catch (err) {
+    console.error('executeCircleNativeTransfer error:', err.response?.data || err.message);
+    return { error: err.response?.data?.message || err.message };
+  }
+}
+
 /**
  * @param {{ amount, destination, tokenId?, walletId?, blockchain? }} args
  */
@@ -129,26 +208,17 @@ export async function executeCircleNanoPayment({
       });
     }
     if (toSolana && chainKey === 'SOL') {
-      const resolvedTokenId =
-        tokenId || (await resolveUsdcTokenId(client, sourceWallet.id, 'SOL'));
-      if (!resolvedTokenId) {
-        return { error: 'No USDC token balance/id on Solana wallet' };
-      }
-      const response = await client.createTransaction({
+      const { sponsorSolanaTransferWithCircle } = await import(
+        './sponsorSolanaTransfer.js'
+      );
+      return sponsorSolanaTransferWithCircle({
+        client,
         walletId: sourceWallet.id,
-        tokenId: resolvedTokenId,
-        destinationAddress: destination,
-        amounts: [amount],
-        fee: { type: 'level', config: { feeLevel: 'HIGH' } },
-        idempotencyKey: randomUUID(),
+        fromAddress: sourceWallet.address,
+        destination,
+        amount,
+        asset: 'USDC',
       });
-      return {
-        success: true,
-        transactionId: response.data?.id || response.data?.transaction?.id,
-        sponsored: false,
-        chain: 'solana',
-        blockchain: 'SOL',
-      };
     }
     if (toSolana) {
       return {
@@ -209,7 +279,7 @@ export async function executeCircleNanoPayment({
   }
 }
 
-/** Same-chain Solana USDC transfer (user pays SOL). */
+/** Same-chain Solana USDC transfer (OpenDome facilitator pays network fees). */
 export async function executeSolanaUsdcTransfer({
   amount,
   destination,
@@ -224,25 +294,17 @@ export async function executeSolanaUsdcTransfer({
     if (!sourceWallet?.id) {
       return { error: 'No Solana Circle wallet for this user' };
     }
-    const tokenId = await resolveUsdcTokenId(client, sourceWallet.id, 'SOL');
-    if (!tokenId) {
-      return { error: 'No USDC token balance/id on Solana wallet' };
-    }
-    const response = await client.createTransaction({
+    const { sponsorSolanaTransferWithCircle } = await import(
+      './sponsorSolanaTransfer.js'
+    );
+    return sponsorSolanaTransferWithCircle({
+      client,
       walletId: sourceWallet.id,
-      tokenId,
-      destinationAddress: destination,
-      amounts: [amount],
-      fee: { type: 'level', config: { feeLevel: 'HIGH' } },
-      idempotencyKey: randomUUID(),
+      fromAddress: sourceWallet.address,
+      destination,
+      amount,
+      asset: 'USDC',
     });
-    return {
-      success: true,
-      transactionId: response.data?.id || response.data?.transaction?.id,
-      sponsored: false,
-      chain: 'solana',
-      blockchain: 'SOL',
-    };
   } catch (err) {
     console.error('executeSolanaUsdcTransfer error:', err.response?.data || err.message);
     return { error: err.response?.data?.message || err.message };

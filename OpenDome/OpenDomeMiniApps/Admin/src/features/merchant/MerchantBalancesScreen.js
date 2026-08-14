@@ -17,7 +17,7 @@ import {
 } from 'opendome/src/tokenPrices.js';
 
 const PRICE_TICKERS = ['ETH', 'SOL', 'AVAX', 'POL', 'USDC'];
-const PRICE_POLL_MS = 15_000;
+const PRICE_POLL_MS = 60_000;
 
 async function loadHostPrices(tickers = PRICE_TICKERS) {
   const body = await Host.tokenPrices({ tickers });

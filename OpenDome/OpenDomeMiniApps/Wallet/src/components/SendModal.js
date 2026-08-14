@@ -19,7 +19,9 @@ import {
 } from '../features/send/destinationAddress';
 import {
   SEND_USDC_CHAINS,
+  SEND_ASSETS,
   getSendUsdcChain,
+  assetLabelForChain,
   gasNoteForSend,
   isValidSendPair,
 } from '../features/send/sendChains';
@@ -34,8 +36,10 @@ export default function SendModal({
   const [amount, setAmount] = useState('');
   const [destination, setDestination] = useState('');
   const [sourceKey, setSourceKey] = useState('BASE');
+  const [assetKey, setAssetKey] = useState('USDC');
   const [status, setStatus] = useState('idle');
   const [scanning, setScanning] = useState(false);
+  const [openPicker, setOpenPicker] = useState(null);
   const { send, error, result, reset } = useSponsoredTransfer();
 
   useEffect(() => {
@@ -44,7 +48,9 @@ export default function SendModal({
     setAmount('');
     setDestination('');
     setSourceKey('BASE');
+    setAssetKey('USDC');
     setScanning(false);
+    setOpenPicker(null);
     reset();
   }, [visible, reset]);
 
@@ -53,7 +59,7 @@ export default function SendModal({
   const pairOk =
     !destination ||
     !isDestinationAddress(destination) ||
-    isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm');
+    isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm', assetKey);
 
   const handleAmount = (raw) => {
     setAmount(sanitizeUsdcAmount(raw));
@@ -62,12 +68,12 @@ export default function SendModal({
 
   const handleAction = async () => {
     if (status === 'loading') return;
-    if (!isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm')) {
+    if (!isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm', assetKey)) {
       return;
     }
     setStatus('loading');
     try {
-      await send({ amount, destination, blockchain: sourceKey });
+      await send({ amount, destination, blockchain: sourceKey, asset: assetKey });
       setStatus('success');
     } catch {
       setStatus('error');
@@ -97,19 +103,24 @@ export default function SendModal({
   const canProceed =
     isUsdcAmountReady(amount) &&
     isDestinationAddress(destination) &&
-    isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm');
+    isValidSendPair(sourceKey, destChain === 'solana' ? 'solana' : 'evm', assetKey);
   const destIncomplete = destination.length > 0 && !isDestinationAddress(destination);
   const toOwnSolana = Boolean(solanaAddress) && destination === solanaAddress;
-  const bridging = destChain === 'solana' && sourceKey === 'BASE';
-  const gasNote = gasNoteForSend({ sourceKey, destChain });
+  const bridging = assetKey === 'USDC' && destChain === 'solana' && sourceKey === 'BASE';
+  const assetLabel = assetLabelForChain(assetKey, sourceKey);
+  const gasNote = gasNoteForSend({ sourceKey, destChain, assetKey });
 
   const fromLabel =
     bridging
       ? `${source.label} USDC → Solana`
-      : `${source.label} USDC`;
+      : `${source.label} ${assetLabel}`;
 
   const destPlaceholder =
-    sourceKey === 'SOL' ? 'Solana address' : '0x… or Solana address (Base only)';
+    sourceKey === 'SOL'
+      ? 'Solana address (32 bytes)'
+      : assetKey === 'NATIVE'
+        ? '0x address (42 characters)'
+        : '0x… or Solana address (Base only)';
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -117,7 +128,7 @@ export default function SendModal({
         <View style={[styles.container, { backgroundColor: tokens.BG }]}>
           <View style={[styles.header, { borderBottomColor: tokens.BORDER }]}>
             <Text style={[styles.title, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-              Send USDC
+              Send assets
             </Text>
             <TouchableOpacity
               onPress={() => {
@@ -139,6 +150,7 @@ export default function SendModal({
           ) : status === 'success' ? (
             <SendSuccess
               amount={amount}
+              assetLabel={assetLabel}
               destination={destination}
               txHash={result?.txHash}
               mintTxHash={result?.mintTxHash}
@@ -152,9 +164,11 @@ export default function SendModal({
           ) : status === 'loading' ? (
             <SendLoading
               amount={amount}
+              assetLabel={assetLabel}
               destination={destination}
               tokens={tokens}
               chain={bridging ? 'solana' : destChain}
+              isBridging={bridging}
             />
           ) : (
             <ScrollView
@@ -167,46 +181,89 @@ export default function SendModal({
                 <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
                   From
                 </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.chainRow}
+                <TouchableOpacity
+                  onPress={() => setOpenPicker(openPicker === 'network' ? null : 'network')}
+                  activeOpacity={0.75}
+                  style={[styles.selectControl, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}
                 >
-                  {SEND_USDC_CHAINS.map((chain) => {
-                    const active = sourceKey === chain.key;
-                    return (
+                  <View>
+                    <Text style={[styles.selectValue, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+                      {source.label}
+                    </Text>
+                    <Text style={[styles.selectDescription, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
+                      Network
+                    </Text>
+                  </View>
+                  <Text style={{ color: tokens.MUTED, fontSize: 16 }}>⌄</Text>
+                </TouchableOpacity>
+                {openPicker === 'network' ? (
+                  <View style={[styles.pickerMenu, { backgroundColor: tokens.SURFACE_ELEVATED, borderColor: tokens.BORDER }]}>
+                    {SEND_USDC_CHAINS.map((chain) => (
                       <TouchableOpacity
                         key={chain.key}
                         onPress={() => {
                           setSourceKey(chain.key);
+                          setOpenPicker(null);
                           if (status === 'error') setStatus('idle');
                         }}
-                        activeOpacity={0.8}
-                        style={[
-                          styles.chainChip,
-                          {
-                            backgroundColor: active ? tokens.ACCENT_SOFT : tokens.SURFACE,
-                            borderColor: active ? tokens.ACCENT : tokens.BORDER,
-                          },
-                        ]}
+                        style={[styles.pickerOption, sourceKey === chain.key && { backgroundColor: tokens.ACCENT_SOFT }]}
                       >
-                        <Text
-                          style={{
-                            color: active ? tokens.ACCENT : tokens.FG,
-                            fontFamily: tokens.font.primary,
-                            fontSize: 13,
-                            fontWeight: active ? '600' : '500',
-                          }}
-                        >
+                        <Text style={{ color: sourceKey === chain.key ? tokens.ACCENT : tokens.FG, fontFamily: tokens.font.primary }}>
                           {chain.label}
                         </Text>
+                        <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary, fontSize: 12 }}>
+                          {chain.gasToken}
+                        </Text>
                       </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                    ))}
+                  </View>
+                ) : null}
                 <View style={[styles.network, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
                   <Text style={{ color: tokens.FG, fontFamily: tokens.font.primary }}>{fromLabel}</Text>
                 </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
+                  Asset
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setOpenPicker(openPicker === 'asset' ? null : 'asset')}
+                  activeOpacity={0.75}
+                  style={[styles.selectControl, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}
+                >
+                  <View>
+                    <Text style={[styles.selectValue, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
+                      {assetLabel}
+                    </Text>
+                    <Text style={[styles.selectDescription, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
+                      {assetKey === 'USDC' ? 'USD Coin' : `Native to ${source.label}`}
+                    </Text>
+                  </View>
+                  <Text style={{ color: tokens.MUTED, fontSize: 16 }}>⌄</Text>
+                </TouchableOpacity>
+                {openPicker === 'asset' ? (
+                  <View style={[styles.pickerMenu, { backgroundColor: tokens.SURFACE_ELEVATED, borderColor: tokens.BORDER }]}>
+                    {SEND_ASSETS.map((asset) => (
+                      <TouchableOpacity
+                        key={asset.key}
+                        onPress={() => {
+                          setAssetKey(asset.key);
+                          setOpenPicker(null);
+                          if (status === 'error') setStatus('idle');
+                        }}
+                        style={[styles.pickerOption, assetKey === asset.key && { backgroundColor: tokens.ACCENT_SOFT }]}
+                      >
+                        <Text style={{ color: assetKey === asset.key ? tokens.ACCENT : tokens.FG, fontFamily: tokens.font.primary }}>
+                          {asset.key === 'NATIVE' ? assetLabelForChain('NATIVE', sourceKey) : asset.label}
+                        </Text>
+                        <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary, fontSize: 12 }}>
+                          {asset.description}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : null}
               </View>
 
               <View style={styles.inputGroup}>
@@ -223,7 +280,7 @@ export default function SendModal({
                     value={amount}
                     onChangeText={handleAmount}
                   />
-                  <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary }}>USDC</Text>
+                  <Text style={{ color: tokens.MUTED, fontFamily: tokens.font.primary }}>{assetLabel}</Text>
                 </View>
               </View>
 
@@ -263,7 +320,7 @@ export default function SendModal({
                     </Text>
                   </TouchableOpacity>
                 </View>
-                {solanaAddress && (sourceKey === 'BASE' || sourceKey === 'SOL') ? (
+                {assetKey === 'USDC' && solanaAddress && (sourceKey === 'BASE' || sourceKey === 'SOL') ? (
                   <TouchableOpacity onPress={fillMySolana} activeOpacity={0.7} style={styles.solChipWrap}>
                     <Text
                       style={[
@@ -281,13 +338,15 @@ export default function SendModal({
                 {destIncomplete ? (
                   <Text style={[styles.destHint, { color: tokens.DANGER || tokens.ACCENT, fontFamily: tokens.font.primary }]}>
                     {sourceKey === 'SOL'
-                      ? 'Paste a Solana address'
-                      : 'Paste a 0x address, or a Solana address when source is Base'}
+                      ? 'Enter a valid 32-byte Solana address'
+                      : 'Enter a valid 42-character EVM address, or a Solana address for Base USDC'}
                   </Text>
                 ) : null}
                 {destination && isDestinationAddress(destination) && !pairOk ? (
                   <Text style={[styles.destHint, { color: tokens.DANGER || tokens.ACCENT, fontFamily: tokens.font.primary }]}>
-                    {destChain === 'solana'
+                    {assetKey === 'NATIVE'
+                      ? 'Native tokens can only be sent on the same network type'
+                      : destChain === 'solana'
                       ? 'Solana destinations require Base (bridge) or Solana source'
                       : 'Switch source off Solana to send to a 0x address'}
                   </Text>
@@ -330,8 +389,8 @@ export default function SendModal({
                     : amount
                       ? bridging
                         ? `Bridge ${amount} USDC to Solana`
-                        : `Send ${amount} USDC`
-                      : 'Send USDC'}
+                        : `Send ${amount} ${assetLabel}`
+                      : `Send ${assetLabel}`}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -383,17 +442,39 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  chainRow: {
-    gap: 8,
-    paddingBottom: 10,
-  },
-  chainChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+  selectControl: {
+    minHeight: 58,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectValue: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  selectDescription: {
+    marginTop: 2,
+    fontSize: 12,
+  },
+  pickerMenu: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  pickerOption: {
+    minHeight: 52,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   network: {
+    marginTop: 10,
     borderWidth: 1,
     padding: 14,
     borderRadius: 12,

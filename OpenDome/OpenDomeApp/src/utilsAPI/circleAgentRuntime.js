@@ -24,29 +24,105 @@ function slimWallet(wallet) {
   };
 }
 
+const CHAIN_LABEL = {
+  BASE: 'Base',
+  ETH: 'Ethereum',
+  OP: 'Optimism',
+  ARB: 'Arbitrum',
+  MATIC: 'Polygon',
+  AVAX: 'Avalanche',
+  SOL: 'Solana',
+  SOLANA: 'Solana',
+};
+
 function chainKey(args = {}) {
   return String(args.blockchain || args.chain || args.network || '').toUpperCase();
 }
 
-function pickWalletId(args, ctx) {
-  if (args.walletId) return args.walletId;
-  const chain = chainKey(args);
-  if (chain.startsWith('SOL')) return ctx.solWalletId || ctx.walletIds?.SOL || ctx.walletIds?.SOLANA || null;
-  if (chain.includes('BASE') || chain === 'ETH' || chain === 'EVM') {
-    return ctx.walletId || ctx.walletIds?.BASE || ctx.walletIds?.ETH || null;
-  }
-  return ctx.walletId || null;
+function normalizeChain(raw) {
+  const key = String(raw || '').toUpperCase();
+  if (!key) return '';
+  if (key.startsWith('SOL')) return 'SOL';
+  if (key === 'POLYGON' || key === 'POL') return 'MATIC';
+  if (key === 'OPTIMISM') return 'OP';
+  if (key === 'ARBITRUM') return 'ARB';
+  if (key === 'AVALANCHE') return 'AVAX';
+  if (key === 'ETHEREUM' || key === 'MAINNET') return 'ETH';
+  return key;
 }
 
-async function walletWithBalances(client, walletId) {
+/** All Circle wallet ids for the signed-in user, keyed by chain. */
+function walletIdMap(ctx = {}) {
+  const ids = { ...(ctx.walletIds || {}) };
+  if (!ids.BASE && !ids.ETH && ctx.walletId) ids.BASE = ctx.walletId;
+  if (!ids.SOL && !ids.SOLANA && ctx.solWalletId) ids.SOL = ctx.solWalletId;
+  return ids;
+}
+
+function pickWalletId(args, ctx) {
+  if (args.walletId) return args.walletId;
+  const chain = normalizeChain(chainKey(args));
+  const ids = walletIdMap(ctx);
+  if (!chain) return ids.BASE || ids.ETH || ctx.walletId || null;
+  if (chain === 'SOL') return ids.SOL || ids.SOLANA || ctx.solWalletId || null;
+  return ids[chain] || null;
+}
+
+function pickUsdcAmount(tokenBalances) {
+  const rows = tokenBalances?.tokenBalances || tokenBalances || [];
+  if (!Array.isArray(rows)) return '0';
+  const usdc = rows.find((row) => {
+    const sym = String(row?.token?.symbol || row?.symbol || '').toUpperCase();
+    return sym === 'USDC' || sym === 'USDC.E';
+  });
+  return usdc?.amount != null ? String(usdc.amount) : '0';
+}
+
+async function walletWithBalances(client, walletId, chainHint) {
   const walletRes = await client.getWallet({ id: walletId });
   const wallet = slimWallet(walletRes.data?.wallet || walletRes.data);
   const balRes = await client.getWalletTokenBalance({ id: walletId });
+  const tokenBalances = balRes.data || balRes;
+  const chain = normalizeChain(chainHint) || normalizeChain(wallet?.blockchain);
   return {
     id: wallet?.id || walletId,
-    chain: wallet?.blockchain || null,
-    tokenBalances: balRes.data || balRes,
+    chain: chain || wallet?.blockchain || null,
+    label: CHAIN_LABEL[chain] || chain || null,
+    usdc: pickUsdcAmount(tokenBalances),
+    tokenBalances,
   };
+}
+
+async function balancesForUserWallets(client, ctx, filterChain) {
+  const ids = walletIdMap(ctx);
+  let entries = Object.entries(ids).filter(([, id]) => id);
+  const want = normalizeChain(filterChain);
+  if (want) {
+    entries = entries.filter(([chain]) => normalizeChain(chain) === want);
+  }
+  if (!entries.length) return { wallets: [] };
+
+  const results = await Promise.allSettled(
+    entries.map(([chain, id]) => walletWithBalances(client, id, chain)),
+  );
+
+  const wallets = [];
+  for (let i = 0; i < results.length; i += 1) {
+    const chain = normalizeChain(entries[i][0]);
+    const result = results[i];
+    if (result.status === 'fulfilled') {
+      wallets.push(result.value);
+    } else {
+      const err = result.reason;
+      wallets.push({
+        chain,
+        label: CHAIN_LABEL[chain] || chain,
+        usdc: null,
+        error: err?.response?.data?.message || err?.message || String(err),
+      });
+    }
+  }
+  return { wallets };
 }
 
 export async function runCircleAgentTool(name, args = {}, ctx = {}) {
@@ -54,25 +130,8 @@ export async function runCircleAgentTool(name, args = {}, ctx = {}) {
   const userWalletId = pickWalletId(args, ctx);
   try {
     if (name === 'list_wallets') {
-      const ids = [
-        ctx.walletId || ctx.walletIds?.BASE || ctx.walletIds?.ETH,
-        ctx.solWalletId || ctx.walletIds?.SOL || ctx.walletIds?.SOLANA,
-      ].filter(Boolean);
-      const unique = [...new Set(ids)];
-      if (unique.length) {
-        const wallets = [];
-        for (const id of unique) {
-          wallets.push(await walletWithBalances(client, id));
-        }
-        const chain = chainKey(args);
-        if (chain.startsWith('SOL')) {
-          return { wallets: wallets.filter((w) => String(w.chain || '').toUpperCase().startsWith('SOL')) };
-        }
-        if (chain.includes('BASE') || chain === 'ETH') {
-          return { wallets: wallets.filter((w) => /BASE|ETH|EVM/i.test(String(w.chain || ''))) };
-        }
-        return { wallets };
-      }
+      const mapped = await balancesForUserWallets(client, ctx, chainKey(args));
+      if (mapped.wallets.length) return mapped;
       const res = await client.listWallets({
         walletSetId: args.walletSetId || CIRCLE_WALLET_SET_ID,
       });
@@ -84,9 +143,13 @@ export async function runCircleAgentTool(name, args = {}, ctx = {}) {
       return { wallet: slimWallet(res.data?.wallet || res.data) };
     }
     if (name === 'get_wallet_token_balance') {
+      const chain = chainKey(args);
+      if (!args.walletId && !chain) {
+        return balancesForUserWallets(client, ctx);
+      }
       if (!userWalletId) return { error: 'walletId is required' };
-      const res = await client.getWalletTokenBalance({ id: userWalletId });
-      return res.data || res;
+      const row = await walletWithBalances(client, userWalletId, chain);
+      return row;
     }
     if (name === 'get_wallet_nft_balance') {
       if (userWalletId) {
@@ -119,6 +182,15 @@ export async function runCircleAgentTool(name, args = {}, ctx = {}) {
       const { isSponsoredUsdcChain, getUsdcChain } = nodeRequire('opendome/dist/x402.js');
       const chain = chainKey(args) || 'BASE';
       const cfg = getUsdcChain(chain);
+      if (cfg.key === 'SOL') {
+        return {
+          sponsored: true,
+          paidBy: 'solana-facilitator',
+          userFee: '0',
+          blockchain: cfg.key,
+          note: 'OpenDome facilitator pays the Solana network fee. User only needs USDC.',
+        };
+      }
       if (isSponsoredUsdcChain(chain)) {
         return {
           sponsored: true,

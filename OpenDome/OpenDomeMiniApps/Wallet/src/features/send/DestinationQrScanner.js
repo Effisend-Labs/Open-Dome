@@ -35,7 +35,7 @@ export function DestinationQrScanner({ tokens, onClose, onAddress }) {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
-  const [hint, setHint] = useState('Point at a Base or Solana address QR');
+  const [hint, setHint] = useState('Scan a 42-character EVM or 32-byte Solana address');
   const [error, setError] = useState(null);
   const [facing, setFacing] = useState('environment');
   const facingRef = useRef('environment');
@@ -120,7 +120,7 @@ export function DestinationQrScanner({ tokens, onClose, onAddress }) {
                 onAddress(addr);
                 return;
               }
-              setHint('Not a Base or Solana address');
+              setHint('Not a valid 42-character EVM or 32-byte Solana address');
             }
           } catch {
             // keep scanning

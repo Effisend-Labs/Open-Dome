@@ -1,5 +1,8 @@
 import { verifyStaffFromRequest } from '../../utilsAPI/staffAuth';
-import { getMerchantBalances } from '../../utilsAPI/merchantBalances';
+import {
+  getCachedMerchantBalances,
+  MERCHANT_BALANCE_TTL_MS,
+} from '../../utilsAPI/merchantBalanceCache';
 
 /**
  * Merchant USDC + native balances on all OpenDome USDC chains.
@@ -15,8 +18,13 @@ export async function GET(request) {
       );
     }
 
-    const payload = await getMerchantBalances();
-    return Response.json(payload);
+    const payload = await getCachedMerchantBalances();
+    const maxAge = Math.ceil(MERCHANT_BALANCE_TTL_MS / 1000);
+    return Response.json(payload, {
+      headers: {
+        'Cache-Control': `private, max-age=${maxAge}`,
+      },
+    });
   } catch (e) {
     console.error('[App /api/merchant-balances GET]', e);
     return Response.json(

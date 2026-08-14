@@ -94,7 +94,7 @@ const QUICK_ACTIONS = [
     label: 'Show my Base wallet details',
     prompt: 'Show the details for my Base Circle wallet.',
   },
-  { id: 'balance', label: "What's my USDC balance?", prompt: "What's my USDC balance on Base?" },
+  { id: 'balance', label: "What's my USDC balance?", prompt: "What's my USDC balance on all chains?" },
   { id: 'nfts', label: 'Show my wallet NFTs', prompt: 'Show the NFTs held in my Circle wallets.' },
 ];
 

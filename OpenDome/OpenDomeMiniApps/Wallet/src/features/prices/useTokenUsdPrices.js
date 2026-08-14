@@ -7,7 +7,7 @@ import {
 } from 'opendome/src/tokenPrices.js';
 
 const WALLET_TICKERS = ['ETH', 'SOL', 'AVAX', 'POL', 'MON', 'USDC'];
-const POLL_MS = 15_000;
+const POLL_MS = 60_000;
 
 async function loadHostPrices(tickers) {
   if (typeof window !== 'undefined' && window.parent !== window) {

@@ -10,7 +10,7 @@ export function useSponsoredTransfer() {
     setResult(null);
   }, []);
 
-  const send = useCallback(async ({ amount, destination, blockchain = 'BASE' }) => {
+  const send = useCallback(async ({ amount, destination, blockchain = 'BASE', asset = 'USDC' }) => {
     setError(null);
     setResult(null);
     try {
@@ -18,6 +18,7 @@ export function useSponsoredTransfer() {
         amount,
         destination,
         blockchain,
+        asset,
       });
       setResult(data);
       return data;

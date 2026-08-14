@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { Wallets } from '../../utilsAPI/passkeyDb';
 import {
   executeCircleNanoPayment,
+  executeCircleNativeTransfer,
   executeSolanaUsdcTransfer,
 } from '../../utilsAPI/circleTools.js';
 import { isSolanaAddress } from '../../utilsAPI/cctp/solanaAddress.js';
@@ -56,8 +57,12 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const amount = String(body.amount || '').trim();
     const destination = String(body.destination || body.to || '').trim();
+    const asset = String(body.asset || 'USDC').toUpperCase();
     if (!amount || !destination) {
       return json({ error: 'amount and destination are required' }, 400);
+    }
+    if (asset !== 'USDC' && asset !== 'NATIVE') {
+      return json({ error: 'asset must be USDC or NATIVE' }, 400);
     }
 
     const { normalizeUsdcChainKey, getUsdcChain } = nodeRequire('opendome/dist/x402.js');
@@ -70,6 +75,9 @@ export async function POST(req) {
       return json({ error: 'destination must be a 0x or Solana address' }, 400);
     }
 
+    if (asset === 'NATIVE' && ((blockchain === 'SOL') !== toSolana)) {
+      return json({ error: 'Native tokens can only be sent to the same network type' }, 400);
+    }
     if (toSolana && blockchain !== 'BASE' && blockchain !== 'SOL') {
       return json(
         {
@@ -97,7 +105,14 @@ export async function POST(req) {
     }
 
     const result =
-      blockchain === 'SOL'
+      asset === 'NATIVE'
+        ? await executeCircleNativeTransfer({
+            amount,
+            destination,
+            walletId,
+            blockchain,
+          })
+        : blockchain === 'SOL'
         ? await executeSolanaUsdcTransfer({ amount, destination, walletId })
         : await executeCircleNanoPayment({
             amount,
@@ -117,6 +132,7 @@ export async function POST(req) {
       mintTxHash: result.mintTxHash || null,
       transactionId: result.transactionId || result.txHash || null,
       feeUsdc: result.feeUsdc || null,
+      asset,
     });
   } catch (err) {
     console.error('[Host Transfer]', err);

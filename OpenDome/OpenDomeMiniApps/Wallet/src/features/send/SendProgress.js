@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Linking } from 'react-native';
 
-const BASE_STEPS = ['Signing', 'Sponsoring gas', 'Confirming on Base'];
+const BASE_STEPS = ['Signing', 'Submitting transfer', 'Confirming'];
 const SOLANA_STEPS = ['Approving USDC', 'Burning on Base', 'Minting on Solana'];
 
 function shortAddr(value) {
@@ -14,11 +14,11 @@ function chainLabel(chain) {
   return chain === 'solana' ? 'Base → Solana' : 'Base';
 }
 
-function Summary({ amount, destination, tokens, chain }) {
+function Summary({ amount, assetLabel, destination, tokens, chain }) {
   return (
     <View style={[styles.summary, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
       <Text style={[styles.amount, { color: tokens.FG, fontFamily: tokens.font.mono }]}>
-        {amount || '0'} USDC
+        {amount || '0'} {assetLabel}
       </Text>
       <Text style={[styles.meta, { color: tokens.FG_SECONDARY, fontFamily: tokens.font.primary }]}>
         to {shortAddr(destination)} · {chainLabel(chain)}
@@ -27,8 +27,8 @@ function Summary({ amount, destination, tokens, chain }) {
   );
 }
 
-export function SendLoading({ amount, destination, tokens, chain }) {
-  const steps = chain === 'solana' ? SOLANA_STEPS : BASE_STEPS;
+export function SendLoading({ amount, assetLabel, destination, tokens, chain, isBridging }) {
+  const steps = isBridging ? SOLANA_STEPS : BASE_STEPS;
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function SendLoading({ amount, destination, tokens, chain }) {
 
   return (
     <View style={styles.wrap}>
-      <Summary amount={amount} destination={destination} tokens={tokens} chain={chain} />
+      <Summary amount={amount} assetLabel={assetLabel} destination={destination} tokens={tokens} chain={chain} />
       <View style={styles.steps}>
         {steps.map((label, i) => {
           const active = i === step;
@@ -73,15 +73,15 @@ export function SendLoading({ amount, destination, tokens, chain }) {
         })}
       </View>
       <Text style={[styles.caption, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
-        {chain === 'solana'
+        {isBridging
           ? 'Circle CCTP bridges Base USDC to native Solana USDC'
-          : 'OpenDome sponsors gas with Circle Gas Station'}
+          : 'Confirm this transaction in your Circle wallet.'}
       </Text>
     </View>
   );
 }
 
-export function SendSuccess({ amount, destination, txHash, mintTxHash, tokens, onDone, chain }) {
+export function SendSuccess({ amount, assetLabel, destination, txHash, mintTxHash, tokens, onDone, chain }) {
   const explorer = txHash
     ? `https://basescan.org/tx/${txHash}`
     : null;
@@ -92,7 +92,7 @@ export function SendSuccess({ amount, destination, txHash, mintTxHash, tokens, o
       <Text style={[styles.sent, { color: tokens.SUCCESS, fontFamily: tokens.font.primary }]}>
         Sent
       </Text>
-      <Summary amount={amount} destination={destination} tokens={tokens} chain={chain} />
+      <Summary amount={amount} assetLabel={assetLabel} destination={destination} tokens={tokens} chain={chain} />
       {explorer ? (
         <TouchableOpacity
           style={[styles.txRow, { borderColor: tokens.BORDER, backgroundColor: tokens.SURFACE }]}
@@ -126,7 +126,7 @@ export function SendSuccess({ amount, destination, txHash, mintTxHash, tokens, o
           ? mintTxHash
             ? 'Native USDC minted on Solana'
             : 'Burn confirmed on Base. Solana mint follows in about a minute — pull to refresh Portfolio.'
-          : 'OpenDome sponsored gas with Circle Gas Station'}
+          : 'Transaction submitted. Pull to refresh Portfolio after confirmation.'}
       </Text>
       <TouchableOpacity
         style={[styles.doneBtn, { backgroundColor: tokens.FG }]}

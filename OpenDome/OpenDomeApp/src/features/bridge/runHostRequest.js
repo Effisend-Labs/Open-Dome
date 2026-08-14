@@ -1,6 +1,11 @@
 /**
  * Same-origin host APIs for mini-apps. Called from IframeContainer, not the iframe.
  */
+import {
+  getHostPlatformConfig,
+  getHostTokenPrices,
+} from './hostPublicCache';
+
 async function hostFetch(path, token, { method = 'GET', body } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -42,6 +47,7 @@ export async function runHostRequest(payload, token) {
       amount: payload.amount,
       destination: payload.destination,
       blockchain: payload.blockchain || payload.chain || 'BASE',
+      asset: payload.asset || 'USDC',
     });
   }
 
@@ -83,15 +89,14 @@ export async function runHostRequest(payload, token) {
   }
 
   if (action === 'platformConfig') {
-    return hostFetch('/api/platform-config', token);
+    return getHostPlatformConfig();
   }
 
   if (action === 'tokenPrices') {
     const tickers = Array.isArray(payload.tickers)
-      ? payload.tickers.join(',')
-      : payload.tickers || '';
-    const qs = tickers ? `?tickers=${encodeURIComponent(tickers)}` : '';
-    return hostFetch(`/api/token-prices${qs}`, token);
+      ? payload.tickers
+      : String(payload.tickers || '').split(',').filter(Boolean);
+    return getHostTokenPrices(tickers);
   }
 
   throw new Error(`Unknown host action: ${action}`);

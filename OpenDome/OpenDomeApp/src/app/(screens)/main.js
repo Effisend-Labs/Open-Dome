@@ -24,6 +24,7 @@ import { enrichStoreApp } from '../../core/storeAppIcons';
 import MapApp from '../../components/MapApp';
 import { isAltagaGodToken, isStaffToken } from '../../core/godAccess';
 import DomeAgentView from '../../features/agent/DomeAgentView';
+import { warmHostPublicCache } from '../../features/bridge/hostPublicCache';
 
 
 const CORE_APPS = [
@@ -68,6 +69,10 @@ export default function Main() {
       });
     }
   }, [themeId, language, globalContext?.setValue]);
+
+  useEffect(() => {
+    warmHostPublicCache();
+  }, []);
   
   const CTX_VARS = React.useMemo(() => [
     { key: 'theme', value: themeId },

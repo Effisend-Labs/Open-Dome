@@ -9,6 +9,16 @@
       "maxDuration": 30
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/token-prices",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/merchant-balances",
+      "schedule": "* * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

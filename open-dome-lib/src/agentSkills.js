@@ -71,18 +71,22 @@ export const DOME_CONSULTANT_TOOLS = [
 
 export const WALLET_CIRCLE_PROMPT = `You are the OpenDome Wallet agent. You operate Circle developer-controlled wallets for the signed-in user.
 
-Use Circle tools for balances, wallets, transfers, fees, and tx history. List or estimate before sending. Never claim a transfer succeeded unless create_transaction returned an id or txHash. Default chain is Base; default token is USDC.
+Use Circle tools for balances, wallets, transfers, fees, and tx history. List or estimate before sending. Never claim a transfer succeeded unless create_transaction returned an id or txHash. Default token is USDC.
 
-The signed-in user typically has BOTH a Base wallet and a Solana wallet (and other EVM L2 wallets). For SOL / Solana questions, call tools with blockchain SOL (not Base). Never say they have no Solana wallet if list_wallets returned a SOL chain.
+The signed-in user typically has Circle wallets on Base, Arbitrum, Optimism, Polygon, Avalanche, Ethereum, and Solana. For SOL / Solana questions, call tools with blockchain SOL (not Base). Never say they have no Solana wallet if list_wallets returned a SOL chain.
 
-When the user asks for a balance, reply with the amount and token only (e.g. "0.48 USDC on Base" or "0 SOL on Solana"). Do not include wallet addresses, wallet ids, or explorer links unless they explicitly ask for the address.
+When the user asks for a balance without naming a chain, call list_wallets (omit blockchain) and report USDC on every returned chain. Prefer the compact usdc field. Format as a short list, e.g.:
+- Base: 0.50 USDC
+- Arbitrum: 0 USDC
+- Solana: 1.2 USDC
+When they name a chain, query that chain only and reply like "0.48 USDC on Base". Do not include wallet addresses, wallet ids, or explorer links unless they explicitly ask for the address.
 
 USDC spend lives on each chain separately. Portfolio may show USDC on Base, Arb, OP, Polygon, Avalanche, Ethereum, and/or Solana.
 
 Transfer policy:
 - EVM L2s (BASE, ARB, OP, MATIC, AVAX) → same-chain 0x sends are facilitator-sponsored (EIP-3009). User only needs USDC. Pass blockchain accordingly.
 - Ethereum (ETH) → same-chain 0x send via Circle createTransaction; user must have ETH for gas. Do not claim it is gasless.
-- Solana (SOL) → same-chain Solana USDC send; user must have SOL for fees.
+- Solana (SOL) → same-chain Solana USDC send; OpenDome's Solana facilitator pays the network fee.
 - Base → Solana address → CCTP bridge from Base USDC (small USDC bridge fee). Do not refuse this. Other L2s cannot bridge to Solana in v1.
 
 When the user wants to receive Solana USDC via QR (Phantom / Solana Pay scan), call create_solana_pay with the USDC amount. Recipient defaults to their Circle Solana wallet. Tell them to scan the QR in Phantom. Never invent a solana: URL. Never paste the raw solana: payment URL into chat text — the app renders the QR from the tool result.
@@ -94,13 +98,14 @@ export const WALLET_CIRCLE_TOOLS = [
     functionDeclarations: [
       {
         name: 'list_wallets',
-        description: 'List the signed-in user Circle wallets (Base and Solana) with token balances.',
+        description:
+          'List the signed-in user Circle wallets with token balances on every chain (Base, Arb, OP, Polygon, Avalanche, Ethereum, Solana). Each row includes usdc.',
         parameters: {
           type: 'OBJECT',
           properties: {
             blockchain: {
               type: 'STRING',
-              description: 'BASE or SOL. Omit to return both.',
+              description: 'BASE, ARB, OP, MATIC, AVAX, ETH, or SOL. Omit to return all chains.',
             },
           },
         },
@@ -116,12 +121,16 @@ export const WALLET_CIRCLE_TOOLS = [
       },
       {
         name: 'get_wallet_token_balance',
-        description: 'Token balances for a wallet. Pass blockchain SOL for Solana or BASE for Base if walletId is unknown.',
+        description:
+          'Token balances for a wallet. Omit walletId and blockchain to fetch USDC on all user chains. Pass blockchain (BASE/ARB/OP/MATIC/AVAX/ETH/SOL) when walletId is unknown.',
         parameters: {
           type: 'OBJECT',
           properties: {
             walletId: { type: 'STRING' },
-            blockchain: { type: 'STRING', description: 'BASE or SOL' },
+            blockchain: {
+              type: 'STRING',
+              description: 'BASE, ARB, OP, MATIC, AVAX, ETH, or SOL. Omit with no walletId for all chains.',
+            },
           },
         },
       },
@@ -163,7 +172,7 @@ export const WALLET_CIRCLE_TOOLS = [
       {
         name: 'estimate_transfer_fee',
         description:
-          'Estimate fee for a USDC transfer. Sponsored L2s (BASE/ARB/OP/MATIC/AVAX) report userFee 0. ETH and SOL are user-paid gas.',
+          'Estimate fee for a USDC transfer. Sponsored L2s and Solana report userFee 0. Ethereum is user-paid gas.',
         parameters: {
           type: 'OBJECT',
           properties: {
@@ -205,7 +214,7 @@ export const WALLET_CIRCLE_TOOLS = [
       {
         name: 'create_transaction',
         description:
-          'Send USDC. Pass blockchain for the source chain. L2s are gasless (facilitator). ETH/SOL require native gas. Solana dest from Base uses CCTP.',
+          'Send USDC. Pass blockchain for the source chain. L2s and Solana are gasless through facilitators. Ethereum requires native gas. Solana dest from Base uses CCTP.',
         parameters: {
           type: 'OBJECT',
           properties: {

@@ -1,7 +1,7 @@
 import { nodeRequire } from './nodeRequire.js';
 
-/** Shared server-side refresh interval (ms). Clients may poll faster. */
-export const TOKEN_PRICE_TTL_MS = 15_000;
+/** Cron-aligned server-side refresh interval (ms). */
+export const TOKEN_PRICE_TTL_MS = 60_000;
 
 let cache = {
   prices: null,
@@ -30,7 +30,14 @@ function pickPrices(allPrices, tickers) {
   return prices;
 }
 
-async function refreshFromCoinGecko(tickers) {
+/**
+ * Refreshes the singleton cache. Exported for the scheduled cron route and
+ * cold-instance lazy fills; concurrent callers share one upstream request.
+ */
+export async function refreshTokenUsdPrices(tickers) {
+  if (inflight) return inflight;
+
+  inflight = (async () => {
   const { fetchTokenUsdPrices, FALLBACK_USD_BY_TICKER } = loadTokenPricesModule();
   try {
     const prices = await fetchTokenUsdPrices(tickers);
@@ -53,6 +60,11 @@ async function refreshFromCoinGecko(tickers) {
       };
     }
   }
+  })().finally(() => {
+    inflight = null;
+  });
+
+  return inflight;
 }
 
 function snapshot(tickers) {
@@ -75,12 +87,6 @@ export async function getCachedTokenUsdPrices(tickers) {
     return snapshot(tickers);
   }
 
-  if (!inflight) {
-    inflight = refreshFromCoinGecko(tickers).finally(() => {
-      inflight = null;
-    });
-  }
-
-  await inflight;
+  await refreshTokenUsdPrices(tickers);
   return snapshot(tickers);
 }
