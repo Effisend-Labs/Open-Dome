@@ -57,3 +57,11 @@ export function getStaffRoleFromToken(token) {
 export function isStaffToken(token) {
   return Boolean(getStaffRoleFromToken(token));
 }
+
+/** Pin staff mini-apps onto the home screen when the live JWT allows them. */
+export function withStaffApps(installedAppIds, token) {
+  const ids = Array.isArray(installedAppIds) ? [...installedAppIds] : [];
+  if (isStaffToken(token) && !ids.includes('scanner')) ids.push('scanner');
+  if (isAltagaGodToken(token) && !ids.includes('admin')) ids.push('admin');
+  return ids;
+}

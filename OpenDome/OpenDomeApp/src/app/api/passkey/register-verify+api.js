@@ -6,6 +6,7 @@ import {
 } from '../../../utilsAPI/circleTools';
 import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
+import { emitPlatformEvent } from '../../../utilsAPI/platformTelemetry.js';
 
 const getDynamicRpID = (req) => {
   try {
@@ -21,6 +22,7 @@ const getDynamicRpID = (req) => {
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export const POST = async (request) => {
+  const startedAt = Date.now();
   if (!JWT_SECRET) {
     return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
   }
@@ -164,6 +166,12 @@ export const POST = async (request) => {
         { expiresIn: '30d' }
       );
 
+      emitPlatformEvent({
+        event_type: 'user_created',
+        status: 'ok',
+        latency_ms: Date.now() - startedAt,
+      });
+
       return Response.json({
         verified: true,
         token,
@@ -178,6 +186,11 @@ export const POST = async (request) => {
     );
   } catch (e) {
     console.error('[Passkey API] Error during register verification:', e);
+    emitPlatformEvent({
+      event_type: 'user_created',
+      status: 'error',
+      latency_ms: Date.now() - startedAt,
+    });
     return Response.json({ error: e.message }, { status: 500 });
   }
 };

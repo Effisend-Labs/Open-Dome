@@ -14,6 +14,7 @@ import { useTheme } from '../providers/ThemeProvider';
 import { STORE_APP_ICONS } from '../core/storeAppIcons';
 import { isAltagaGodToken, isStaffToken } from '../core/godAccess';
 import { StoreAppCard } from '../features/store/StoreAppCard';
+import { refreshHostSession } from '../features/session/refreshHostSession';
 
 const ACTION_DURATION_MS = 5000;
 const CLOSE_BTN = 36;
@@ -23,6 +24,7 @@ export default function StoreApp({
   onInstallApp,
   onUninstallApp,
   verifiedToken,
+  onSessionRefreshed,
 }) {
   const { normalize: n } = useSmartSize();
   const { colors: theme } = useTheme();
@@ -36,6 +38,21 @@ export default function StoreApp({
   const iconPulseRefs = useRef({});
   const isGod = isAltagaGodToken(verifiedToken);
   const isStaff = isStaffToken(verifiedToken);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!verifiedToken || typeof onSessionRefreshed !== 'function') return;
+      const refreshed = await refreshHostSession(verifiedToken);
+      if (cancelled || !refreshed?.token || refreshed.token === verifiedToken) return;
+      onSessionRefreshed(refreshed.token);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Refresh once when OpenStore opens so a just-assigned staff role appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     (async () => {

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { emitAiEvent } from '../../utilsAPI/aiTelemetry.js';
+import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
 
 /**
  * OpenDomeApp agent — x402 challenge must work even if Gemini fails to load.
@@ -242,6 +243,13 @@ export async function POST(req) {
 
       if (!decoded) decoded = { userId: 'x402-user', username: 'x402 Payer' };
       telemetry.network = cfg.key || null;
+      emitPlatformEvent({
+        event_type: 'x402_payment',
+        status: 'ok',
+        network: cfg.key,
+        amount_usdc: Number(price) || 0,
+        latency_ms: Date.now() - startedAt,
+      });
     }
 
     const ai = await getAI();

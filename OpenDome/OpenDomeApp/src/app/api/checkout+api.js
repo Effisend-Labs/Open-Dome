@@ -8,6 +8,7 @@ import { assignTicketsAsPlatform } from '../../utilsAPI/ticketsDb.js';
 import { Transactions } from '../../utilsAPI/passkeyDb.js';
 import { mintPlanFromQuote } from '../../utilsAPI/mintPlanFromQuote.js';
 import { verifySolanaPaymentProof } from '../../utilsAPI/solanaPaymentProof.js';
+import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -26,6 +27,8 @@ export async function OPTIONS() {
  * UI quote shows catalog prices; x402 charges $0.02 per NFT.
  */
 export async function POST(req) {
+  const startedAt = Date.now();
+  let network = 'BASE';
   try {
     const body = await req.json();
     const { quote, toAddress } = body;
@@ -43,6 +46,7 @@ export async function POST(req) {
     const paymentChain = resolveX402PaymentNetwork(
       req.headers.get('x-payment-network') || 'BASE',
     );
+    network = paymentChain.key;
     const merchantAddress =
       paymentChain.key === 'SOL'
         ? process.env.MERCHANT_SOLANA_ADDRESS
@@ -174,6 +178,23 @@ export async function POST(req) {
       orderId,
     });
 
+    emitPlatformEvent({
+      event_type: 'checkout',
+      status: 'ok',
+      network: paymentChain.key,
+      amount_usdc: Number(price),
+      latency_ms: Date.now() - startedAt,
+    });
+    if (mintResult) {
+      emitPlatformEvent({
+        event_type: 'pass_minted',
+        status: 'ok',
+        network: 'base',
+        count: mintPlan.ids.length,
+        latency_ms: Date.now() - startedAt,
+      });
+    }
+
     return Response.json({
       success: true,
       confirmation,
@@ -183,6 +204,12 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error('[Host Checkout API]', error);
+    emitPlatformEvent({
+      event_type: 'checkout',
+      status: 'error',
+      network,
+      latency_ms: Date.now() - startedAt,
+    });
     return Response.json({ error: error.message || 'Checkout failed' }, { status: 500 });
   }
 }

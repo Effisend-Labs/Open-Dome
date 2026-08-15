@@ -198,6 +198,31 @@ export default function Dashboard({ currentUser }) {
     });
   };
 
+  const persistRoleUpdates = async (updates) => {
+    if (!updates.length) {
+      setStatus('No role changes to save');
+      return;
+    }
+
+    setSavingRoles(true);
+    setStatus('');
+    try {
+      await Host.updateUsers(updates);
+      setDraftRoles({});
+      const names = updates
+        .map((u) => users.find((x) => x.id === u.id)?.name || u.id)
+        .join(', ');
+      setStatus(
+        `Saved ${updates.map((u) => u.role).join(', ')} for ${names}. They see Scanner after refreshing OpenDome.`,
+      );
+      await fetchUsers();
+    } catch (e) {
+      setDraftRoles({});
+      setStatus(e.message);
+    }
+    setSavingRoles(false);
+  };
+
   const handleSaveRoles = async () => {
     const updates = users
       .filter((u) => u.role !== 'GOD')
@@ -222,22 +247,14 @@ export default function Dashboard({ currentUser }) {
               return original && u.role !== original.role;
             });
 
-    if (!payload.length) {
-      setStatus('No role changes to save');
-      return;
-    }
+    await persistRoleUpdates(payload);
+  };
 
-    setSavingRoles(true);
-    setStatus('');
-    try {
-      await Host.updateUsers(payload);
-      setDraftRoles({});
-      setStatus(`Saved roles for ${payload.length} user(s)`);
-      await fetchUsers();
-    } catch (e) {
-      setStatus(e.message);
-    }
-    setSavingRoles(false);
+  const handleRoleChange = (id, role) => {
+    setDraftRole(id, role);
+    const original = users.find((x) => x.id === id);
+    if (!original || original.role === 'GOD' || original.role === role) return;
+    persistRoleUpdates([{ id, role }]);
   };
 
   const confirmDelete = (username) =>
@@ -336,7 +353,8 @@ export default function Dashboard({ currentUser }) {
             <>
               <RolePicker
                 value={draftRoles[u.id] || u.role}
-                onChange={(role) => setDraftRole(u.id, role)}
+                disabled={savingRoles}
+                onChange={(role) => handleRoleChange(u.id, role)}
               />
               <TouchableOpacity style={s.deleteBtn} onPress={() => handleDelete(u.id)}>
                 <Ionicons name="trash-outline" size={16} color={COLORS.danger} />

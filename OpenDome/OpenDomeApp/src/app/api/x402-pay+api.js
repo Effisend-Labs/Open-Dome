@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { nodeRequire } from '../../utilsAPI/nodeRequire';
 import { signSolanaPaymentProof } from '../../utilsAPI/solanaPaymentProof.js';
+import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
 
 BigInt.prototype.toJSON = function () {
   return this.toString();
@@ -37,6 +38,8 @@ function pickEvmWalletId(walletData, chainKey) {
 }
 
 export async function POST(request) {
+  const startedAt = Date.now();
+  let network = 'BASE';
   try {
     const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) {
@@ -87,6 +90,7 @@ export async function POST(request) {
         { status: err.status || 400 },
       );
     }
+    network = cfg.key;
 
     console.log(
       `[x402 Host] Payment intent for ${serviceUrl} from @${decoded.username} on ${cfg.key}`,
@@ -184,6 +188,13 @@ export async function POST(request) {
         throw new Error(`Payment failed: ${response.status} - ${errorText}`);
       }
       const data = await response.json();
+      emitPlatformEvent({
+        event_type: 'x402_payment',
+        status: 'ok',
+        network: 'SOL',
+        amount_usdc: Number(amount) || 0,
+        latency_ms: Date.now() - startedAt,
+      });
       return Response.json({
         success: true,
         data,
@@ -266,6 +277,13 @@ export async function POST(request) {
     }
 
     const data = await response.json();
+    emitPlatformEvent({
+      event_type: 'x402_payment',
+      status: 'ok',
+      network: cfg.key,
+      amount_usdc: Number(amount) || 0,
+      latency_ms: Date.now() - startedAt,
+    });
     return Response.json({
       success: true,
       data,
@@ -275,6 +293,12 @@ export async function POST(request) {
   } catch (err) {
     const message = formatX402Error(err);
     console.error('[x402 Host] Error:', message);
+    emitPlatformEvent({
+      event_type: 'x402_payment',
+      status: 'error',
+      network,
+      latency_ms: Date.now() - startedAt,
+    });
     return Response.json({ error: message || 'Payment failed' }, { status: 500 });
   }
 }

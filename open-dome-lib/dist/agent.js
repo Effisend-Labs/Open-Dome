@@ -4,6 +4,17 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.AgentAPI = exports.Agent = void 0;
+exports.agentReplyText = agentReplyText;
+/**
+ * Host may return a string (legacy) or
+ * { response, modelLabel, tools, explorerUrl, extra }.
+ */
+function agentReplyText(res) {
+  if (typeof res === 'string') return res;
+  if (res && typeof res.response === 'string') return res.response;
+  if (res?.data && typeof res.data.response === 'string') return res.data.response;
+  return '';
+}
 class AgentAPI {
   constructor() {
     this.resolvers = new Map();
@@ -44,9 +55,9 @@ class AgentAPI {
   }
 
   /**
-   * Send a prompt to the AI Agent via the Sandbox Server proxy
-   * @param {string} text - The prompt text
-   * @returns {Promise<string>} The agent's response
+   * Send a prompt to the AI Agent via the host bridge.
+   * @param {string} text
+   * @returns {Promise<string|{ response?: string, modelLabel?: string, tools?: any, explorerUrl?: string, extra?: any }>}
    */
   async prompt(text, options = {}) {
     if (typeof window === 'undefined' || window.parent === window) {

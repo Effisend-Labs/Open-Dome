@@ -1,12 +1,15 @@
 import { mintPassesAsPlatform } from 'opendome/dist/platformMint.js';
 import { assignTicketsAsPlatform } from '../../utilsAPI/ticketsDb.js';
 import { verifyStaffFromRequest } from '../../utilsAPI/staffAuth.js';
+import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
 
 /**
  * Platform mint — OpenDomeApp holds MERCHANT_PRIVATE_KEY.
  * Auth: @altaga god JWT (Admin mini-app) OR ADMIN_SCANNER_TOKEN (hotfix/service).
  */
 export async function POST(request) {
+  const startedAt = Date.now();
+  let network = 'base';
   try {
     const actor = await verifyStaffFromRequest(request);
     const allowed =
@@ -34,6 +37,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
+    network = body.network || 'base';
     const result = await mintPassesAsPlatform({
       to: body.to,
       ids: body.ids,
@@ -50,6 +54,14 @@ export async function POST(request) {
       assignedBy: actor.type === 'scanner-token' ? 'hotfix' : 'admin',
     });
 
+    emitPlatformEvent({
+      event_type: 'pass_minted',
+      status: 'ok',
+      network,
+      count: Array.isArray(result.ids) ? result.ids.length : 1,
+      latency_ms: Date.now() - startedAt,
+    });
+
     return Response.json({
       ...result,
       message: 'Platform minted and assigned tickets',
@@ -59,6 +71,12 @@ export async function POST(request) {
     const status = err.status || 500;
     const message = err.reason || err.data?.message || err.message;
     console.error('[App mint]', message);
+    emitPlatformEvent({
+      event_type: 'pass_minted',
+      status: 'error',
+      network,
+      latency_ms: Date.now() - startedAt,
+    });
     return Response.json({ error: message, message }, { status });
   }
 }

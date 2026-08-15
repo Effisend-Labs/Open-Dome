@@ -7,6 +7,7 @@ import {
 } from '../../utilsAPI/circleTools.js';
 import { isSolanaAddress } from '../../utilsAPI/cctp/solanaAddress.js';
 import { nodeRequire } from '../../utilsAPI/nodeRequire.js';
+import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -38,6 +39,8 @@ function pickWalletId(walletData, blockchain) {
 }
 
 export async function POST(req) {
+  const startedAt = Date.now();
+  let network = 'BASE';
   try {
     const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) return json({ error: 'JWT_SECRET is not set' }, 500);
@@ -67,6 +70,7 @@ export async function POST(req) {
 
     const { normalizeUsdcChainKey, getUsdcChain } = nodeRequire('opendome/dist/x402.js');
     const blockchain = normalizeUsdcChainKey(body.blockchain || body.chain || 'BASE') || 'BASE';
+    network = blockchain;
     const cfg = getUsdcChain(blockchain);
 
     const toSolana = isSolanaAddress(destination);
@@ -122,6 +126,13 @@ export async function POST(req) {
           });
 
     if (result?.error) return json({ error: result.error }, 400);
+    emitPlatformEvent({
+      event_type: 'usdc_transfer',
+      status: 'ok',
+      network: blockchain,
+      amount_usdc: asset === 'USDC' ? Number(amount) : 0,
+      latency_ms: Date.now() - startedAt,
+    });
     return json({
       success: true,
       sponsored: Boolean(result.sponsored),
@@ -136,6 +147,12 @@ export async function POST(req) {
     });
   } catch (err) {
     console.error('[Host Transfer]', err);
+    emitPlatformEvent({
+      event_type: 'usdc_transfer',
+      status: 'error',
+      network,
+      latency_ms: Date.now() - startedAt,
+    });
     return json({ error: err.message || 'Transfer failed' }, 500);
   }
 }

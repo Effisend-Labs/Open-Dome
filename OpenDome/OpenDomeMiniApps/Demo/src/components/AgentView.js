@@ -5,6 +5,14 @@ import { GLOBAL_STYLES, onPrimaryColor } from '../theme';
 
 const STARTERS = ['What can you do?', 'Tell me a joke', 'Explain Open-Dome'];
 
+/** Host returns { response, modelLabel, ... } — never render that object in <Text>. */
+function agentReplyText(res) {
+  if (typeof res === 'string') return res;
+  if (res && typeof res.response === 'string') return res.response;
+  if (res?.data && typeof res.data.response === 'string') return res.data.response;
+  return '';
+}
+
 function TypingDots({ color }) {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
@@ -73,7 +81,7 @@ export default function AgentView({ tokens, theme, username, t }) {
 
     try {
       const res = await Agent.prompt(text);
-      const responseText = res || 'No response received.';
+      const responseText = agentReplyText(res) || 'No response received.';
       const aiMsg = { id: (Date.now() + 1).toString(), role: 'agent', content: responseText };
       setConversation(prev => [...prev, aiMsg]);
     } catch (err) {
@@ -160,7 +168,7 @@ export default function AgentView({ tokens, theme, username, t }) {
               ]}
               selectable
             >
-              {msg.content}
+              {typeof msg.content === 'string' ? msg.content : agentReplyText(msg.content)}
             </Text>
           </View>
         </View>

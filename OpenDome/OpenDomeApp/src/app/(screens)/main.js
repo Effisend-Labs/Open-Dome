@@ -22,7 +22,8 @@ import { Events } from '../../core/events';
 import StoreApp from '../../components/StoreApp';
 import { enrichStoreApp } from '../../core/storeAppIcons';
 import MapApp from '../../components/MapApp';
-import { isAltagaGodToken, isStaffToken } from '../../core/godAccess';
+import { isAltagaGodToken, isStaffToken, withStaffApps } from '../../core/godAccess';
+import { refreshHostSession } from '../../features/session/refreshHostSession';
 import DomeAgentView from '../../features/agent/DomeAgentView';
 import { warmHostPublicCache } from '../../features/bridge/hostPublicCache';
 import { UserWalletProvider } from '../../features/userWallet/UserWalletProvider';
@@ -131,9 +132,16 @@ export default function Main() {
       try {
         const savedToken = await AsyncStorage.getItem('opendome_auth_token');
         if (savedToken) {
-          setVerifiedToken(savedToken);
+          const refreshed = await refreshHostSession(savedToken);
+          const token = refreshed?.token || savedToken;
+          if (refreshed?.token && refreshed.token !== savedToken) {
+            await AsyncStorage.setItem('opendome_auth_token', token);
+          }
+          setVerifiedToken(token);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Failed to restore session', e);
+      }
 
       let fetchedApps = [];
       try {
@@ -170,7 +178,7 @@ export default function Main() {
   useEffect(() => {
     const allowAdmin = isAltagaGodToken(verifiedToken);
     const allowScanner = isStaffToken(verifiedToken);
-    const newLayout = installedAppIds.map(id => {
+    const newLayout = withStaffApps(installedAppIds, verifiedToken).map(id => {
       if (id === 'admin' && !allowAdmin) return null;
       if (id === 'scanner' && !allowScanner) return null;
       const core = CORE_APPS.find(c => c.id === id);
@@ -245,6 +253,30 @@ export default function Main() {
     }
   };
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible') return;
+      let current = verifiedToken;
+      try {
+        current = (await AsyncStorage.getItem('opendome_auth_token')) || verifiedToken;
+      } catch (e) {
+        console.warn('Failed to read auth token', e);
+      }
+      if (!current) return;
+      const refreshed = await refreshHostSession(current);
+      if (!refreshed?.token || refreshed.token === current) return;
+      setVerifiedToken(refreshed.token);
+      try {
+        await AsyncStorage.setItem('opendome_auth_token', refreshed.token);
+      } catch (e) {
+        console.warn('Failed to save auth token', e);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [verifiedToken]);
+
   const handleAppPress = (appId) => {
     if (isEditing) {
       if (selectedAppId === null) {
@@ -298,6 +330,7 @@ export default function Main() {
                 onInstallApp={handleInstallApp}
                 onUninstallApp={handleUninstallApp}
                 verifiedToken={verifiedToken}
+                onSessionRefreshed={(token) => handleUserAuthChanged({ token })}
               />
             ) : activeApp.id === 'app2' ? (
               <MapApp />

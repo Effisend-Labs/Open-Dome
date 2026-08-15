@@ -33,7 +33,7 @@ export function staffRoleFromUser(user, jwtClaims = {}) {
   return null;
 }
 
-function readBearerToken(request) {
+export function readBearerToken(request) {
   const auth =
     request.headers.get('Authorization') ||
     request.headers.get('authorization') ||
