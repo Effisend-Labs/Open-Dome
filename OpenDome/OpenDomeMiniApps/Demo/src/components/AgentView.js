@@ -1,61 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Animated, Easing, Platform } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useOpenDome } from 'opendome';
 import { GLOBAL_STYLES, onPrimaryColor } from '../theme';
-
-const STARTERS = ['What can you do?', 'Tell me a joke', 'Explain Open-Dome'];
-
-/** Host returns { response, modelLabel, ... } — never render that object in <Text>. */
-function agentReplyText(res) {
-  if (typeof res === 'string') return res;
-  if (res && typeof res.response === 'string') return res.response;
-  if (res?.data && typeof res.data.response === 'string') return res.data.response;
-  return '';
-}
-
-function TypingDots({ color }) {
-  const dot1 = useRef(new Animated.Value(0)).current;
-  const dot2 = useRef(new Animated.Value(0)).current;
-  const dot3 = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const animate = (dot, delay) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(dot, { toValue: 1, duration: 320, easing: Easing.out(Easing.ease), useNativeDriver: false }),
-          Animated.timing(dot, { toValue: 0, duration: 320, easing: Easing.in(Easing.ease), useNativeDriver: false }),
-          Animated.delay(600 - delay),
-        ])
-      );
-    animate(dot1, 0).start();
-    animate(dot2, 160).start();
-    animate(dot3, 320).start();
-  }, []);
-
-  const dotStyle = (anim) => ({
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: color,
-    marginHorizontal: 2,
-    opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
-    transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }],
-  });
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
-      <Animated.View style={dotStyle(dot1)} />
-      <Animated.View style={dotStyle(dot2)} />
-      <Animated.View style={dotStyle(dot3)} />
-    </View>
-  );
-}
-
-function formatTime(ts) {
-  const d = new Date(parseInt(ts, 10));
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
+import { AgentEmptyState } from '../features/agent/AgentEmptyState';
+import { AgentMessage } from '../features/agent/AgentMessage';
+import { agentReplyText } from '../features/agent/agentReplyText';
 
 export default function AgentView({ tokens, theme, username, t }) {
   const onPrimary = onPrimaryColor(theme);
@@ -76,104 +25,24 @@ export default function AgentView({ tokens, theme, username, t }) {
     setInputHeight(48);
 
     const userMsg = { id: Date.now().toString(), role: 'user', content: text };
-    setConversation(prev => [...prev, userMsg]);
+    setConversation((prev) => [...prev, userMsg]);
     setIsTyping(true);
 
     try {
       const res = await Agent.prompt(text);
       const responseText = agentReplyText(res) || 'No response received.';
-      const aiMsg = { id: (Date.now() + 1).toString(), role: 'agent', content: responseText };
-      setConversation(prev => [...prev, aiMsg]);
+      setConversation((prev) => [
+        ...prev,
+        { id: (Date.now() + 1).toString(), role: 'agent', content: responseText },
+      ]);
     } catch (err) {
-      const errMsg = { id: (Date.now() + 1).toString(), role: 'system', content: err.message };
-      setConversation(prev => [...prev, errMsg]);
+      setConversation((prev) => [
+        ...prev,
+        { id: (Date.now() + 1).toString(), role: 'system', content: err.message },
+      ]);
     } finally {
       setIsTyping(false);
     }
-  };
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <View style={[styles.emptyIconWrap, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
-        <Text style={{ fontSize: 22, color: tokens.NEON_PRIMARY }}>✦</Text>
-      </View>
-      <Text style={[styles.emptyTitle, { color: tokens.FG, fontFamily: tokens.font.primary }]}>
-        {t.agent?.workspace || 'Agent Workspace'}
-      </Text>
-      <Text style={[styles.emptySubtitle, { color: tokens.MUTED, fontFamily: tokens.font.mono }]}>
-        {t.agent?.helpText || 'Ask me anything — I can help with tasks, questions, and more.'}
-      </Text>
-      <View style={styles.chipCol}>
-        {STARTERS.map((chip) => (
-          <TouchableOpacity
-            key={chip}
-            style={[styles.chip, { borderColor: tokens.BORDER, backgroundColor: tokens.SURFACE, borderRadius: tokens.shape.buttonRadius }]}
-            onPress={() => handleSend(chip)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.chipText, { color: tokens.FG, fontFamily: tokens.font.primary }]}>{chip}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderMessage = (msg) => {
-    const isUser = msg.role === 'user';
-    const isSystem = msg.role === 'system';
-
-    return (
-      <View
-        key={msg.id}
-        style={[
-          styles.messageRow,
-          { alignSelf: isUser ? 'flex-end' : 'flex-start' },
-        ]}
-      >
-        {!isUser && (
-          <View style={[styles.avatar, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
-            <Text style={{ fontSize: 11, color: isSystem ? tokens.NEON_DANGER : tokens.NEON_PRIMARY }}>{isSystem ? '!' : '✦'}</Text>
-          </View>
-        )}
-
-        <View style={{ flex: 1, maxWidth: '82%' }}>
-          <View style={[styles.metaRow, { justifyContent: isUser ? 'flex-end' : 'flex-start' }]}>
-            <Text style={[styles.senderLabel, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
-              {isUser ? (username || 'You') : isSystem ? 'System' : 'Agent'}
-            </Text>
-            <Text style={[styles.timeLabel, { color: tokens.MUTED, fontFamily: tokens.font.mono }]}>
-              {formatTime(msg.id)}
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.bubble,
-              {
-                backgroundColor: tokens.SURFACE,
-                borderColor: isSystem ? tokens.NEON_DANGER : tokens.BORDER,
-                borderWidth: tokens.shape.border,
-                borderBottomRightRadius: isUser ? 4 : tokens.shape.cardRadius,
-                borderBottomLeftRadius: isUser ? tokens.shape.cardRadius : 4,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.bubbleText,
-                {
-                  color: isSystem ? tokens.NEON_DANGER : tokens.FG,
-                  fontFamily: isSystem ? tokens.font.mono : tokens.font.primary,
-                },
-              ]}
-              selectable
-            >
-              {typeof msg.content === 'string' ? msg.content : agentReplyText(msg.content)}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
   };
 
   const canSend = prompt.trim().length > 0 && !isTyping;
@@ -189,10 +58,12 @@ export default function AgentView({ tokens, theme, username, t }) {
               </Text>
               <View style={[styles.statusPill, { backgroundColor: tokens.BG, borderColor: tokens.BORDER, borderWidth: tokens.shape.border }]}>
                 <View style={[styles.statusDot, { backgroundColor: tokens.NEON_SUCCESS }]} />
-                <Text style={[styles.statusText, { color: tokens.NEON_SUCCESS, fontFamily: tokens.font.mono }]}>ONLINE</Text>
+                <Text style={[styles.statusText, { color: tokens.NEON_SUCCESS, fontFamily: tokens.font.primary }]}>
+                  ONLINE
+                </Text>
               </View>
             </View>
-            <Text style={[styles.headerSub, { color: tokens.MUTED, fontFamily: tokens.font.mono }]}>
+            <Text style={[styles.headerSub, { color: tokens.MUTED, fontFamily: tokens.font.primary }]}>
               {t.agent?.poweredBy || 'Powered by Gemini'}
             </Text>
           </View>
@@ -216,48 +87,35 @@ export default function AgentView({ tokens, theme, username, t }) {
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
-        {conversation.length === 0 ? renderEmptyState() : conversation.map(renderMessage)}
+        {conversation.length === 0 ? (
+          <AgentEmptyState tokens={tokens} t={t} onPick={handleSend} />
+        ) : (
+          conversation.map((msg) => (
+            <AgentMessage key={msg.id} tokens={tokens} theme={theme} username={username} msg={msg} />
+          ))
+        )}
 
         {isTyping && (
-          <View style={[styles.messageRow, { alignSelf: 'flex-start' }]}>
-            <View style={[styles.avatar, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER }]}>
-              <Text style={{ fontSize: 11, color: tokens.NEON_PRIMARY }}>✦</Text>
-            </View>
-            <View style={{ maxWidth: '82%' }}>
-              <Text style={[styles.senderLabel, { color: tokens.MUTED, fontFamily: tokens.font.primary, marginBottom: 6 }]}>Agent</Text>
-              <View style={[styles.bubble, { backgroundColor: tokens.SURFACE, borderColor: tokens.BORDER, borderWidth: tokens.shape.border, borderBottomLeftRadius: 4 }]}>
-                <TypingDots color={tokens.NEON_PRIMARY} />
-              </View>
-            </View>
-          </View>
+          <AgentMessage tokens={tokens} theme={theme} username={username} msg={{ role: 'agent' }} typing />
         )}
       </ScrollView>
 
       <View style={[styles.inputBar, { borderTopColor: tokens.BORDER, backgroundColor: tokens.SURFACE }]}>
-        <View style={[
-          styles.inputWrap,
-          {
-            backgroundColor: tokens.BG,
-            borderColor: inputFocused ? tokens.NEON_PRIMARY : tokens.BORDER,
-            borderRadius: tokens.shape.buttonRadius,
-          },
-        ]}>
+        <View
+          style={[
+            styles.inputWrap,
+            {
+              backgroundColor: tokens.BG,
+              borderColor: inputFocused ? tokens.NEON_PRIMARY : tokens.BORDER,
+              borderRadius: tokens.shape.buttonRadius,
+            },
+          ]}
+        >
           <Text
-            style={[
-              styles.input,
-              {
-                fontFamily: tokens.font.primary,
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                opacity: 0,
-                zIndex: -1,
-              }
-            ]}
+            style={[styles.input, styles.inputMirror, { fontFamily: tokens.font.primary }]}
             onLayout={(e) => setInputHeight(e.nativeEvent.layout.height)}
           >
-            {prompt ? prompt + ' ' : ' '}
+            {prompt ? `${prompt} ` : ' '}
           </Text>
 
           <TextInput
@@ -293,9 +151,7 @@ export default function AgentView({ tokens, theme, username, t }) {
             },
           ]}
         >
-          <Text style={[styles.sendIcon, { color: canSend ? onPrimary : tokens.MUTED }]}>
-            ➤
-          </Text>
+          <Text style={[styles.sendIcon, { color: canSend ? onPrimary : tokens.MUTED }]}>➤</Text>
         </TouchableOpacity>
       </View>
 
@@ -311,13 +167,13 @@ export default function AgentView({ tokens, theme, username, t }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { borderBottomWidth: 2 },
+  header: { borderBottomWidth: 1 },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   headerLeft: { flex: 1 },
   headerTitleRow: {
@@ -341,79 +197,17 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 5, height: 5, borderRadius: 2.5 },
   statusText: { fontSize: 8, fontWeight: '700', letterSpacing: 0.5 },
-  headerSub: { fontSize: 10, marginTop: 4, letterSpacing: 0.2 },
+  headerSub: { fontSize: 11, marginTop: 4, letterSpacing: 0.1 },
   clearBtn: { paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
   clearBtnText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.8 },
   scrollArea: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  emptyIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: GLOBAL_STYLES.heavy,
-    letterSpacing: 1,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  emptySubtitle: {
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 28,
-  },
-  chipCol: { width: '100%', maxWidth: 320, gap: 8 },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  chipText: { fontSize: 12, fontWeight: '600', letterSpacing: 0.2 },
-  messageRow: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 10,
-    maxWidth: '100%',
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 18,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-    paddingHorizontal: 2,
-  },
-  senderLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.2 },
-  timeLabel: { fontSize: 9, letterSpacing: 0.3 },
-  bubble: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16 },
-  bubbleText: { fontSize: 14, lineHeight: 22, letterSpacing: -0.15 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderTopWidth: 2,
+    borderTopWidth: 1,
     gap: 10,
   },
   inputWrap: {
@@ -432,6 +226,14 @@ const styles = StyleSheet.create({
     minHeight: 48,
     maxHeight: 108,
     letterSpacing: -0.1,
+  },
+  inputMirror: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    opacity: 0,
+    zIndex: -1,
   },
   sendBtn: {
     height: 44,
