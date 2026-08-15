@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { emitAiEvent } from '../../utilsAPI/aiTelemetry.js';
 
 /**
  * OpenDomeApp agent — x402 challenge must work even if Gemini fails to load.
@@ -67,6 +68,9 @@ export async function OPTIONS() {
 }
 
 export async function POST(req) {
+  const startedAt = Date.now();
+  let telemetry = { intent: 'agent:error', user_input: '', network: null };
+
   try {
     const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) {
@@ -102,6 +106,11 @@ export async function POST(req) {
           ? skills.WALLET_CIRCLE_PROMPT
           : skills.DOME_CONSULTANT_PROMPT;
     const userPrompt = body.prompt || body.message || defaultPrompt;
+    telemetry = {
+      intent: `${mode}:chat`,
+      user_input: userPrompt,
+      network: null,
+    };
 
     if (userPrompt.length > 1000) {
       return Response.json(
@@ -232,6 +241,7 @@ export async function POST(req) {
       }
 
       if (!decoded) decoded = { userId: 'x402-user', username: 'x402 Payer' };
+      telemetry.network = cfg.key || null;
     }
 
     const ai = await getAI();
@@ -295,6 +305,15 @@ export async function POST(req) {
             }
           : null;
 
+      const toolName = ran.tools?.[0] || null;
+      emitAiEvent({
+        intent: toolName ? `${mode}:${toolName}` : `${mode}:chat`,
+        confidence: toolName ? 0.92 : 0.7,
+        user_input: userPrompt,
+        latency_ms: Date.now() - startedAt,
+        network: paymentChain?.key || telemetry.network,
+      });
+
       return Response.json({
         response: ran.text || 'No response from the agent.',
         tool_executed: ran.tools?.[0] || null,
@@ -323,6 +342,14 @@ export async function POST(req) {
     });
 
     const { explorerTxUrl } = nodeRequire('opendome/dist/x402.js');
+    const grounded = Boolean(response.candidates?.[0]?.groundingMetadata);
+    emitAiEvent({
+      intent: grounded ? 'openagent:search' : 'openagent:chat',
+      confidence: grounded ? 0.88 : 0.7,
+      user_input: userPrompt,
+      latency_ms: Date.now() - startedAt,
+      network: paymentChain?.key || telemetry.network,
+    });
     return Response.json({
       response: geminiText(response) || response.text,
       model: targetModel,
@@ -336,6 +363,13 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error('[Host Agent]', error);
+    emitAiEvent({
+      intent: telemetry.intent || 'agent:error',
+      confidence: 0,
+      user_input: telemetry.user_input,
+      latency_ms: Date.now() - startedAt,
+      network: telemetry.network,
+    });
     return Response.json(
       {
         status: 'error',

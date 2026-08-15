@@ -12,6 +12,11 @@ try {
   console.warn('[api boot] firestore:', e.message);
 }
 try {
+  require('./load-logging');
+} catch (e) {
+  console.warn('[api boot] logging:', e.message);
+}
+try {
   require('./load-circle');
 } catch (e) {
   console.warn('[api boot] circle:', e.message);

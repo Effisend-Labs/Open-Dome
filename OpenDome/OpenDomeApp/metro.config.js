@@ -6,6 +6,7 @@ const config = getDefaultConfig(__dirname);
 const SERVER_ONLY_PACKAGES = [
   '@circle-fin/developer-controlled-wallets',
   '@google-cloud/firestore',
+  '@google-cloud/logging',
   '@google-cloud/storage',
   'google-gax',
   'google-auth-library',

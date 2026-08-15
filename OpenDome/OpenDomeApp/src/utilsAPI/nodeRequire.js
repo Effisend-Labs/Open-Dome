@@ -50,6 +50,7 @@ function collectRequireFiles(id) {
       path.join(root, 'package.json'),
       path.join(root, 'api', 'index.js'),
       path.join(root, 'api', 'load-firestore.js'),
+      path.join(root, 'api', 'load-logging.js'),
       path.join(root, 'api', 'load-opendome.js'),
       path.join(root, 'api', 'load-genai.js'),
       path.join(root, 'api', 'load-viem.js'),

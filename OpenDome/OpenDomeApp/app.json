@@ -28,6 +28,7 @@
     "server": {
       "nodeModules": [
         "@google-cloud/firestore",
+        "@google-cloud/logging",
         "@circle-fin/developer-controlled-wallets",
         "@google/genai"
       ]
