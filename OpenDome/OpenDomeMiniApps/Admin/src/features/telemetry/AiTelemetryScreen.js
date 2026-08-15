@@ -62,15 +62,24 @@ export default function AiTelemetryScreen() {
     1,
     ...(data?.topIntents || []).map((row) => row.count),
   );
+  const maxModel = Math.max(
+    1,
+    ...(data?.topModels || []).map((row) => row.count),
+  );
 
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content}>
-      <Text style={s.kicker}>Google Cloud Logging · Vertex Gemini</Text>
+      <Text style={s.kicker}>Google Cloud Logging · Vertex Gemini · TDC council</Text>
       <Text style={s.lede}>
-        Live intent volume, latency, and tool matches from production `/api/agent`.
+        Live model, intent, and latency from production `/api/agent` plus local TDC
+        day-planning (`tdc-council`).
       </Text>
 
       <View style={s.linkRow}>
+        <CloudLink
+          label="Monitoring"
+          url={data?.monitoringUrl || 'https://console.cloud.google.com/monitoring/dashboards/builder/f9e05a3c-1c4b-45f6-be5f-8c7922c5d6be?project=project-cadf416c-23aa-4f9b-be6'}
+        />
         <CloudLink
           label="Cloud Logging"
           url={data?.loggingUrl}
@@ -105,7 +114,8 @@ export default function AiTelemetryScreen() {
         <View style={s.banner}>
           <Text style={s.muted}>
             No `opendome-ai-events` yet. Deploy the host emitter, then send one Dome
-            or Wallet agent message. Rows also land in BigQuery dataset ai_agent_logs.
+            or Wallet agent message, or run a TDC day plan. Rows also land in BigQuery
+            dataset ai_agent_logs.
           </Text>
         </View>
       ) : null}
@@ -116,10 +126,32 @@ export default function AiTelemetryScreen() {
             <StatCard label="Query volume" value={String(data.volume)} />
             <StatCard label="Avg latency" value={formatMs(data.avgLatencyMs)} />
             <StatCard
+              label="Top model"
+              value={data.topModels?.[0]?.model || '—'}
+            />
+            <StatCard
               label="Top intent"
               value={data.topIntents?.[0]?.intent || '—'}
             />
           </View>
+
+          <Text style={s.section}>Models called</Text>
+          {(data.topModels || []).map((row) => (
+            <View key={row.model} style={s.barRow}>
+              <Text style={s.barLabel} numberOfLines={1}>
+                {row.model}
+              </Text>
+              <View style={s.barTrack}>
+                <View
+                  style={[
+                    s.barFill,
+                    { width: `${Math.round((row.count / maxModel) * 100)}%` },
+                  ]}
+                />
+              </View>
+              <Text style={s.barCount}>{row.count}</Text>
+            </View>
+          ))}
 
           <Text style={s.section}>Top intents</Text>
           {(data.topIntents || []).map((row) => (
@@ -144,7 +176,8 @@ export default function AiTelemetryScreen() {
             <View key={`${event.timestamp}-${i}`} style={s.event}>
               <Text style={s.eventIntent}>{event.intent}</Text>
               <Text style={s.eventMeta}>
-                {formatMs(event.latency_ms)}
+                {event.model_label || event.model || 'model n/a'}
+                {` · ${formatMs(event.latency_ms)}`}
                 {event.network ? ` · ${event.network}` : ''}
                 {` · ${formatTime(event.timestamp)}`}
               </Text>

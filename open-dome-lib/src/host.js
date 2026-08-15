@@ -209,6 +209,15 @@ export class HostAPI {
     return this.request('aiTelemetry', {}, { timeoutMs: 30000 });
   }
 
+  /** Local TDC council plan → same Cloud Logging stream as Gemini. */
+  recordAiEvent({ intent, winner, user_input, latency_ms } = {}) {
+    return this.request(
+      'recordAiEvent',
+      { intent, winner, user_input, latency_ms },
+      { timeoutMs: 8000 },
+    );
+  }
+
   /** Cached USD prices from OpenDomeApp (60s server TTL). */
   tokenPrices({ tickers } = {}) {
     const list = Array.isArray(tickers)

@@ -320,6 +320,8 @@ export async function POST(req) {
         user_input: userPrompt,
         latency_ms: Date.now() - startedAt,
         network: paymentChain?.key || telemetry.network,
+        model: targetModel,
+        model_label: modelLabel,
       });
 
       return Response.json({
@@ -357,6 +359,8 @@ export async function POST(req) {
       user_input: userPrompt,
       latency_ms: Date.now() - startedAt,
       network: paymentChain?.key || telemetry.network,
+      model: targetModel,
+      model_label: modelLabel,
     });
     return Response.json({
       response: geminiText(response) || response.text,
@@ -377,6 +381,7 @@ export async function POST(req) {
       user_input: telemetry.user_input,
       latency_ms: Date.now() - startedAt,
       network: telemetry.network,
+      model: 'unknown',
     });
     return Response.json(
       {

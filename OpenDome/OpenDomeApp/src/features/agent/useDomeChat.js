@@ -22,6 +22,7 @@ import { bookingIntroLine, councilIntroLine } from './dayPlanCopy';
 import { usePlannerSession } from './usePlannerSession';
 import { askDomeConsultant, checkoutDayPlan } from './plannerCheckout';
 import { evmAddressFromToken } from './jwtProfile';
+import { reportPlannerEvent } from './reportPlannerEvent';
 
 function uid(prefix = '') {
   return `${prefix}${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -82,6 +83,7 @@ export function useDomeChat({ token } = {}) {
       },
     ]);
     setIsTyping(true);
+    const startedAt = Date.now();
 
     const patchCouncil = (patch) => {
       setConversation((prev) => prev.map((m) => (m.id === councilId ? { ...m, ...patch } : m)));
@@ -90,6 +92,13 @@ export function useDomeChat({ token } = {}) {
     try {
       const proposal = buildItineraryForEvent(event, { userText });
       if (!proposal) throw new Error('Council could not build a day plan.');
+      reportPlannerEvent({
+        token,
+        intent: 'dome:plan_day',
+        winner: proposal.council?.winner?.id,
+        user_input: userText,
+        latency_ms: Date.now() - startedAt,
+      });
       patchSession({ selectedEvent: event, proposal, quote: null });
 
       await playCouncilDeliberation(proposal, {
@@ -119,7 +128,7 @@ export function useDomeChat({ token } = {}) {
     } finally {
       setIsTyping(false);
     }
-  }, [append, isTyping, patchSession, runLocalPlanner, session]);
+  }, [append, isTyping, patchSession, runLocalPlanner, session, token]);
 
   const handlePickCouncilAgent = useCallback((agentId) => {
     if (!session?.awaitingConfirm || isTyping || !agentId) return;

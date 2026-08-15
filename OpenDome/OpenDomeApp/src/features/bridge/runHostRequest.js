@@ -113,6 +113,15 @@ export async function runHostRequest(payload, token) {
     return hostFetch('/api/ai-telemetry', token);
   }
 
+  if (action === 'recordAiEvent') {
+    return hostPost('/api/ai-event', token, {
+      intent: payload.intent || 'dome:plan_day',
+      winner: payload.winner,
+      user_input: payload.user_input,
+      latency_ms: payload.latency_ms,
+    });
+  }
+
   if (action === 'platformConfig') {
     return getHostPlatformConfig();
   }

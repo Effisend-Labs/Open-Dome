@@ -36,7 +36,7 @@ const HOME_TILES = [
   {
     id: 'telemetry',
     title: 'Gemini telemetry',
-    subtitle: 'Cloud Logging volume, latency, and top intents',
+    subtitle: 'Models called, TDC plans, volume, and latency',
     icon: 'analytics-outline',
   },
   {

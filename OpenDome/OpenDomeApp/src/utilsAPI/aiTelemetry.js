@@ -56,6 +56,8 @@ export function buildAiEventPayload({
   user_input,
   latency_ms,
   network,
+  model,
+  model_label,
 } = {}) {
   const payload = {
     intent: String(intent || 'unknown').slice(0, 80),
@@ -67,6 +69,8 @@ export function buildAiEventPayload({
     timestamp: new Date().toISOString(),
   };
   if (network) payload.network = String(network).slice(0, 32);
+  if (model) payload.model = String(model).slice(0, 80);
+  if (model_label) payload.model_label = String(model_label).slice(0, 80);
   return payload;
 }
 
@@ -116,6 +120,8 @@ function normalizeEntry(entry) {
     user_input: sanitizeUserInput(data.user_input),
     latency_ms: Number.isFinite(latency) ? Math.round(latency) : 0,
     network: data.network ? String(data.network).slice(0, 32) : null,
+    model: data.model ? String(data.model).slice(0, 80) : null,
+    model_label: data.model_label ? String(data.model_label).slice(0, 80) : null,
     timestamp: ts ? new Date(ts).toISOString() : null,
   };
 }
@@ -128,13 +134,20 @@ function summarizeAiEvents(events) {
     ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
     : 0;
   const counts = new Map();
+  const models = new Map();
   for (const event of events) {
     counts.set(event.intent, (counts.get(event.intent) || 0) + 1);
+    const modelKey = event.model_label || event.model || 'unknown';
+    models.set(modelKey, (models.get(modelKey) || 0) + 1);
   }
   const topIntents = [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
     .map(([intent, count]) => ({ intent, count }));
+  const topModels = [...models.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([model, count]) => ({ model, count }));
   return {
     source: 'cloud-logging',
     projectId: PROJECT_ID,
@@ -142,9 +155,11 @@ function summarizeAiEvents(events) {
     volume: events.length,
     avgLatencyMs,
     topIntents,
+    topModels,
     events: events.slice(0, 40),
     loggingUrl: `https://console.cloud.google.com/logs/query;query=logName%3D%22projects%2F${PROJECT_ID}%2Flogs%2F${LOG_NAME}%22?project=${PROJECT_ID}`,
     bigqueryUrl: `https://console.cloud.google.com/bigquery?project=${PROJECT_ID}&ws=!1m5!1m4!4m3!1s${PROJECT_ID}!2sai_agent_logs!3sopendome_ai_events`,
+    monitoringUrl: `https://console.cloud.google.com/monitoring/dashboards/builder/f9e05a3c-1c4b-45f6-be5f-8c7922c5d6be?project=${PROJECT_ID}`,
   };
 }
 

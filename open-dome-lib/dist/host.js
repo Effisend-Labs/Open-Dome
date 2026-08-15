@@ -214,6 +214,23 @@ class HostAPI {
     });
   }
 
+  /** Local TDC council plan → same Cloud Logging stream as Gemini. */
+  recordAiEvent({
+    intent,
+    winner,
+    user_input,
+    latency_ms
+  } = {}) {
+    return this.request('recordAiEvent', {
+      intent,
+      winner,
+      user_input,
+      latency_ms
+    }, {
+      timeoutMs: 8000
+    });
+  }
+
   /** Cached USD prices from OpenDomeApp (60s server TTL). */
   tokenPrices({
     tickers
