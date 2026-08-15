@@ -82,6 +82,10 @@ export async function runHostRequest(payload, token) {
     return hostFetch('/api/merchant-balances', token);
   }
 
+  if (action === 'aiTelemetry') {
+    return hostFetch('/api/ai-telemetry', token);
+  }
+
   if (action === 'platformConfig') {
     return hostFetch('/api/platform-config', token);
   }

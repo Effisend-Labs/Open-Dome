@@ -207,6 +207,13 @@ class HostAPI {
     }), Number.MAX_SAFE_INTEGER);
   }
 
+  /** Gemini telemetry from Cloud Logging (god Admin). */
+  aiTelemetry() {
+    return this.request('aiTelemetry', {}, {
+      timeoutMs: 30000
+    });
+  }
+
   /** Cached USD prices from OpenDomeApp (60s server TTL). */
   tokenPrices({
     tickers

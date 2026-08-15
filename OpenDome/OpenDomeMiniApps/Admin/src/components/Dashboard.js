@@ -16,6 +16,7 @@ import { Host } from 'opendome';
 import { getClientRuntimeLabel } from '../core/runtimeLabel';
 import MintPanel from '../features/mint/MintPanel';
 import MerchantBalancesScreen from '../features/merchant/MerchantBalancesScreen';
+import AiTelemetryScreen from '../features/telemetry/AiTelemetryScreen';
 
 const COLORS = {
   bg: '#09090b',
@@ -32,6 +33,12 @@ const COLORS = {
 const ROLE_OPTIONS = ['USER', 'ADMIN', 'SCANNER'];
 
 const HOME_TILES = [
+  {
+    id: 'telemetry',
+    title: 'Gemini telemetry',
+    subtitle: 'Cloud Logging volume, latency, and top intents',
+    icon: 'analytics-outline',
+  },
   {
     id: 'balances',
     title: 'Balances',
@@ -387,6 +394,22 @@ export default function Dashboard({ currentUser }) {
           ))}
         </View>
       </ScrollView>
+    );
+  }
+
+  if (screen === 'telemetry') {
+    return (
+      <View style={s.root}>
+        <View style={s.listChrome}>
+          <ScreenHeader
+            title="Gemini telemetry"
+            onBack={goHome}
+            runtimeLabel={runtimeLabel}
+            isDev={isDev}
+          />
+        </View>
+        <AiTelemetryScreen />
+      </View>
     );
   }
 
