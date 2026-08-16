@@ -27,7 +27,7 @@ The Open-Dome ecosystem is built on three main pillars:
 
 ## 🔐 1. Security & Handshake (The Foundation)
 
-Open-Dome uses a zero-trust **"Docking" strategy**. The Mini App proves its identity to the Host — not the other way around. The Host never trusts a token it generated itself; it validates the token the Mini App presents against a server-side allowlist.
+Open-Dome uses a zero-trust **"Docking" strategy**. The Mini App server exchanges its enrollment credential for a short-lived docking JWT. The Host verifies that JWT with `DOCKING_JWT_TOKEN`, which exists only on OpenDomeApp and OpenDomeSandbox.
 
 ### The Handshake Protocol
 
@@ -40,13 +40,14 @@ sequenceDiagram
 
     Sandbox->>MiniApp: Load iframe (Endpoint URL)
     MiniApp->>SDK: Initialize useOpenDome()
-    SDK->>Sandbox: postMessage(OPENDOME_READY, { token: OD_APP_TOKEN })
-    Note over Sandbox,API: Token travels from Mini App → Server for verification
+    SDK->>MiniApp: GET /api/docking-token (host exchange)
+    SDK->>Sandbox: postMessage(OPENDOME_READY, { token: dockingJwt, appId })
+    Note over Sandbox,API: JWT travels from Mini App → Host for verification
     Sandbox->>API: POST /api/verify { token }
-    API->>API: Crosscheck token vs VALID_TOKENS[]
+    API->>API: Verify docking JWT via DOCKING_JWT_TOKEN
     API->>API: Sign wsJwt (Mini App MQTT) via HS512
     API->>API: Sign hostJwt (Sandbox MQTT) via HS512
-    API->>Sandbox: { valid: true, token, wsJwt, hostJwt }
+    API->>Sandbox: { valid: true, authenticated, wsJwt, hostJwt }
     alt Token Valid
         Sandbox->>SDK: postMessage(OPENDOME_HANDSHAKE, { status: VERIFIED, payload: token, context: { ...vars, wsJwt } })
         SDK->>MiniApp: isAuthorized = true, context injected

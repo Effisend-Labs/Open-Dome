@@ -54,12 +54,12 @@ export async function verifyStaffFromRequest(request) {
   const token = readBearerToken(request);
   if (!token) return null;
 
-  const scannerToken = process.env.ADMIN_SCANNER_TOKEN;
-  if (scannerToken && token === scannerToken) {
-    return { type: 'scanner-token', role: 'scanner', username: 'hardware' };
+  const serviceToken = process.env.ADMIN_SERVICE_TOKEN;
+  if (serviceToken && token === serviceToken) {
+    return { type: 'service-token', role: 'scanner', username: 'hardware' };
   }
 
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.SESSION_JWT_TOKEN;
   if (!secret || token.split('.').length !== 3) return null;
 
   let decoded;

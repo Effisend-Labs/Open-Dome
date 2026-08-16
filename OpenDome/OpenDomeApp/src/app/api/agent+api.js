@@ -73,16 +73,16 @@ export async function POST(req) {
   let telemetry = { intent: 'agent:error', user_input: '', network: null };
 
   try {
-    const JWT_SECRET = process.env.JWT_SECRET;
-    if (!JWT_SECRET) {
-      return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+    const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
+    if (!SESSION_JWT_TOKEN) {
+      return Response.json({ error: 'SESSION_JWT_TOKEN is not set' }, { status: 500 });
     }
 
     const authHeader = req.headers.get('authorization');
     let decoded = null;
     if (authHeader?.startsWith('Bearer ')) {
       try {
-        decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+        decoded = jwt.verify(authHeader.split(' ')[1], SESSION_JWT_TOKEN);
       } catch (err) {
         console.error(`[Host Agent] JWT failed:`, err.message);
         return Response.json(

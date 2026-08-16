@@ -6,8 +6,8 @@ import { getUserById } from './passkeyDb';
 import { jwtRoleFromUser } from './staffAuth';
 
 export function signPasskeyJwt(user) {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('JWT_SECRET is not set');
+  const secret = process.env.SESSION_JWT_TOKEN;
+  if (!secret) throw new Error('SESSION_JWT_TOKEN is not set');
   return jwt.sign(
     {
       userId: user.id,
@@ -22,9 +22,9 @@ export function signPasskeyJwt(user) {
 }
 
 export async function refreshPasskeyJwt(token) {
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.SESSION_JWT_TOKEN;
   if (!secret) {
-    const err = new Error('JWT_SECRET is not set');
+    const err = new Error('SESSION_JWT_TOKEN is not set');
     err.status = 500;
     throw err;
   }

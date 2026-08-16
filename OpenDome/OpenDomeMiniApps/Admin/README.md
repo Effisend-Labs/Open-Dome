@@ -16,7 +16,7 @@ EXPO_PUBLIC_OD_APP_ID=…
 OD_APP_TOKEN=…
 ```
 
-All platform secrets live on **OpenDomeApp** (`GCP_*`, `MERCHANT_*`, `JWT_SECRET`, `ADMIN_SCANNER_TOKEN`, `RPC_URL_*`, …).
+All platform secrets live on **OpenDomeApp** (`GCP_*`, `MERCHANT_*`, `SESSION_JWT_TOKEN`, `ADMIN_SERVICE_TOKEN`, `RPC_URL_*`, …).
 
 ## Local
 

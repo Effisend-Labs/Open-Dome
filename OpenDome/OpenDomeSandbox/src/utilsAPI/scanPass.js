@@ -70,7 +70,8 @@ export async function scanPassOnChain({
   const { privateKeyToAccount } = nodeRequire('viem/accounts');
   const { base } = nodeRequire('viem/chains');
 
-  const rpcUrl = process.env.RPC_URL || 'https://mainnet.base.org';
+  const { resolveUsdcRpcUrl } = nodeRequire('opendome/dist/usdcChains.js');
+  const rpcUrl = resolveUsdcRpcUrl('BASE');
   const signer = privateKeyToAccount(merchantKey);
   const transport = http(rpcUrl);
   const walletClient = createWalletClient({ account: signer, chain: base, transport });

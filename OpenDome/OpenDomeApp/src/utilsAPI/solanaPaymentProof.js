@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 function secret() {
-  const value = process.env.OPENDOME_SECRET || process.env.JWT_SECRET;
-  if (!value) throw new Error('OPENDOME_SECRET is required for Solana payment proofs');
+  const value = process.env.MQTT_JWT_TOKEN || process.env.SESSION_JWT_TOKEN;
+  if (!value) throw new Error('MQTT_JWT_TOKEN is required for Solana payment proofs');
   return value;
 }
 

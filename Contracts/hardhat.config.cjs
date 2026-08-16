@@ -37,8 +37,8 @@ const privateKey =
   "";
 const rpcUrl =
   process.env.BASE_RPC_URL ||
-  process.env.RPC_URL ||
-  adminEnv.RPC_URL ||
+  process.env.RPC_URL_BASE ||
+  adminEnv.RPC_URL_BASE ||
   "https://mainnet.base.org";
 
 /** @type import('hardhat/config').HardhatUserConfig */

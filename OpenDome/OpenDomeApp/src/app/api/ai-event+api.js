@@ -15,16 +15,16 @@ const WINNERS = new Set(['pulse', 'zen', 'curator', 'local']);
  */
 export async function POST(request) {
   try {
-    const JWT_SECRET = process.env.JWT_SECRET;
-    if (!JWT_SECRET) {
-      return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+    const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
+    if (!SESSION_JWT_TOKEN) {
+      return Response.json({ error: 'SESSION_JWT_TOKEN is not set' }, { status: 500 });
     }
     const auth = request.headers.get('authorization') || '';
     if (!auth.startsWith('Bearer ')) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
     try {
-      jwt.verify(auth.slice(7), JWT_SECRET);
+      jwt.verify(auth.slice(7), SESSION_JWT_TOKEN);
     } catch {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }

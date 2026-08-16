@@ -6,7 +6,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "deploy:base": "hardhat run scripts/deploy.cjs --network base",
-    "test": "hardhat run scripts/runTests.cjs"
+    "test": "hardhat run scripts/runTests.js"
   },
   "keywords": [],
   "author": "",

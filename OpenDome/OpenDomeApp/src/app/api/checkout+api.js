@@ -162,7 +162,7 @@ export async function POST(req) {
         console.error('[Host Checkout API] Platform mint/assign failed:', mintErr.message);
         return Response.json(
           {
-            error: `Payment succeeded but platform ticket assignment failed: ${mintErr.message}. Retry via OpenDomeApp POST /api/mint with ADMIN_SCANNER_TOKEN.`,
+            error: `Payment succeeded but platform ticket assignment failed: ${mintErr.message}. Retry via OpenDomeApp POST /api/mint with ADMIN_SERVICE_TOKEN.`,
             paymentTxHash,
             orderId,
           },

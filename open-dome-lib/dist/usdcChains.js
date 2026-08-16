@@ -179,7 +179,7 @@ function listSendUsdcChains() {
 function resolveUsdcRpcUrls(chain, env = process.env) {
   const cfg = typeof chain === 'string' ? getUsdcChain(chain) : chain;
   if (!cfg) return [...USDC_CHAINS.BASE.rpcs];
-  const fromEnv = env?.[cfg.rpcEnv] || (cfg.key === 'BASE' ? env?.RPC_URL : null);
+  const fromEnv = env?.[cfg.rpcEnv] || null;
   const curated = Array.isArray(cfg.rpcs) && cfg.rpcs.length ? cfg.rpcs : [cfg.defaultRpc].filter(Boolean);
   const urls = [];
   const seen = new Set();

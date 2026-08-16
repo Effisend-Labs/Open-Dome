@@ -115,4 +115,36 @@ Experience the technology firsthand. Load the **Example Mini App** into the **Sa
 
 ---
 
+## AI-native guest operations
+
+Open-Dome is built so an agent can **plan**, **pay**, and **mint** inside the same Super-App loop — not just chat.
+
+### Multi-agent day planner (SDK)
+
+A deterministic **council** of specialist planners turns “plan my day around this show” into a scored itinerary:
+
+| Agent | Role |
+| --- | --- |
+| **Pulse** | High-energy scout (thrill / sport / play) |
+| **Zen** | Calm pre-show scout (relax / spa / culture) |
+| **Curator** | Culture scout |
+| **Local** | Neighborhood day scout (family / food / play) |
+
+Pipeline: lock the event doors → scout amenities per slot → schedule open hours / travel buffers → critic picks the winner.  
+Implemented in `open-dome-lib` (`dayPlannerAgents.js`, `itinerary.js`, `planner.js`). No LLM required for the council itself.
+
+### Gemini host agent + Circle USDC
+
+| Layer | What it does |
+| --- | --- |
+| **Gemini** (Vertex / `@google/genai`) | Free-chat + tool use on the Host via `/api/agent` |
+| **x402 + Circle** | USDC settlement (EIP-3009 / developer-controlled wallets) for agent turns and checkout |
+| **Platform mint** | Host mints NFT / pass after payment settles |
+
+Docking stays zero-trust: mini-apps exchange a server-only enrollment credential for a short-lived host-signed JWT (`DOCKING_JWT_TOKEN` lives only on App / Sandbox).
+
+For deeper protocol detail see [`TECH.md`](./TECH.md) and the [`open-dome-lib` README](./open-dome-lib/README.md).
+
+---
+
 *Open-Dome — Built by Effisend Labs*

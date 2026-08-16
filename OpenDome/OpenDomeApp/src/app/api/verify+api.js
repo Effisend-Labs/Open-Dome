@@ -1,28 +1,24 @@
 import jwt from 'jsonwebtoken';
 import { getUserById } from '../../utilsAPI/passkeyDb';
 
-// Per-mini-app docking tokens (see sdk/mini-app-credentials.json)
-const VALID_TOKENS = [
-  'b448a20e-633f-4852-ab9c-664c04e1d38f', // Demo
-  '5679c842-c76f-4a65-8478-8f65ab38ff27', // Wallet
-  '5f099950-8b3c-4775-95b0-e5958cb11e82', // TokyoDome
-  '5c5071b1-d259-44f4-9728-1af67f84c431', // IMMTheater
-  'c4f9dbec-4d4e-4dea-8e0e-dce37e583ade', // KorakuenHall
-  'd54e84f5-8daa-4d11-9459-d08691083d69', // GalleryAaMo
-  'f0e1d2c3-b4a5-6789-0123-456789abcdef', // Admin
-  '9e8d7c6b-5a4f-3210-9876-543210fedcba', // Scanner
-  '7b6a5c4d-3e2f-4190-8a1b-0c9d8e7f6a5b', // OpenAgent
-];
-
+// Local Expo ports: App 8082, Sandbox 8083, Demo 8084, Wallet 8085,
+// OpenAgent 8086, IMMTheater 8087, KorakuenHall 8088, GalleryAaMo 8089,
+// Admin 8090, Scanner 8091, TokyoDome 8092. getMatchedOrigin allows any localhost.
 const ALLOWED_ORIGINS = [
-  'http://localhost:8081',
+  'http://localhost:8082',
+  'http://localhost:8083',
   'http://localhost:8084',
   'http://localhost:8085',
+  'http://localhost:8086',
+  'http://localhost:8087',
+  'http://localhost:8088',
+  'http://localhost:8089',
   'http://localhost:8090',
   'http://localhost:8091',
-  'http://localhost:8086',
+  'http://localhost:8092',
   'https://opendome.expo.app',
   'https://opendomeos.expo.app',
+  'https://app.opendome.xyz',
   'https://demo.opendome.xyz',
   'https://wallet.opendome.xyz',
   'https://admin.opendome.xyz',
@@ -41,6 +37,25 @@ function getMatchedOrigin(origin) {
   }
   const matched = ALLOWED_ORIGINS.find((allowed) => origin.startsWith(allowed));
   return matched ? origin : null;
+}
+
+function verifyDockingToken(token) {
+  const secret = process.env.DOCKING_JWT_TOKEN;
+  if (!secret || !token) return null;
+
+  try {
+    const claims = jwt.verify(token, secret, {
+      algorithms: ['HS512'],
+      issuer: 'opendome-docking',
+      audience: 'opendome-host',
+    });
+    if (claims.token_use !== 'handshake' || claims.role !== 'mini_app' || !claims.appId) {
+      return null;
+    }
+    return claims;
+  } catch {
+    return null;
+  }
 }
 
 export async function OPTIONS(request) {
@@ -102,15 +117,19 @@ export async function POST(request) {
     let solanaAddress = null;
     let role = null;
     let tokenToVerify = token;
+    let dockedAppId = null;
 
-    const JWT_SECRET = process.env.JWT_SECRET;
-    if (!JWT_SECRET) {
-      return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+    const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
+    if (!SESSION_JWT_TOKEN) {
+      return Response.json({ error: 'SESSION_JWT_TOKEN is not set' }, { status: 500 });
     }
 
     if (tokenToVerify && tokenToVerify.split('.').length === 3) {
       try {
-        const decoded = jwt.verify(tokenToVerify, JWT_SECRET);
+        const decoded = jwt.verify(tokenToVerify, SESSION_JWT_TOKEN);
+        if (decoded.role === 'mini_app') {
+          throw new Error('Docking JWT must not be verified with SESSION_JWT_TOKEN');
+        }
         userId = decoded.userId;
         username = decoded.username || null;
         role = decoded.role || null;
@@ -146,25 +165,33 @@ export async function POST(request) {
           `[Verify API] Final resolved: username="${username}", evmAddress="${evmAddress}"`
         );
       } catch (jwtErr) {
-        console.error(`[Verify API] JWT verification failed:`, jwtErr.message);
+        // Not a user session JWT — may be a mini-app docking JWT.
       }
     }
 
     if (!authenticated && isAllowedOrigin && tokenToVerify) {
-      if (VALID_TOKENS.includes(tokenToVerify)) {
+      const docked = verifyDockingToken(tokenToVerify);
+      if (docked) {
         authenticated = true;
+        dockedAppId = docked.appId;
+        role = 'mini_app';
         username = 'SandboxUser';
         evmAddress = '0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681';
         solanaAddress = 'FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u';
+        console.log(`[Verify API] Docking JWT valid for appId="${dockedAppId}"`);
       }
+    }
+
+    if (!authenticated) {
+      return Response.json({ error: 'UNAUTHORIZED' }, { status: 401, headers: corsHeaders });
     }
 
     let wsJwt = null;
     let hostJwt = null;
     try {
-      const SECRET = process.env.OPENDOME_SECRET;
-      if (!SECRET) {
-        throw new Error('OPENDOME_SECRET is not set');
+      const MQTT_JWT_TOKEN = process.env.MQTT_JWT_TOKEN;
+      if (!MQTT_JWT_TOKEN) {
+        throw new Error('MQTT_JWT_TOKEN is not set');
       }
 
       const payload = {
@@ -173,7 +200,7 @@ export async function POST(request) {
         role: 'mini_apps',
         iss: 'altaga',
       };
-      wsJwt = jwt.sign(payload, SECRET, {
+      wsJwt = jwt.sign(payload, MQTT_JWT_TOKEN, {
         expiresIn: '1d',
         algorithm: 'HS512',
       });
@@ -184,7 +211,7 @@ export async function POST(request) {
         role: 'host',
         iss: 'altaga',
       };
-      hostJwt = jwt.sign(hostPayload, SECRET, {
+      hostJwt = jwt.sign(hostPayload, MQTT_JWT_TOKEN, {
         expiresIn: '1d',
         algorithm: 'HS512',
       });
@@ -196,11 +223,12 @@ export async function POST(request) {
       {
         valid: true,
         authenticated: authenticated,
-        token: authenticated ? tokenToVerify : null,
+        token: authenticated && userId ? tokenToVerify : null,
         wsJwt: wsJwt,
         hostJwt: hostJwt,
         username: username,
         role: role,
+        appId: dockedAppId,
         evmAddress: evmAddress,
         solanaAddress: solanaAddress,
         timestamp: Date.now(),

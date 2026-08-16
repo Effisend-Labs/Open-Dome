@@ -11,7 +11,7 @@ var _passContract = require("./passContract");
 var _host = require("../host");
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function transfer(address, uint256) returns (bool)'];
 function resolveBridgeUrl(explicit) {
-  return (explicit || typeof process !== 'undefined' && process.env?.OPENDOME_BRIDGE_URL || typeof process !== 'undefined' && process.env?.ADMIN_BRIDGE_URL || _passContract.DEFAULT_BRIDGE_URL).replace(/\/$/, '');
+  return (explicit || typeof process !== 'undefined' && process.env?.OPENDOME_BRIDGE_URL || _passContract.DEFAULT_BRIDGE_URL).replace(/\/$/, '');
 }
 function resolvePassAddress(explicit) {
   return explicit || typeof process !== 'undefined' && process.env?.CONTRACT_ADDRESS || _passContract.OPENDOME_PASS_ADDRESS;

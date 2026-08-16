@@ -1,17 +1,10 @@
 /**
- * Server-only docking credentials for Open-Dome handshake.
- * OD_APP_TOKEN must never be EXPO_PUBLIC_ / extra — only available here.
+ * Server-only exchange: Host converts enrollment credential into a short-lived
+ * handshake JWT. OD_APP_TOKEN never reaches the browser.
+ * Host URL auto-resolves (local App :8082 / prod app.opendome.xyz).
  */
+import { exchangeDockingEnrollment } from 'opendome/dist/dockingHost.js';
+
 export async function GET() {
-  const token = process.env.OD_APP_TOKEN;
-  const appId = process.env.EXPO_PUBLIC_OD_APP_ID || process.env.OD_APP_ID || null;
-
-  if (!token) {
-    return Response.json(
-      { error: 'OD_APP_TOKEN is not configured on the server' },
-      { status: 500 },
-    );
-  }
-
-  return Response.json({ token, appId });
+  return exchangeDockingEnrollment();
 }

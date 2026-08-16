@@ -19,12 +19,12 @@ const getDynamicRpID = (req) => {
   }
 };
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
 
 export const POST = async (request) => {
   const startedAt = Date.now();
-  if (!JWT_SECRET) {
-    return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+  if (!SESSION_JWT_TOKEN) {
+    return Response.json({ error: 'SESSION_JWT_TOKEN is not set' }, { status: 500 });
   }
   const expectedRPID = getDynamicRpID(request);
   const expectedOrigin =
@@ -162,7 +162,7 @@ export const POST = async (request) => {
           evm: evmAddress,
           solana: solanaAddress,
         },
-        JWT_SECRET,
+        SESSION_JWT_TOKEN,
         { expiresIn: '30d' }
       );
 

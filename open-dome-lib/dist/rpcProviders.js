@@ -10,7 +10,7 @@ var _usdcChains = require("./usdcChains.js");
  * Curated public RPC lists + ethers FallbackProvider (EffisendTDC pattern).
  *
  * - Source of truth for URLs lives on USDC_CHAINS.rpcs in usdcChains.js
- * - Env RPC_URL_* (or RPC_URL for Base) is prepended as highest priority
+ * - Env RPC_URL_* (e.g. RPC_URL_BASE) is prepended as highest priority
  * - EVM callers should use setupUsdcFallbackProvider — not a single JsonRpcProvider
  */
 

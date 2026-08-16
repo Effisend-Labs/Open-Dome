@@ -5,7 +5,7 @@ import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
 
 /**
  * Platform mint — OpenDomeApp holds MERCHANT_PRIVATE_KEY.
- * Auth: @altaga god JWT (Admin mini-app) OR ADMIN_SCANNER_TOKEN (hotfix/service).
+ * Auth: @altaga god JWT (Admin mini-app) OR ADMIN_SERVICE_TOKEN (hotfix/service).
  */
 export async function POST(request) {
   const startedAt = Date.now();
@@ -13,14 +13,14 @@ export async function POST(request) {
   try {
     const actor = await verifyStaffFromRequest(request);
     const allowed =
-      actor?.role === 'god' || actor?.type === 'scanner-token';
+      actor?.role === 'god' || actor?.type === 'service-token';
     if (!allowed) {
       return Response.json(
         {
           error:
-            'Unauthorized — OpenDome god JWT (@altaga) or ADMIN_SCANNER_TOKEN required',
+            'Unauthorized — OpenDome god JWT (@altaga) or ADMIN_SERVICE_TOKEN required',
           message:
-            'Unauthorized — OpenDome god JWT (@altaga) or ADMIN_SCANNER_TOKEN required',
+            'Unauthorized — OpenDome god JWT (@altaga) or ADMIN_SERVICE_TOKEN required',
         },
         { status: 401 },
       );
@@ -51,7 +51,7 @@ export async function POST(request) {
     await assignTicketsAsPlatform(result.to, result.ids, result.amounts, {
       mintTxHash: result.txHash,
       paymentTxHash: body.paymentTxHash || null,
-      assignedBy: actor.type === 'scanner-token' ? 'hotfix' : 'admin',
+      assignedBy: actor.type === 'service-token' ? 'hotfix' : 'admin',
     });
 
     emitPlatformEvent({

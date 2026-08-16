@@ -2,7 +2,6 @@ import React from 'react';
 import { StyleSheet, View, Text, ScrollView, ImageBackground, FlatList, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import SecretScanner from '../../../components/SecretScanner';
 import PressableScale from '../../../components/PressableScale';
 
 const { width } = Dimensions.get('window');
@@ -16,8 +15,6 @@ const UPCOMING_EVENTS = [
 export default function GalleryAaMoApp() {
   return (
     <View style={styles.container}>
-      <SecretScanner tokens={{ BG: '#000', FG: '#FFF', ACCENT, BORDER: 'rgba(255,255,255,0.1)', SURFACE_ELEVATED: '#111', MUTED: '#444' }} />
-      
       <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
         
         {/* Massive Full-Bleed Hero Ticket */}

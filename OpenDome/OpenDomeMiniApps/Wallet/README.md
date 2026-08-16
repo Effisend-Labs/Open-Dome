@@ -98,6 +98,13 @@ flowchart TD
 
 ---
 
+### 4. Agent & day planner
+The Wallet Agent can select an event and run **Plan day**, which calls the Open-Dome SDK multi-agent council (`buildItineraryProposal`). The chat surface shows the winning itinerary + council insight. Gemini chat / tool turns are billed on the Host over **x402** (USDC).
+
+See the root [README](../../../README.md) and [`open-dome-lib` README](../../../open-dome-lib/README.md) for the planner pipeline and docking auth.
+
+---
+
 ## 🏗️ Project Structure
 
 - **`src/App.js`**: Handles the `useOpenDome` handshake and provides the global theme context.

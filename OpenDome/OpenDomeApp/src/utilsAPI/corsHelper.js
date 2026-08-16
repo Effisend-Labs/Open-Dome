@@ -10,7 +10,7 @@ const PRODUCTION_ALLOWED_ORIGINS = [
 
 function isLocalhost(origin) {
   if (!origin) return false;
-  // Allow any port on localhost / 127.0.0.1 (incl. http://localhost:8081, :8082, :8083, etc.)
+  // Allow any port on localhost / 127.0.0.1 (8082 App, 8083 Sandbox, mini-apps 8084–8092).
   return /^(https?:\/\/)(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 }
 

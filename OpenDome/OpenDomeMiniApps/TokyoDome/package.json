@@ -8,12 +8,12 @@
   },
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start --port 8086 -c",
+    "start": "expo start --port 8092 -c",
     "installLegacy": "npm i --legacy-peer-deps",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android --port 8086",
-    "ios": "expo start --ios --port 8086",
-    "web": "set BROWSER=none&& expo start --web --port 8086 -c",
+    "android": "expo start --android --port 8092",
+    "ios": "expo start --ios --port 8092",
+    "web": "set BROWSER=none&& expo start --web --port 8092 -c",
     "build": "npx expo export -p web",
     "lint": "eslint ."
   },

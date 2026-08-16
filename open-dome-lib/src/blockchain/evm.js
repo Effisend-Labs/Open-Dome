@@ -18,7 +18,6 @@ function resolveBridgeUrl(explicit) {
   return (
     explicit ||
     (typeof process !== 'undefined' && process.env?.OPENDOME_BRIDGE_URL) ||
-    (typeof process !== 'undefined' && process.env?.ADMIN_BRIDGE_URL) ||
     DEFAULT_BRIDGE_URL
   ).replace(/\/$/, '');
 }

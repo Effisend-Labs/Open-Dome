@@ -69,9 +69,7 @@ export async function mintPassesAsPlatform({
   const chain = String(network || 'base').toLowerCase();
   const chainKey = LEGACY_RPC[chain] || chain.toUpperCase();
   const rpc =
-    rpcUrl ||
-    process.env.RPC_URL ||
-    resolveUsdcRpcUrl(chainKey === 'ETH' ? 'ETH' : chainKey);
+    rpcUrl || resolveUsdcRpcUrl(chainKey === 'ETH' ? 'ETH' : chainKey);
   if (!rpc) {
     throw Object.assign(new Error(`Unsupported network: ${chain}`), { status: 400 });
   }

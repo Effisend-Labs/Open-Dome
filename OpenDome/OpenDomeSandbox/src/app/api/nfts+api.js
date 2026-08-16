@@ -19,8 +19,8 @@ function json(body, status = 200) {
 
 export async function POST(req) {
   try {
-    const JWT_SECRET = process.env.JWT_SECRET;
-    if (!JWT_SECRET) return json({ error: 'JWT_SECRET is not set' }, 500);
+    const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
+    if (!SESSION_JWT_TOKEN) return json({ error: 'SESSION_JWT_TOKEN is not set' }, 500);
 
     const authHeader = req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -29,7 +29,7 @@ export async function POST(req) {
 
     let decoded;
     try {
-      decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+      decoded = jwt.verify(authHeader.split(' ')[1], SESSION_JWT_TOKEN);
     } catch {
       return json({ error: 'Unauthorized: Invalid or expired token' }, 401);
     }

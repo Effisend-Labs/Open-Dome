@@ -7,9 +7,9 @@ import jwt from 'jsonwebtoken';
 export const POST = async (request) => {
   const expectedRPID = getDynamicRpID(request);
   const expectedOrigin = request.headers.get("origin") || "http://localhost:8082";
-  const JWT_SECRET = process.env.JWT_SECRET;
-  if (!JWT_SECRET) {
-    return Response.json({ error: 'JWT_SECRET is not set' }, { status: 500 });
+  const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
+  if (!SESSION_JWT_TOKEN) {
+    return Response.json({ error: 'SESSION_JWT_TOKEN is not set' }, { status: 500 });
   }
   console.log('[Passkey API] POST /api/passkey/login-verify initiated');
   try {
@@ -113,7 +113,7 @@ export const POST = async (request) => {
         role: 'sandbox_user',
         evm: user.evmAddress,
         solana: user.solanaAddress
-      }, JWT_SECRET, { expiresIn: '30d' });
+      }, SESSION_JWT_TOKEN, { expiresIn: '30d' });
 
       return Response.json({ 
         verified: true,

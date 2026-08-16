@@ -5,7 +5,7 @@ Enterprise-grade SDK for secure module integration, multi-chain blockchain inter
 ## 🚀 Features & API Usage
 
 ### 1. Secure Handshake & Authentication
-The `useOpenDome` hook is the entry point for all Mini Apps. It handles the security handshake and provides the execution context. The Mini App sends its own `OD_APP_TOKEN` (server/build secret — not `EXPO_PUBLIC_*`) — the Host verifies it server-side before injecting any context.
+The `useOpenDome` hook is the entry point for all Mini Apps. The Mini App server exchanges its server-only `OD_APP_TOKEN` enrollment credential for a 10-minute docking JWT. App/Sandbox verify that JWT with their shared `DOCKING_JWT_TOKEN` before injecting context.
 
 **API Reference:**
 ```javascript
@@ -34,9 +34,10 @@ sequenceDiagram
         SDK->>Host: postMessage(OPEN_DOME_SDK_INIT, { status: AUTHORIZED })
         SDK-->>MiniApp: isAuthorized = true
     else Session via postMessage handshake
-        SDK->>Host: postMessage(OPENDOME_READY, { token: OD_APP_TOKEN })
+        SDK->>MiniApp: GET /api/docking-token
+        SDK->>Host: postMessage(OPENDOME_READY, { token: dockingJwt, appId })
         Host->>API: POST /api/verify { token }
-        API->>API: Crosscheck VALID_TOKENS[] → Sign HS512 JWTs
+        API->>API: Verify docking JWT with DOCKING_JWT_TOKEN → Sign HS512 JWTs
         API->>Host: { valid: true, wsJwt, hostJwt }
         Host->>SDK: postMessage(OPENDOME_HANDSHAKE, { status: VERIFIED, context: { ...vars, wsJwt } })
         SDK->>Host: postMessage(OPEN_DOME_SDK_INIT, { status: AUTHORIZED })
@@ -146,6 +147,31 @@ const id = Location.watchPosition((pos) => {
   console.log('Movement detected:', pos);
 });
 ```
+
+---
+
+### 5. Multi-agent day planner
+Deterministic council that builds a timed itinerary around an anchor event (doors / hard deadline).
+
+**Modules:** `dayPlannerAgents.js`, `amenityAffinity.js`, `itinerary.js`, `planner.js`
+
+```text
+AnchorAgent → ScoutAgent×N (Pulse/Zen/Curator/Local) → SchedulerAgent → CriticAgent → winning proposal
+```
+
+```javascript
+import { buildItineraryProposal } from 'opendome';
+
+const proposal = await buildItineraryProposal({
+  event,          // anchor show / game
+  amenities,      // venue catalog
+  agentCount: 4,  // council size
+  intent: 'spa',  // optional user keywords
+});
+// proposal.stops[], proposal.insight, proposal.council.winner / candidates[]
+```
+
+This path does **not** call Gemini — scoring is local. The Host `/api/agent` route is the separate LLM + x402 payment surface.
 
 ## 📦 Installation
 

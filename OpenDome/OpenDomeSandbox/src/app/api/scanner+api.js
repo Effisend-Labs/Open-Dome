@@ -1,15 +1,16 @@
 import { ethers } from 'ethers';
+import { resolveUsdcRpcUrl } from 'opendome/dist/usdcChains.js';
 
 const MERCHANT_PRIVATE_KEY = process.env.MERCHANT_PRIVATE_KEY;
-const VALID_ADMIN_TOKEN = process.env.ADMIN_SCANNER_TOKEN;
+const VALID_ADMIN_TOKEN = process.env.ADMIN_SERVICE_TOKEN;
 const DEFAULT_CONTRACT =
   process.env.CONTRACT_ADDRESS ||
   '0xf5053b8bAfc35c52DbED12c38Ef4c8AEb75999FF';
 
-const RPC_URLS = {
-  base: process.env.RPC_URL || 'https://mainnet.base.org',
-  arbitrum: 'https://arb1.arbitrum.io/rpc',
-  optimism: 'https://mainnet.optimism.io',
+const NETWORK_TO_USDC = {
+  base: 'BASE',
+  arbitrum: 'ARB',
+  optimism: 'OP',
 };
 
 const SCAN_ABI = [
@@ -58,9 +59,13 @@ export async function POST(req) {
     }
 
     const chain = String(network).toLowerCase();
-    const rpcUrl = RPC_URLS[chain];
-    if (!rpcUrl) {
+    const usdcKey = NETWORK_TO_USDC[chain];
+    if (!usdcKey) {
       return Response.json({ message: `Unsupported network: ${network}` }, { status: 400 });
+    }
+    const rpcUrl = resolveUsdcRpcUrl(usdcKey);
+    if (!rpcUrl) {
+      return Response.json({ message: `No RPC for network: ${network}` }, { status: 400 });
     }
 
     const address = contractAddress || DEFAULT_CONTRACT;

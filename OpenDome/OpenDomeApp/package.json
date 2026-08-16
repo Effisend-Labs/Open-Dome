@@ -12,9 +12,7 @@
     "android": "expo start --android --port 8082",
     "ios": "expo start --ios --port 8082",
     "web": "set BROWSER=none&& expo start --web --port 8082 -c",
-    "build": "npx expo export -p web",
-    "test:bypass": "node ../OpenDomeSandbox/scripts/test-bypass-apis.mjs",
-    "test:google": "node scripts/test-google-genai.mjs"
+    "build": "npx expo export -p web"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1054.0",

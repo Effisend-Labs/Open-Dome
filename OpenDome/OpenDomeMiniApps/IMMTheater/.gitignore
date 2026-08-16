@@ -37,7 +37,5 @@ yarn-error.*
 
 app-example
 
-# Local test/ops scripts (smoke, sweeps, keys). Keep CI bump helpers.
+# Local scripts (smoke, sweeps, keys) — never commit.
 scripts/**
-!scripts/update-packages.js
-!scripts/update-version.js

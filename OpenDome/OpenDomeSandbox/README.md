@@ -23,10 +23,11 @@ sequenceDiagram
 
     Sandbox->>App: Load iframe (Endpoint URL)
     App->>SDK: useOpenDome()
-    SDK->>Sandbox: postMessage(OPENDOME_READY, { token })
-    Note over Sandbox,API: Token never touches the client bundle
+    SDK->>App: GET /api/docking-token
+    SDK->>Sandbox: postMessage(OPENDOME_READY, { token: dockingJwt })
+    Note over Sandbox,API: Short-lived JWT only; enrollment credential stays server-side
     Sandbox->>API: POST /api/verify { token }
-    API->>API: Crosscheck VALID_TOKENS[]
+    API->>API: Verify JWT with DOCKING_JWT_TOKEN
     API->>API: Sign wsJwt + hostJwt via HS512
     API->>Sandbox: { valid: true, wsJwt, hostJwt }
     alt Token Valid
@@ -86,7 +87,7 @@ Sandbox relays `OPENDOME_HOST_REQUEST` via `runHostRequest` to same-origin APIs:
 | `merchantBalances` | `/api/merchant-balances` (god) |
 | `platformConfig` | `/api/platform-config` (public) |
 
-Mint: god JWT **or** `ADMIN_SCANNER_TOKEN` → `POST /api/mint`.  
+Mint: god JWT **or** `ADMIN_SERVICE_TOKEN` → `POST /api/mint`.  
 Hotfix after checkout fails: same `/api/mint` with scanner token (not Admin fulfill).
 
 See `.env.example` for host secrets. Mini-apps only need `EXPO_PUBLIC_OD_SKIP_AUTH`, `EXPO_PUBLIC_OD_APP_ID`, `OD_APP_TOKEN`.

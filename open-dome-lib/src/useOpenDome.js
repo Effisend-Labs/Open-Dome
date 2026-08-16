@@ -13,7 +13,7 @@ const ALLOWED_ORIGINS = [
   'https://app.opendome.xyz',
   'https://demo.opendome.xyz',
   'https://wallet.opendome.xyz',
-  'http://localhost:8081',
+  'http://localhost:8082',
 ];
 
 const isLocalhostOrigin = (urlStr) => {
@@ -154,7 +154,7 @@ export function useOpenDome(config = {}) {
       // 3. Fall back to defaults
       const hostname = window.location.hostname;
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:8081';
+        return 'http://localhost:8082';
       }
       return 'https://app.opendome.xyz';
     } catch (e) {

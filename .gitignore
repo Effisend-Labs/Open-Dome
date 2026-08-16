@@ -150,6 +150,10 @@ credential.json
 *.pem
 .vercel/
 
+# Local IDE / agent tooling (not part of the product)
+.agents/
+.cursor/
+
 # Local cursor: last commit SHA reviewed for credential leaks (never commit)
 creds.log
 
@@ -157,8 +161,6 @@ creds.log
 open-dome-lib/_fn_inventory.json
 open-dome-lib/_exports.json
 
-# App-local scripts (tests, smoke, sweeps — often hold keys). Keep CI bump helpers.
+# App-local scripts (tests, smoke, sweeps — often hold keys). Never commit.
 OpenDome/**/scripts/**
-!OpenDome/**/scripts/update-packages.js
-!OpenDome/**/scripts/update-version.js
 Landing/scripts/**
