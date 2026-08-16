@@ -1,6 +1,6 @@
 {
   "cleanUrls": true,
-  "ignoreCommand": "node ../scripts/vercel-ignore.cjs .",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/Landing",
   "rewrites": [
     {
       "source": "/(.*)",

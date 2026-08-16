@@ -278,22 +278,22 @@ Admin / Scanner are thin UIs; secrets stay on App. Bridge actions: `Host.*` → 
 
 ## Vercel monorepo builds (CPU / cost)
 
-Each app’s `vercel.json` sets `ignoreCommand` to:
+Each app’s `vercel.json` sets `ignoreCommand` to a pure git check against **this commit’s parent** (`HEAD^`):
 
 ```text
-node <rel>/scripts/vercel-ignore.cjs . <rel>/open-dome-lib
+git diff --quiet HEAD^ HEAD -- :/OpenDome/<AppPath> :/open-dome-lib
 ```
 
-(`Landing` only watches `.`.)
+(`Landing` watches `:/Landing` only. `:/` = path from repo root, independent of Vercel Root Directory.)
 
-Behavior (exit `0` = skip, `1` = build):
+Exit `0` = skip build, nonzero = build.
 
-- Builds only when that app folder **or** `open-dome-lib` changed vs `VERCEL_GIT_PREVIOUS_SHA` (fallback `HEAD^`)
-- README / AGENTS / unrelated apps do **not** trigger a rebuild
-- Changing `open-dome-lib` correctly rebuilds every consumer that depends on it
+- README / AGENTS / other apps → skip
+- That app folder or `open-dome-lib` → build
+- Do not rely on `VERCEL_GIT_PREVIOUS_SHA` (last successful deploy); stacked commits then rebuild while an earlier deploy is still queued
 
-Script: [`scripts/vercel-ignore.cjs`](./scripts/vercel-ignore.cjs).  
-Do not set Project Settings → Ignored Build Step to “Automatic”; `ignoreCommand` in `vercel.json` overrides it when present. Keep Root Directory = the app folder (e.g. `OpenDome/OpenDomeApp`).
+Optional helper (local debugging): [`scripts/vercel-ignore.cjs`](./scripts/vercel-ignore.cjs).  
+Keep each project’s Root Directory = its app folder. `ignoreCommand` in `vercel.json` overrides the dashboard Ignored Build Step.
 
 ## Engineering constraints (this repo)
 
