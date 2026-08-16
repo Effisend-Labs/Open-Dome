@@ -9,6 +9,7 @@
 - **Remote:** `Effisend-Labs/Open-Dome` (public)
 - **Stack:** Expo 57 / Expo Router, React Native Web, `opendome` SDK (`open-dome-lib`), Vercel server output, Circle developer-controlled wallets, Google Cloud (Vertex AI / Firestore / Logging / BigQuery), MQTT
 - **Product shape:** Super-App **host** loads tenant **mini-apps** in iframes; zero-trust docking; USDC settlement per interaction; Gemini agent with tool calling on host
+- **Audience split (do not blur):** Guests only use **OpenDomeApp** (`https://app.opendome.xyz`). Developers build **mini-apps** and may test in **OpenDomeSandbox** (`https://opendome.expo.app`). External/tenant developers never modify App or Sandbox to ship features.
 - **Contest framing (do not delete from READMEs):** Build with Gemini XPRIZE — AI-native operations, Google Cloud required, Circle/USDC revenue loop
 
 ## Doc map (do not confuse)
@@ -64,9 +65,9 @@ flowchart LR
 Open-Dome/
   open-dome-lib/                 # npm name "opendome" — SDK source + dist/
   OpenDome/
-    OpenDomeApp/                 # PRODUCTION host
-    OpenDomeSandbox/             # DEV / visualizer host
-    OpenDomeMiniApps/
+    OpenDomeApp/                 # PRODUCTION host — guests only (app.opendome.xyz)
+    OpenDomeSandbox/             # DEVELOPER test host only (opendome.expo.app)
+    OpenDomeMiniApps/            # What external developers build / extend
       Demo/ Wallet/ OpenAgent/ Admin/ Scanner/
       TokyoDome/ IMMTheater/ KorakuenHall/ GalleryAaMo/
   Contracts/                     # Hardhat ERC-1155 pass
@@ -74,6 +75,79 @@ Open-Dome/
 ```
 
 There is **no** top-level `MiniApp/` folder. Do not invent paths under `./MiniApp/`.
+
+## Who changes what (hard rule)
+
+| Actor | Uses | May change | Must not change |
+|-------|------|------------|-----------------|
+| Guest | `https://app.opendome.xyz` | nothing | Sandbox URLs, host source |
+| External / tenant developer | Sandbox to test; App only as the live target | their mini-app + `opendome` consumer usage | `OpenDome/OpenDomeApp/`, `OpenDome/OpenDomeSandbox/` |
+| Platform maintainers (Effisend) | App + Sandbox + SDK | host, sandbox, SDK, shared infra | — |
+
+Developer path: **build mini-app → test in Sandbox → ship so guests open it from App.**  
+Do not tell developers to edit App/Sandbox for a tenant feature. Sandbox is not a guest product.
+
+## Runtime boundaries and path conventions
+
+The word “Sandbox” is the **developer test host product name**, not “guests use a sandbox.” Mini-app isolation is separate origins + iframe + docking handshake; the host does not currently depend on an HTML `sandbox` attribute.
+
+| Runtime | Owns | Must not own | Primary paths |
+|---------|------|--------------|---------------|
+| Browser host | iframe lifecycle, passkey UX, context injection, bridge dispatch | provider secrets | `OpenDome/OpenDomeApp/src/components/IframeContainer.js`, `src/features/bridge/` |
+| Browser mini-app | tenant UI, `useOpenDome`, `Host.*` calls | `OD_APP_TOKEN`, Circle/GCP keys, host session secret | `OpenDome/OpenDomeMiniApps/<App>/src/` |
+| Mini-app server | enrollment → handshake exchange | host signing secret | `<App>/src/app/api/docking-token+api.js` |
+| Host API server | verify docking, auth, Circle, Gemini, Firestore, mint/checkout | tenant UI state | `OpenDome/OpenDomeApp/src/app/api/`, `src/utilsAPI/` |
+| Shared SDK | browser API, protocol constants, pure helpers, server exchange helper | app-specific UI/business state | `open-dome-lib/src/` and generated `open-dome-lib/dist/` |
+
+Expo Router maps `src/app/api/name+api.js` to `/api/name`. Nested paths preserve directories, e.g. `src/app/api/passkey/login-options+api.js` → `/api/passkey/login-options`.
+
+### Host route inventory
+
+The production routes below live under `OpenDome/OpenDomeApp/src/app/api/`. The Sandbox has twins for core host behavior; do not assume every production operations route is mirrored without checking.
+
+| Route | Method | Caller / responsibility |
+|-------|--------|-------------------------|
+| `/api/apps` | GET | Host store catalog and resolved mini-app URLs |
+| `/api/docking-token` | POST | Mini-app server exchanges Bearer enrollment JWT for handshake JWT |
+| `/api/verify` | POST | Host bridge verifies handshake and mints browser session/channel JWTs |
+| `/api/session` | POST | Host session validation/refresh |
+| `/api/passkey/check-username` | POST | Passkey registration preflight |
+| `/api/passkey/register-options` | POST | WebAuthn registration options |
+| `/api/passkey/register-verify` | POST | Verify registration and create user |
+| `/api/passkey/login-options` | POST | WebAuthn login options |
+| `/api/passkey/login-verify` | POST | Verify login and issue session |
+| `/api/agent` | POST | Gemini modes (`dome`, `wallet`, `openagent`) and tool loop |
+| `/api/checkout` | POST | Payment + fulfillment orchestration |
+| `/api/x402-pay` | POST | Buy a priced HTTP service using EVM or Solana USDC |
+| `/api/mint` | POST | Mint ERC-1155 venue pass |
+| `/api/transfer` | POST | Guest-approved sponsored USDC transfer |
+| `/api/wallet-balances` | GET | Authenticated Circle balance snapshot |
+| `/api/nfts` | POST | Authenticated NFT/pass lookup |
+| `/api/platform-config` | GET | Public contract and merchant configuration |
+| `/api/token-prices` | GET | Cached public token prices |
+| `/api/events` | GET | Venue/event catalog |
+| `/api/tickets` | GET | Ticket catalog/assignment data |
+| `/api/assign` | POST | Admin ticket/pass assignment |
+| `/api/scan-lookup` | POST | Scanner resolves a guest/pass |
+| `/api/scan-pass` | POST | Validate and record a gate scan |
+| `/api/users` | GET/PUT/DELETE | Admin user and role management |
+| `/api/merchant-balances` | GET | Admin treasury balances |
+| `/api/ai-event` | POST | Record sanitized AI telemetry |
+| `/api/ai-telemetry` | GET | Operations telemetry dashboard data |
+
+### Host bridge contract
+
+Mini-app browser code does not call sensitive host routes directly. `open-dome-lib/src/host.js` posts `OPENDOME_HOST_REQUEST`; `OpenDomeApp/src/components/IframeContainer.js` validates the active iframe and delegates to `src/features/bridge/runHostRequest.js`.
+
+Current bridge actions: `scanLookup`, `scanPass`, `transfer`, `listNfts`, `walletBalances`, `listUsers`, `updateUsers`, `deleteUser`, `assign`, `merchantBalances`, `aiTelemetry`, `recordAiEvent`, `platformConfig`, `tokenPrices`.
+
+When adding an action, update all applicable boundaries:
+
+1. Public method in `open-dome-lib/src/host.js`.
+2. Host dispatch in `OpenDomeApp/src/features/bridge/runHostRequest.js`.
+3. Host API route or server service.
+4. Authorization/role validation at the host route.
+5. Rebuild `open-dome-lib/dist/`.
 
 ## Local Expo ports (fixed in package.json scripts)
 
@@ -95,15 +169,15 @@ Constants also live in `open-dome-lib/src/dockingHost.js` → `LOCAL_EXPO_PORTS`
 
 ## Production URLs
 
-| Role | URL |
-|------|-----|
-| Host | `https://app.opendome.xyz` |
-| Sandbox | `https://opendome.expo.app` |
-| Demo | `https://demo.opendome.xyz` |
-| Wallet | `https://wallet.opendome.xyz` |
-| OpenAgent | `https://agent.opendome.xyz` |
-| Admin | `https://admin.opendome.xyz` |
-| Scanner | `https://scanner.opendome.xyz` |
+| Role | URL | Audience |
+|------|-----|----------|
+| Host (App) | `https://app.opendome.xyz` | Guests |
+| Sandbox | `https://opendome.expo.app` | Developers (test only) |
+| Demo | `https://demo.opendome.xyz` | Reference mini-app |
+| Wallet | `https://wallet.opendome.xyz` | Guests via App |
+| OpenAgent | `https://agent.opendome.xyz` | Guests via App |
+| Admin | `https://admin.opendome.xyz` | Staff via App |
+| Scanner | `https://scanner.opendome.xyz` | Staff via App |
 
 Hardcoded prod host default in SDK: `PROD_DOCKING_HOST_URL = https://app.opendome.xyz`.
 
@@ -257,6 +331,103 @@ OD_APP_TOKEN=...                 # required
 - Venue catalog queries = `Events` (JSON helpers over `src/dbs/events.json`)
 - Day planner council = deterministic, no Gemini (`dayPlannerAgents.js`, `amenityAffinity.js`, `itinerary.js`, `planner.js`)
 - Host Gemini + x402 = `OpenDomeApp` `/api/agent` (and Sandbox twin)
+
+### SDK export map
+
+`open-dome-lib/src/index.js` is the public browser entry point. Major exports:
+
+| Export | Source | Purpose |
+|--------|--------|---------|
+| `useOpenDome`, `OpenDomeLockScreen`, `HostGate` | `useOpenDome.js`, `LockScreen.js`, `HostGate.js` | Docking/auth lifecycle and locked standalone state |
+| `Host` | `host.js` | Browser → parent bridge for privileged host operations |
+| `Blockchain`, wallet classes | `blockchain/` | EVM/Solana/Starknet helpers and pass configuration |
+| `Location` | `location.js` | Host-proxied location |
+| `Events` | `events.js` | Venue catalog queries |
+| `Communication` | `communication.js` | MQTT publish/subscribe |
+| `Agent` | `agent.js` | Host agent bridge/client |
+| planner helpers | `planner.js`, `itinerary.js`, `dayPlannerAgents.js` | Deterministic day planning |
+| tariff/x402 helpers | `agentTariff.js`, `x402.js`, `x402Challenge.js` | Shared quoting and payment protocol |
+
+Server-only mini-app code imports `opendome/dist/dockingHost.js` directly. Do not export or import `dockingHost.js` through browser bundles because it reads `OD_APP_TOKEN`.
+
+### Mini-app root example
+
+Use the SDK gate at the app root. Explicitly render loading, locked, unauthenticated, error, and success states.
+
+```jsx
+import { Button, Text } from 'react-native';
+import { OpenDomeLockScreen, useOpenDome } from 'opendome';
+
+export default function App() {
+  const {
+    loading,
+    isLocked,
+    isAuthorized,
+    authError,
+    user,
+    context,
+    proxiedLocation,
+    login,
+  } = useOpenDome({
+    blockchain: { evm: ['base', 'arbitrum', 'polygon', 'optimism'] },
+  });
+
+  if (loading) return <Text>Connecting to OpenDome…</Text>;
+  if (isLocked) return <OpenDomeLockScreen />;
+  if (authError) return <Text>{authError}</Text>;
+  if (!isAuthorized) return <Button title="Sign in" onPress={login} />;
+
+  return <Text>Welcome {user?.username}</Text>;
+}
+```
+
+Reference implementation: `OpenDome/OpenDomeMiniApps/Demo/src/App.js`.
+
+### Mini-app server exchange example
+
+Every mini-app needs this server route at `src/app/api/docking-token+api.js`:
+
+```js
+import { exchangeDockingEnrollment } from 'opendome/dist/dockingHost.js';
+
+export async function GET() {
+  return exchangeDockingEnrollment();
+}
+```
+
+Required server env: `OD_APP_TOKEN`. The route returns `{ token, appId }` from the host; never send the enrollment credential itself to browser code.
+
+### Privileged host call example
+
+Mini-app browser code calls `Host`; the parent host adds its authenticated session and calls the same-origin API:
+
+```js
+import { Host } from 'opendome';
+
+const balances = await Host.walletBalances();
+
+// Must follow explicit guest approval in UI.
+const transfer = await Host.transfer({
+  amount: '1.00',
+  destination: '0x…',
+  blockchain: 'BASE',
+  asset: 'USDC',
+});
+```
+
+Do not replace bridge calls with direct cross-origin requests to host routes. The bridge is the authorization and origin boundary.
+
+### Docking message and token contracts
+
+| Contract | Required fields / behavior |
+|----------|----------------------------|
+| Enrollment JWT | HS512; `token_use=enrollment`, `role=mini_app`, `appId`; sent only server → server |
+| Handshake JWT | HS512; `token_use=handshake`, `role=mini_app`, `appId`; approximately 600 seconds |
+| `OPENDOME_READY` | Mini-app browser tells parent it has a handshake token |
+| `OPENDOME_HANDSHAKE` | Host sends verified user/context and channel tokens to active iframe |
+| `OPENDOME_HOST_REQUEST` | `{ type, id, payload: { action, ...args } }` from mini-app |
+| `OPENDOME_HOST_RESPONSE` | `{ type, id, response }` or `{ type, id, error }` from host |
+| `OPENDOME_WALLET_UPDATE` | Host-pushed cached balances/NFT snapshot |
 
 ## Host responsibilities vs mini-apps
 
