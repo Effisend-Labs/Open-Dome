@@ -234,5 +234,3 @@ Open-Dome is our entry for **[Build with Gemini XPRIZE](https://xprize.devpost.c
 
 MIT © Effisend Labs
 
-
-
