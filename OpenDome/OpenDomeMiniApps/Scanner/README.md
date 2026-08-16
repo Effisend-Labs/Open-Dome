@@ -12,6 +12,8 @@ EXPO_PUBLIC_OD_APP_ID=…
 OD_APP_TOKEN=…
 ```
 
+Host URL auto-resolves (`:8082` local / `https://app.opendome.xyz` on Vercel). Optional override: `OPENDOME_DOCKING_HOST_URL`.
+
 Pass contract and other public facts come from `Host.platformConfig()` on OpenDomeApp.
 
 ## Local

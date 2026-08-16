@@ -1,184 +1,128 @@
-# 🏟️ Open-Dome SDK
+# 🏟️ Open-Dome SDK (`opendome`)
 
-Enterprise-grade SDK for secure module integration, multi-chain blockchain interactions, and real-time event distribution within the Effisend Open-Dome ecosystem.
+Enterprise SDK for secure mini-app docking, multi-chain Web3, realtime channels, and venue planners inside the Open-Dome Super-App.
 
-## 🚀 Features & API Usage
+**Agents:** read repo-root [`AGENTS.md`](../AGENTS.md) before changing docking, env, or ports.
 
-### 1. Secure Handshake & Authentication
-The `useOpenDome` hook is the entry point for all Mini Apps. The Mini App server exchanges its server-only `OD_APP_TOKEN` enrollment credential for a 10-minute docking JWT. App/Sandbox verify that JWT with their shared `DOCKING_JWT_TOKEN` before injecting context.
+## Install
 
-**API Reference:**
+```bash
+npm install opendome
+# monorepo: "opendome": "file:../../../open-dome-lib"
+```
+
+Server routes should import from `opendome/dist/...` (Babel build). Client hooks can use the package entry.
+
+---
+
+## 1. Docking & `useOpenDome`
+
+Mini-app **server** holds `OD_APP_TOKEN` (enrollment JWT). Browser calls same-origin `GET /api/docking-token`, which exchanges that credential with the host for a ~10-minute handshake JWT. Host verifies with `DOCKING_JWT_TOKEN`.
+
 ```javascript
-const { 
-  isAuthorized, // Boolean: true if session is verified
-  token,        // String: Session token
-  context,      // Object: { username, theme, lang, wsJwt, ... }
-  loading,      // Boolean: true during handshake
-  blockchain    // Instance: Access to multi-chain adapters
+import { useOpenDome } from 'opendome';
+
+const {
+  isAuthorized,
+  token,
+  context,   // username, theme, lang, wsJwt, ...
+  loading,
+  blockchain,
 } = useOpenDome(config);
 ```
 
-**Sequence Diagram:**
 ```mermaid
 sequenceDiagram
-    participant MiniApp as Mini App
-    participant SDK as Open-Dome SDK
-    participant Host as Host (Sandbox)
-    participant API as /api/verify (Server)
+  participant Mini as MiniApp_browser
+  participant API as MiniApp_server
+  participant Host as OpenDomeApp
 
-    Host->>MiniApp: Load iframe
-    MiniApp->>SDK: useOpenDome()
-    Note over SDK: Check URL params first
-    alt Session via URL params (?pass=token)
-        SDK->>SDK: Parse context from URL
-        SDK->>Host: postMessage(OPEN_DOME_SDK_INIT, { status: AUTHORIZED })
-        SDK-->>MiniApp: isAuthorized = true
-    else Session via postMessage handshake
-        SDK->>MiniApp: GET /api/docking-token
-        SDK->>Host: postMessage(OPENDOME_READY, { token: dockingJwt, appId })
-        Host->>API: POST /api/verify { token }
-        API->>API: Verify docking JWT with DOCKING_JWT_TOKEN → Sign HS512 JWTs
-        API->>Host: { valid: true, wsJwt, hostJwt }
-        Host->>SDK: postMessage(OPENDOME_HANDSHAKE, { status: VERIFIED, context: { ...vars, wsJwt } })
-        SDK->>Host: postMessage(OPEN_DOME_SDK_INIT, { status: AUTHORIZED })
-        SDK-->>MiniApp: isAuthorized = true, context injected
-    end
+  Mini->>API: GET /api/docking-token
+  API->>Host: POST /api/docking-token (enrollment)
+  Host-->>API: handshake JWT
+  API-->>Mini: handshake JWT
+  Mini->>Host: postMessage OPENDOME_READY
+  Host->>Host: POST /api/verify
+  Host-->>Mini: OPENDOME_HANDSHAKE + context
 ```
+
+### Auto host URL
+
+[`src/dockingHost.js`](./src/dockingHost.js) — used by every mini-app `docking-token` route:
+
+| Condition | Host |
+| --- | --- |
+| `OPENDOME_DOCKING_HOST_URL` set | That URL |
+| Vercel deploy | `https://app.opendome.xyz` |
+| Local | `http://localhost:8082` |
+
+Local Expo ports are listed in `LOCAL_EXPO_PORTS` (App `8082` … TokyoDome `8092`).
+
+**Never** put `OD_APP_TOKEN` or `DOCKING_JWT_TOKEN` in `EXPO_PUBLIC_*` / `app.config` `extra`.
 
 ---
 
-### 2. Multi-Chain Blockchain
-The `blockchain` object provides a unified interface for multiple networks.
+## 2. Multi-chain blockchain
 
-**Architecture:**
-```mermaid
-graph TD
-    BC[Blockchain Class] --> Adapter{Select Adapter}
-    Adapter -->|EVM| EVM[EVMAdapter - Ethers/Viem]
-    Adapter -->|Solana| SOL[SolanaAdapter - @solana/kit]
-    Adapter -->|Starknet| STARK[StarknetAdapter - Starknet.js]
-    
-    BC --> Bal[getBalances]
-    BC --> Tx[signAndSend]
-```
-
-**Supported Chains:** `EVM` (Base, Monad, etc.), `Solana`, `Starknet`.
-
-**Usage:**
 ```javascript
-// Fetch balances across multiple chains
 const balances = await blockchain.getBalances({
   base: '0x...',
   solana: '...',
-  starknet: '0x...'
-});
-
-// Single balance
-const ethBalance = await blockchain.getBalance('base', '0x...');
-
-// Sign and Send Transaction
-const txHash = await blockchain.signAndSend({
-  chain: 'base',
-  privateKey: '...',
-  tx: { to: '0x...', value: '...' }
+  starknet: '0x...',
 });
 ```
+
+Adapters: EVM (ethers/viem), Solana (`@solana/kit`), Starknet.
 
 ---
 
-### 3. Real-time Events (Notice Board)
-MQTT-powered pub/sub system for low-latency communication.
+## 3. Realtime (`Communication`)
 
-**Communication Flow:**
-```mermaid
-graph LR
-    AppA[Mini App A] -- publish --> Broker[MQTT Broker]
-    Broker -- broadcast --> AppB[Mini App B]
-    Broker -- broadcast --> Host[Host Application]
-    
-    subgraph "Topics"
-    T1[opendome/public/events]
-    T2[opendome/private/user_id]
-    end
-```
+MQTT over the `wsJwt` from handshake context:
 
-**Usage:**
 ```javascript
-import { Events } from 'opendome';
+import { Communication } from 'opendome';
 
-// Connect using JWT from context
-Events.connect({ jwt: context.wsJwt });
-
-// Subscribe to topics
-Events.subscribe('opendome/public/events', (data) => {
-  console.log('Event received:', data);
-});
-
-// Publish events
-Events.publish('opendome/public/events', JSON.stringify({
-  title: 'System Alert',
-  content: 'New user joined'
-}));
+Communication.connect({ jwt: context.wsJwt });
+Communication.subscribe('opendome/public/events', handler);
 ```
+
+Venue catalog queries live on `Events` (local JSON helpers), separate from the MQTT bus.
 
 ---
 
-### 4. Location Proxy
-Abstracts geolocation to support both direct access and host-proxied data.
+## 4. Location proxy
 
-**Proxy Logic:**
-```mermaid
-graph TD
-    Hook[useOpenDome Hook] --> Check{Proxied Data Available?}
-    Check -->|Yes| P[Return proxiedLocation]
-    Check -->|No| G[MiniApp calls Location API directly]
-    G --> N[navigator.geolocation]
-```
-
-**Usage:**
-```javascript
-import { Location } from 'opendome';
-
-// Get current position (Proxied automatically if available)
-const pos = await Location.getCurrentPosition();
-
-// Watch position
-const id = Location.watchPosition((pos) => {
-  console.log('Movement detected:', pos);
-});
-```
+Prefer host-proxied GPS from the handshake / `OPENDOME_LOCATION_UPDATE`. Fall back to `navigator.geolocation` when standalone.
 
 ---
 
-### 5. Multi-agent day planner
-Deterministic council that builds a timed itinerary around an anchor event (doors / hard deadline).
+## 5. Day planner council
 
-**Modules:** `dayPlannerAgents.js`, `amenityAffinity.js`, `itinerary.js`, `planner.js`
-
-```text
-AnchorAgent → ScoutAgent×N (Pulse/Zen/Curator/Local) → SchedulerAgent → CriticAgent → winning proposal
-```
+Deterministic multi-agent itinerary (no Gemini):
 
 ```javascript
 import { buildItineraryProposal } from 'opendome';
 
 const proposal = await buildItineraryProposal({
-  event,          // anchor show / game
-  amenities,      // venue catalog
-  agentCount: 4,  // council size
-  intent: 'spa',  // optional user keywords
+  event,
+  amenities,
+  agentCount: 4,
+  intent: 'spa',
 });
-// proposal.stops[], proposal.insight, proposal.council.winner / candidates[]
 ```
 
-This path does **not** call Gemini — scoring is local. The Host `/api/agent` route is the separate LLM + x402 payment surface.
+Host `/api/agent` is the separate paid Gemini + x402 path.
 
-## 📦 Installation
+---
+
+## Build
 
 ```bash
-npm install opendome
+cd open-dome-lib
+npm run build   # babel src → dist
 ```
 
-## 📜 License
+## License
 
 MIT © Effisend Labs

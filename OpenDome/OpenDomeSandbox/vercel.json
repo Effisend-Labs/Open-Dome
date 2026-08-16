@@ -2,7 +2,7 @@
   "installCommand": "npm install --legacy-peer-deps && cd ../../open-dome-lib && npm install --legacy-peer-deps",
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/OpenDome/OpenDomeSandbox :/open-dome-lib 2>/dev/null || exit 1",
+  "ignoreCommand": "node ../../scripts/vercel-ignore.cjs . ../../open-dome-lib",
   "functions": {
     "api/index.js": {
       "includeFiles": "dist/server/**",

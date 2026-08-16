@@ -17,8 +17,8 @@ const FOOTER_COLUMNS = [
     title: 'Resources',
     links: [
       { label: 'GitHub Repository', href: 'https://github.com/Effisend-Labs/Open-Dome' },
-      { label: 'Technical Guide', href: 'https://github.com/Effisend-Labs/Open-Dome/blob/main/TECH.md' },
-      { label: 'Changelog', href: 'https://github.com/Effisend-Labs/Open-Dome/blob/main/CHANGES.md' },
+      { label: 'Technical Guide', href: 'https://github.com/Effisend-Labs/Open-Dome/blob/main/README.md' },
+      { label: 'Architecture Reference', href: 'https://github.com/Effisend-Labs/Open-Dome/blob/main/AGENTS.md' },
     ],
   },
   {

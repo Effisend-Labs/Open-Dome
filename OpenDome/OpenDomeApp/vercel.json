@@ -2,7 +2,7 @@
   "installCommand": "cd ../../open-dome-lib && npm install --legacy-peer-deps && npm run build && cd ../OpenDome/OpenDomeApp && npm install --legacy-peer-deps && rm -rf api/vendor/opendome && mkdir -p api/vendor/opendome && cp -R ../../open-dome-lib/dist/. api/vendor/opendome/",
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/OpenDome/OpenDomeApp :/open-dome-lib 2>/dev/null || exit 1",
+  "ignoreCommand": "node ../../scripts/vercel-ignore.cjs . ../../open-dome-lib",
   "functions": {
     "api/index.js": {
       "includeFiles": "{dist/server/**,api/vendor/**}",

@@ -1,114 +1,235 @@
-# 🏟️ Open-Dome
+# Open-Dome
 
-### *スーパーアプリ時代のためのインフラストラクチャレイヤー*
+### 会場向けスーパーアプリを AI エージェントが運営するためのインフラ
 
-> **Tokyo Dome City** のために構築。グローバルなスケーリングを前提とした設計。
+<p align="center">
+  <img src="./Images/logo.png" alt="Open-Dome" width="70%" align="center"/>
+</p>
 
----
+> **東京ドームシティ** のために構築。入場・体験・時間を販売するあらゆる会場に適用できます。
 
-## 市場の課題
-
-「スーパーアプリ (Super-App)」はモバイル体験の未来です。プラットフォームは、ユーザーエンゲージメントを維持するため、メインアプリケーション内に複数のモジュール式「ミニアプリ (Mini Apps)」をホストしたいと考えています。しかし、このアーキテクチャの構築には**高いコスト、長い開発時間、そしてセキュリティリスク**が伴います。
-
-どの開発チームも、同じインフラストラクチャをゼロから作り直すために何ヶ月もの時間を無駄にしています。
-
-* *ユーザーのパスワードを公開せずに、サードパーティのミニアプリに安全にログインさせるにはどうすればよいか？*
-* *コードベースを書き換えることなく、5つの異なるブロックチェーンネットワークを管理するにはどうすればよいか？*
-* *iOS/Android の不安を煽るようなプライバシー警告を引き起こさずに、ユーザーの位置情報を安全に共有するにはどうすればよいか？*
-
-**Open-Dome がこれを解決します。** 企業がスーパーアプリのエコシステムを即座に構築、スケーリング、保護できるようにするための基盤を提供します。
+English: [`README.md`](./README.md) · コーディングエージェント向け機械可読コンテキスト: [`AGENTS.md`](./AGENTS.md)
 
 ---
 
-## ビジョン
+## 解決する課題
 
-**Tokyo Dome City** を想像してみてください。東京の中心にある巨大で自己完結型のエンターテインメントコンプレックスです。単なるスタジアムではなく、ホテル、遊園地、コンサートホール、レストラン、ショップが集まる一つの街です。
+東京ドームシティのような会場は、それ自体が一つの経済圏です。スタジアム、コンサートホール、遊園地、ホテル、ギャラリー、飲食店。各テナントは独自のアプリ体験を求め、会場側はゲストとの関係を一元管理したいと考えます。
 
-では、そのエコシステムから一歩も出ることなく、すべてを体験できる**単一のモバイルアプリ**を想像してみてください。それが**スーパーアプリ**のビジョンであり、**Open-Dome** はそれを可能にする目に見えないインフラストラクチャです。
+これをスーパーアプリとして実装しようとすると、3 つの難問に突き当たります。
 
-## Open-Dome とは？
+| 課題 | ビジネス上の障壁 |
+| --- | --- |
+| **テナントアプリを信頼できない** | 境界設計が弱いと、内部のミニアプリがセッション・トークン・位置情報を読み取れてしまいます。 |
+| **インタラクション単位で決済できない** | カード決済では 0.001 ドルのエージェント応答や 1 枚のパスを採算的に処理できず、遅くて手作業の請求に集約されます。 |
+| **運用のあらゆる工程に人手が必要** | ゲストごとに、当日の計画・見積・課金・パス発行を人が行うことになります。 |
 
-Open-Dome は、**プラグアンドプレイ対応のエンタープライズ級インフラストラクチャスイート**です。次世代のスーパーアプリを駆動するセキュアなブリッジ、マルチチェーン対応の Web3 アダプター、そしてリアルタイム通信ネットワークを提供します。
+Open-Dome はこの 3 つを同時に解決します。テナント用ミニアプリのゼロトラスト・ドッキング、Circle による USDC のインタラクション単位決済、そして「計画 → 見積 → 課金 → 履行」のループを本番環境で実行する Gemini エージェントです。
 
-これは単なる UI ライブラリではありません。開発者の統合時間を数ヶ月から数分に短縮するコアとなるオペレーショナルエンジンです。
+---
+
+## Open-Dome の構成
+
+本番運用中のモノレポで、3 つの要素からなります。
+
+- **ホストアプリ** (`OpenDomeApp`) — ゲスト向けスーパーアプリ本体。ID・決済・ミント・エージェントを所有し、すべての機密情報はここにのみ存在します。
+- **ミニアプリ** — テナントおよびスタッフ向け画面（各会場、ウォレット、エージェントチャット、管理、ゲート検証）。サンドボックス化された iframe で動作します。
+- **SDK** (`opendome`) — テナントが導入するライブラリ。ホストへのドッキング、セッション、ウォレット、リアルタイム通信、位置情報を提供します。
 
 ```mermaid
-flowchart TD
-    Host[📱 メインアプリ (Main App)] -->|セキュアなユーザーデータ、GPS、暗号資産ウォレットアドレスを注入| Bridge
+flowchart LR
+  Guest["ゲスト"] --> Host["OpenDomeApp ホスト"]
 
-    subgraph The Bridge
-        Bridge((🔌 Open-Dome インフラストラクチャ))
-        Bridge -.->|処理| Sec[ゼロトラストセキュリティ]
-        Bridge -.->|処理| Web3[統合 Web3 アクセス]
-        Bridge -.->|処理| Live[リアルタイムイベント]
-        Bridge -.->|処理| GPS[位置情報のプライバシー]
-    end
+  subgraph platform [ホストが所有する機能]
+    Auth["パスキー認証とロール"]
+    Agent["Vertex AI の Gemini エージェント"]
+    Pay["Circle による USDC 決済"]
+    Mint["Base 上の ERC-1155 パス発行"]
+  end
 
-    Sec & Web3 & Live & GPS -->|プラグアンドプレイ SDK| App[🧩 サードパーティミニアプリ]
+  Host --> Auth
+  Host --> Agent
+  Host --> Pay
+  Host --> Mint
 
-    style Host fill:#0f172a,color:#fff,stroke:#3b82f6,stroke-width:2px
-    style Bridge fill:#1e40af,color:#fff,stroke:#60a5fa,stroke-width:3px
-    style App fill:#312e81,color:#fff,stroke:#a855f7,stroke-width:2px
+  subgraph tenants [サンドボックス化ミニアプリ]
+    Venue["会場アプリ"]
+    Wallet["ウォレット"]
+    OpenAgent["OpenAgent チャット"]
+    Staff["管理 / ゲート検証"]
+  end
 
+  Host -->|"iframe + 短命 JWT"| Venue
+  Host -->|"iframe + 短命 JWT"| Wallet
+  Host -->|"iframe + 短命 JWT"| OpenAgent
+  Host -->|"iframe + 短命 JWT"| Staff
+
+  Venue --> SDK["opendome SDK"]
+  Wallet --> SDK
+  OpenAgent --> SDK
+  Staff --> SDK
 ```
 
 ---
 
-## 提供価値 (Value Proposition)
+## AI ネイティブな運用
 
-私たちは、複雑な技術的ハードルをシームレスなビジネスオペレーションへと変換します。
+エージェントはカタログに後付けしたチャット機能ではありません。収益ループそのものを実行します。提案内容を判断し、価格を付け、決済を起動し、プラットフォームが履行します。
 
-| エンタープライズの利点 | 解決する課題 | Open-Dome によるアプローチ |
+```mermaid
+sequenceDiagram
+  participant Guest as ゲスト
+  participant Agent as Vertex_AI_Gemini
+  participant Tools as エージェントツール
+  participant Circle as Circle_ウォレット
+  participant Chain as Base_ERC1155
+
+  Guest->>Agent: 「19時の試合に合わせて夜の予定を組んで」
+  Agent->>Tools: search_events / list_amenities / plan_day
+  Tools-->>Agent: 時間枠付きのスコア済み行程
+  Agent->>Guest: 提案と USDC 見積
+  Guest->>Agent: 承認
+  Agent->>Circle: USDC 決済 (x402)
+  Circle-->>Agent: 支払い証明
+  Agent->>Chain: 承認された行程分のパスをミント
+  Chain-->>Guest: ウォレットにパス、ゲートで検証可能
+```
+
+**AI が判断すること:** 意図に合うイベント、各時間枠に適した施設、移動時間と営業時間を考慮したスケジュール、応答ごとの価格、そしてウォレット参照や送金のために呼び出すツール。
+
+**人が判断すること:** 支払い承認です。自動課金は行いません。
+
+本番では 2 層のエージェントが動作します。
+
+| 層 | モデル / 方式 | 役割 |
 | --- | --- | --- |
-| **ゼロトラストセキュリティ** | アプリ間のログインはデータ漏洩の脆弱性になりがちです。 | **ゼロトラストアーキテクチャ。** ホストアプリは認証情報を注入する前に、サーバー側ですべてのユーザーを検証します。 |
-| **統合 Web3 アクセス** | 複数のブロックチェーンのサポートは技術的な悪夢です。 | **単一の統合 API。** 追加コードなしで Ethereum、Solana、Starknet などをシームレスにルーティングします。 |
-| **リアルタイムデータ** | ライブイベントでは、超高速のデータ同期が必要です。 | **ライブイベントバス (Live Event Bus)。** アプリ間のインスタントメッセージング専用のセキュアなチャネル。 |
-| **プライバシー・バイ・デフォルト** | ミニアプリは、iOS/Android の不安を煽る権限（パーミッション）警告を引き起こします。 | **ハードウェアプロキシ (Hardware Proxying)。** ホストが GPS データを安全にミニアプリに渡します。直接的な権限リクエストは不要です。 |
+| **デイプランナー評議会** | SDK 内の決定論的マルチエージェント採点 | LLM コストと非決定性なしに行程を探索・組成・批評 |
+| **ホストエージェント** | Vertex AI の Gemini（ツール呼び出し） | 自由入力の要望対応、ウォレット操作、会場コンサルティング |
+
+評議会が提案し、Gemini が説明・調整・ツール実行を担います。分離することで行程品質の再現性を保ち、LLM の費用を実際の課金ターンに紐付けられます。
 
 ---
 
-## エコシステムの3つの柱
+## 決済: Circle ウォレット、USDC、x402
 
-### 1. 🔌 エンジン: Open-Dome SDK
+価格が付くすべてのインタラクションは USDC で決済されます。請求処理もカード端末も不要です。
 
-*数ヶ月に及ぶインフラストラクチャエンジニアリングを、たった1行のコードに。*
+```mermaid
+flowchart TD
+  Request["有償リクエスト（エージェント応答 / チェックアウト）"] --> Quote["見積: 基本料金 + 文字数"]
+  Quote --> Challenge["サービスが HTTP 402 チャレンジを返す"]
+  Challenge --> Sign["Circle HSM が EIP-3009 署名"]
+  Sign --> Settle["USDC 送金が確定"]
+  Settle --> Proof["支払い証明をサービスへ返す"]
+  Proof --> Fulfill["応答生成 またはパスのミント"]
+  Fulfill --> Log["Cloud Logging にイベント記録"]
+```
 
-開発者はこの軽量な SDK をミニアプリに組み込むだけです。バックグラウンドでは、複雑なセキュリティハンドシェイク、ブロックチェーン接続、ライブイベントのストリーミングが自動的に処理されます。開発者は優れたユーザー体験の構築のみに集中でき、配管（インフラ）部分は我々が担います。
-
-### 2. 🧪 検証環境: Open-Dome Sandbox
-
-*リリース前にテストする。*
-
-プロフェッショナルグレードのテストラボを提供します。開発チームはミニアプリを Sandbox に読み込み、巨大なスーパーアプリ内でどのように機能するかを正確にシミュレーションできます。何百万もの実際のユーザーに展開する前に、セキュリティインジェクション、ユーザープロファイル、リアルタイム GPS トラッキングを安全にテストできます。
-
-### 3. 📱 ブループリント: Example Mini App
-
-*本番環境対応のスタートライン。*
-
-導入を加速させるため、完全に機能するリファレンスアプリを構築しました。マルチチェーン暗号資産ウォレット、プロキシされた GPS を使用したライブマップ、リアルタイムネットワークを利用したインタラクティブなゲームを備え、初日から技術が機能することを証明します。企業はこのブループリントをフォークすることで、その日の午後には動作するアプリを用意できます。
-
----
-
-## ビジネスケース: Open-Dome が選ばれる理由
-
-* **劇的なコスト削減:** ホストアプリとミニアプリ間の通信を標準化することで、新しいパートナーシップのたびに必要となる高額なカスタムセキュリティエンジニアリングを排除します。
-* **完全なデータコントロール:** このアーキテクチャにより、ホストのスーパーアプリが絶対的な権限を持ち続けることが保証されます。サードパーティのミニアプリは、ホストが許可したデータのみを参照できます。
-* **開発者への普及エンジン:** Open-Dome はオープンソースです。無料かつ非常に簡単に使用できるようにすることで、エコシステム普及のための巨大なファネルを構築し、スーパーアプリ運営の標準を確立します。
-* **将来を見据えた設計 (Future-Proof):** 従来の Web2 体験を構築する場合でも、Web3 の分散型ネットワークを立ち上げる場合でも、Open-Dome は箱から出してすぐに両方をネイティブサポートします。
-
----
-
-## ライブデモを見る
-
-技術を直接体験してください。**Example Mini App** を **Sandbox** に読み込み、*Inject Payload*（ペイロードを注入）をクリックして、セキュアなハンドシェイク、ライブデータストリーミング、マルチチェーンウォレットがリアルタイムで機能する様子をご覧ください。
-
-| リソース | アクセスリンク |
+| 機能 | 実装 |
 | --- | --- |
-| 🏟️ **The Sandbox (ホスト環境)** | [opendome.expo.app](https://opendome.expo.app/) |
-| 📱 **Example Mini App** | [miniapp.expo.app](https://miniapp.expo.app) |
+| **プログラマブルウォレット** | Circle の developer-controlled wallets をユーザー単位で作成。鍵はクライアントに渡りません。 |
+| **ガスレス承認** | Circle が EIP-3009 の署名を行うため、ゲストはガスを保有せずに USDC 送金を承認できます。 |
+| **x402 による従量課金** | エージェント応答を「基本料金 + 文字数」で見積り、HTTP 402 でチャレンジし、モデル実行前に決済します。 |
+| **マルチネットワーク** | Base、Arbitrum、Optimism、Polygon、Avalanche、Solana の USDC。Solana は Circle 経由で決済し支払いを証明します。 |
+| **クロスチェーン** | 支払いネットワークが資金保有先と異なる場合、CCTP で EVM から Solana へ USDC を移動します。 |
+| **エージェントから呼び出し可能** | Gemini が `list_wallets`、`get_wallet_token_balance`、`estimate_transfer_fee`、`create_transaction`、`create_solana_pay`、`sign_message` を直接実行します。 |
 
-> ⚠️ **注:** **Example Mini App** は、**Sandbox** 経由でのみアクセスし、実行することができます。Open-Dome SDK が正常に機能するには、Sandbox のホスト環境とミニアプリとの間に、安全でアクティブな接続が必要です。
+インタラクション単位で決済するため、ゲスト単位・応答単位・パス単位で採算が可視化されます（月末集計ではありません）。
 
 ---
 
-*Open-Dome — Built by Effisend Labs*
+## Google Cloud の利用
+
+Google Cloud が推論・状態管理・「AI が実際に稼働している証跡」を担います。
+
+```mermaid
+flowchart LR
+  Host["OpenDomeApp"] --> Vertex["Vertex AI: ツール呼び出し対応 Gemini"]
+  Host --> Firestore["Cloud Firestore: ユーザー / ウォレット / チケット"]
+  Host --> Logging["Cloud Logging: AI とプラットフォームイベント"]
+  Logging --> BigQuery["BigQuery: opendome_ai_events"]
+  BigQuery --> Dashboard["運用ダッシュボード"]
+```
+
+| サービス | 用途 |
+| --- | --- |
+| **Vertex AI** (`@google/genai`) | Gemini 3.1 Flash-Lite / 3.6 Flash / 3.1 Pro によるゲスト対応、会場コンサルティング、ウォレットツール実行。 |
+| **Cloud Firestore** | ゲスト ID とロール、Circle ウォレット参照、発行済みパスとゲートチケット。開発用と本番用の名前空間を分離。 |
+| **Cloud Logging** | 2 系統の構造化ログ: `opendome-ai-events`（意図・モデル・レイテンシ・決済ネットワーク）と `opendome-platform-events`（ミント、送金、チェックアウト、x402 決済、ゲート通過）。 |
+| **BigQuery** | `ai_agent_logs.opendome_ai_events` へのログシンク。すべてのエージェント判断と決済を検索可能な記録として保持します。 |
+
+ゲスト入力はログ記録前にサニタイズされ、メールアドレスやウォレットアドレスは除去されます。運用上の有用性を保ちながら個人情報を残しません。
+
+---
+
+## ゼロトラスト・ドッキング
+
+テナントのミニアプリは、自身の正当性をホストに証明する必要があります。ホストは iframe の内容を信頼せず、テナントの長期認証情報はブラウザに渡りません。
+
+```mermaid
+sequenceDiagram
+  participant Browser as ミニアプリ_ブラウザ
+  participant MiniServer as ミニアプリ_サーバー
+  participant HostAPI as ホスト_交換API
+  participant Verify as ホスト_検証API
+
+  Browser->>MiniServer: GET /api/docking-token
+  Note over MiniServer: 登録用認証情報はサーバー側に留まる
+  MiniServer->>HostAPI: 登録用 JWT を提示
+  HostAPI->>HostAPI: ホストのドッキング鍵で検証
+  HostAPI-->>MiniServer: ハンドシェイク JWT（約10分）
+  MiniServer-->>Browser: ハンドシェイク JWT のみ
+  Browser->>Verify: postMessage でハンドシェイク JWT
+  Verify->>Verify: 検証後、リアルタイム用 JWT を発行
+  Verify-->>Browser: セッションコンテキストを注入
+```
+
+事業上の意味は明確です。ブラウザ側のトークンが漏れても数分で失効し、あるテナントが別テナントを偽装できず、ホスト側の 1 つの鍵をローテーションすればテナントを失効させられます。位置情報はホストがプロキシするため、テナントは独自の端末許可ダイアログを出さずに位置情報を利用できます。
+
+---
+
+## エコシステム
+
+| 画面 | 役割 | 公開 URL |
+| --- | --- | --- |
+| **OpenDomeApp** | 本番ホスト: ID、ストア、決済、エージェント、ミント | [app.opendome.xyz](https://app.opendome.xyz/) |
+| **OpenDomeSandbox** | テナント開発者向けホストエミュレータ | [opendome.expo.app](https://opendome.expo.app/) |
+| **Demo** | ゲストガイドのリファレンス実装 | [demo.opendome.xyz](https://demo.opendome.xyz/) |
+| **Wallet** | USDC とパスのウォレット | [wallet.opendome.xyz](https://wallet.opendome.xyz/) |
+| **OpenAgent** | プロンプト従量課金の Gemini チャット | [agent.opendome.xyz](https://agent.opendome.xyz/) |
+| **Admin** | スタッフ用の発行・履行 | [admin.opendome.xyz](https://admin.opendome.xyz/) |
+| **Scanner** | ゲート検証 | [scanner.opendome.xyz](https://scanner.opendome.xyz/) |
+| **会場アプリ** | 東京ドーム、IMM シアター、後楽園ホール、Gallery AaMo | ホスト内 |
+
+ミニアプリは仕様上ホストの iframe 内で動作します。直接開いた場合は検証済みセッションが無いためロック状態になります。
+
+---
+
+## ローカル実行
+
+```bash
+# 1. ホスト（機密情報を保持し、ドッキングを検証）
+cd OpenDome/OpenDomeApp && npm install && npm run web    # http://localhost:8082
+
+# 2. ミニアプリ
+cd OpenDome/OpenDomeMiniApps/Demo && npm install && npm run web   # http://localhost:8084
+```
+
+ドッキングを完了させるため、ホストのストアからミニアプリを開いてください。ドッキング先は自動解決されます（開発時は `localhost:8082`、本番は `app.opendome.xyz`）。各アプリの `.env.example` を複製し、実際の機密値は git に含めないでください。
+
+ポート一覧、環境変数マトリクス、プロトコル規則: [`AGENTS.md`](./AGENTS.md)
+
+---
+
+## エージェント経済のために
+
+Open-Dome は **[Build with Gemini XPRIZE](https://xprize.devpost.com/)** への提出プロジェクトであり、*Small Business Services* および *Entrepreneurship & Job Creation* の趣旨に沿っています。会場とテナントが、人員増ではなく AI で運営される仕組みを得ることが狙いです。
+
+- 事業ループ（計画・見積・課金・履行・ゲート検証）を、デモではなく本番でエージェントが実行します。
+- Google Cloud が中核です。推論は Vertex AI、状態は Firestore、証跡は Cloud Logging と BigQuery。
+- Circle と USDC がインタラクション単位の収益を成立させ、契約交渉なしでテナントを迎えられます。
+- ドッキングするテナントが増えるたびに、会場は追加開発なしで収益面を増やせます。
+
+---
+
+MIT © Effisend Labs

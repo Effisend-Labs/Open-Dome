@@ -14,6 +14,8 @@ npm run web
 
 Local: port **8086**. Production: `https://agent.opendome.xyz`. Install **OpenAgent** from the host store.
 
+Env: `OD_APP_TOKEN` (+ app id). Docking host auto-resolves; see [`AGENTS.md`](../../../AGENTS.md).
+
 ## Models
 
 | Picker | Vertex model | Base | Per char |

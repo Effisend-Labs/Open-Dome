@@ -1,126 +1,78 @@
-# 🧪 Open-Dome Sandbox (Visualizer)
+# Open-Dome Sandbox (Visualizer)
 
-The **Open-Dome Sandbox**, also known as the **Visualizer**, is the professional-grade environment for testing and verifying Open-Dome Mini Apps. It acts as the "Host" application, providing the necessary security infrastructure and context for Mini Apps to function.
+Dev host that mirrors production docking so you can test mini-apps in an iframe before shipping.
 
-## 🚀 Live Demo
-Access the live Sandbox here: **[https://opendome.expo.app/](https://opendome.expo.app/)**
+**Live:** [opendome.expo.app](https://opendome.expo.app/) · **Local:** `npm run web` → `http://localhost:8083`
+
+Production host is [app.opendome.xyz](https://app.opendome.xyz/) (`OpenDomeApp`, port `8082`).
 
 ---
 
-## 🧐 How it Works
-
-The Sandbox replicates the production environment of the Effisend Super-App by creating a secure bridge with your Mini App.
-
-### 1. The Handshake & Communication Flow
-The Sandbox is the **authority** in the ecosystem. It receives the Mini App's identity token, verifies it server-side, issues signed JWTs, and then injects the full context.
+## Handshake
 
 ```mermaid
 sequenceDiagram
-    participant App as Mini App (iframe)
-    participant SDK as Open-Dome SDK
-    participant Sandbox as Sandbox (Host)
-    participant API as /api/verify (Server)
+  participant App as MiniApp_iframe
+  participant SDK as opendome
+  participant Sandbox as Sandbox_host
+  participant API as /api/verify
 
-    Sandbox->>App: Load iframe (Endpoint URL)
-    App->>SDK: useOpenDome()
-    SDK->>App: GET /api/docking-token
-    SDK->>Sandbox: postMessage(OPENDOME_READY, { token: dockingJwt })
-    Note over Sandbox,API: Short-lived JWT only; enrollment credential stays server-side
-    Sandbox->>API: POST /api/verify { token }
-    API->>API: Verify JWT with DOCKING_JWT_TOKEN
-    API->>API: Sign wsJwt + hostJwt via HS512
-    API->>Sandbox: { valid: true, wsJwt, hostJwt }
-    alt Token Valid
-        Sandbox->>SDK: postMessage(OPENDOME_HANDSHAKE, { status: VERIFIED, context: { ...vars, wsJwt } })
-        SDK->>App: isAuthorized = true
-        SDK->>Sandbox: postMessage(OPEN_DOME_SDK_INIT)
-        Sandbox->>Sandbox: EventBoard connects with hostJwt
-    else Token Invalid
-        Sandbox->>SDK: postMessage(OPENDOME_HANDSHAKE, { status: UNAUTHORIZED })
-        SDK->>Sandbox: postMessage(OPEN_DOME_SDK_ERROR)
-    end
-
-    loop Real-time GPS Proxy
-        Sandbox->>SDK: postMessage(OPENDOME_LOCATION_UPDATE, { lat, lng, accuracy })
-        SDK->>App: proxiedLocation updated
-    end
+  Sandbox->>App: Load iframe
+  App->>SDK: useOpenDome()
+  SDK->>App: GET /api/docking-token
+  Note over App: Server exchanges OD_APP_TOKEN with host
+  App->>Sandbox: postMessage OPENDOME_READY handshake JWT
+  Sandbox->>API: POST /api/verify
+  API->>API: Verify DOCKING_JWT_TOKEN, mint wsJwt/hostJwt
+  API-->>Sandbox: valid + JWTs
+  Sandbox->>SDK: OPENDOME_HANDSHAKE + context
 ```
 
-### 2. Sandbox Feature Architecture
-The Sandbox provides a multi-layered testing interface.
+Enrollment stays on the mini-app server. Sandbox verifies the short-lived handshake JWT with the same `DOCKING_JWT_TOKEN` as OpenDomeApp.
 
-```mermaid
-graph TD
-    subgraph "Control Panel (Sidebar)"
-        Conf[Configuration]
-        Ctx[Context Variables]
-        Inj[Inject Payload Button]
-    end
+To point a local mini-app at Sandbox instead of App:
 
-    subgraph "Stage Area (Emulator)"
-        Frame[Smartphone Frame]
-        Iframe[Mini App Iframe]
-    end
-
-    subgraph "Monitoring (Bottom)"
-        Board[Event Board / MQTT Logs]
-    end
-
-    Conf -->|Sets| Iframe
-    Ctx -->|Injected via| Inj
-    Inj -->|Triggers Handshake| Iframe
-    Iframe -->|Publishes Events| Board
+```bash
+OPENDOME_DOCKING_HOST_URL=http://localhost:8083
 ```
+
+Otherwise docking auto-resolves to App (`:8082` local / `https://app.opendome.xyz` on Vercel).
 
 ---
 
-## Host bridge (mini-apps)
+## Host bridge
 
-Sandbox relays `OPENDOME_HOST_REQUEST` via `runHostRequest` to same-origin APIs:
+Sandbox relays `OPENDOME_HOST_REQUEST` to same-origin APIs (`scan`, `transfer`, `nfts`, `users`, `assign`, `mint`, …).  
+Mint: god JWT or `ADMIN_SERVICE_TOKEN`.
 
-| Action | API |
-|--------|-----|
-| `scanLookup` / `scanPass` | `/api/scan-lookup`, `/api/scan-pass` |
-| `transfer` / `listNfts` | `/api/transfer`, `/api/nfts` |
-| `listUsers` / `updateUsers` / `deleteUser` | `/api/users` (god) |
-| `assign` | `/api/assign` (god) |
-| `merchantBalances` | `/api/merchant-balances` (god) |
-| `platformConfig` | `/api/platform-config` (public) |
+Host secrets: see [`.env.example`](./.env.example).  
+Mini-apps need only `OD_APP_TOKEN` (+ optional `EXPO_PUBLIC_OD_APP_ID` / skip-auth).
 
-Mint: god JWT **or** `ADMIN_SERVICE_TOKEN` → `POST /api/mint`.  
-Hotfix after checkout fails: same `/api/mint` with scanner token (not Admin fulfill).
+### Context & GPS
 
-See `.env.example` for host secrets. Mini-apps only need `EXPO_PUBLIC_OD_SKIP_AUTH`, `EXPO_PUBLIC_OD_APP_ID`, `OD_APP_TOKEN`.
+Inject theme / username / lang from the control panel. Browser geolocation is proxied into the iframe so mini-apps do not need device permission in the host model.
 
-### Context Injection
-Modify the **Context Variables** to test how your app reacts to different environments:
-- **Theming**: Switch between `light` and `dark`.
-- **User Metadata**: Change `username` or `lang`.
-- **Security**: Test with valid or invalid tokens to verify error handling.
+### Event board
 
-### Location Proxying
-The Sandbox captures the browser's geolocation and proxies it to the Mini App, mimicking the production security model where Mini Apps don't have direct hardware access.
-
-### Event Monitoring
-The **Event Board** at the bottom monitors all MQTT traffic. When your Mini App publishes an event, it will appear here in real-time, allowing you to debug cross-app communication.
+Bottom MQTT log for cross-app traffic (uses `hostJwt` after a successful handshake).
 
 ---
 
-## 🤖 AI Agent Configuration (Vertex AI)
+## Local
 
-If you are modifying or deploying the OpenDome Sandbox's internal AI Agent (`src/app/api/agent+api.js`) to Google Vertex AI using the `@google/genai` SDK, please note the following environment requirements:
-
-1. **Service Account Credentials:** Ensure your `.env` contains valid `GCP_PROJECT_ID`, `GCP_CLIENT_EMAIL`, and `GCP_PRIVATE_KEY` values.
-2. **Global Region Requirement:** The model (e.g. `gemini-3.6-flash`, `gemini-3.1-pro`) **MUST** be accessed using the `global` location parameter. If you attempt to use standard regions like `us-central1`, the backend will return a `404 Publisher model not found` error because these specific custom models are provisioned globally.
-
-**Correct Initialization:**
-```javascript
-const ai = new GoogleGenAI({
-  vertexai: true,
-  project: process.env.GCP_PROJECT_ID,
-  location: 'global' // CRITICAL: Must be 'global'
-});
+```bash
+cd OpenDome/OpenDomeSandbox
+npm install
+npm run web   # :8083
 ```
+
+Copy `.env.example` → `.env` and share `DOCKING_JWT_TOKEN` with OpenDomeApp.
+
+---
+
+## Vertex agent note
+
+`/api/agent` needs `GCP_*` and Vertex `location: 'global'` for the provisioned Gemini models.
 
 ---
 

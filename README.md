@@ -1,150 +1,235 @@
-# 🏟️ Open-Dome
-### *The Infrastructure Layer for the Super-App Era*
+# Open-Dome
+
+### Agent-operated infrastructure for venue super-apps
 
 <p align="center">
-  <img src="./Images/logo.png" alt="Logo" width="70%" align="center"/>
+  <img src="./Images/logo.png" alt="Open-Dome" width="70%" align="center"/>
 </p>
 
-> Built for **Tokyo Dome City**. Designed to scale globally.
+> Built for **Tokyo Dome City**. Designed for any venue that sells access, experiences, and time.
+
+日本語: [`READMEJP.md`](./READMEJP.md) · Machine context for coding agents: [`AGENTS.md`](./AGENTS.md)
 
 ---
 
-## The Market Problem
+## The problem
 
-The "Super-App" is the future of mobile experience. Platforms want to host multiple modular "Mini Apps" inside their main application to keep users engaged. But building this architecture is **expensive, slow, and insecure**. 
+A venue like Tokyo Dome City is a small economy: a stadium, concert halls, an amusement park, hotels, galleries, restaurants. Each tenant wants its own app experience. The venue wants one relationship with the guest.
 
-Every development team wastes months reinventing the same infrastructure:
-* *How do we securely log a user into a third-party mini-app without exposing their password?*
-* *How do we manage 5 different blockchain networks without rewriting our codebase?*
-* *How do we safely share the user's location without triggering invasive phone privacy warnings?*
+Building that as a super-app breaks on three hard problems:
 
-**Open-Dome solves this.** We provide the underlying plumbing so companies can build, scale, and secure Super-App ecosystems instantly.
+| Problem | Why it blocks the business |
+| --- | --- |
+| **Tenant apps cannot be trusted** | A third-party mini-app inside your app can read sessions, tokens, and location if the boundary is weak. |
+| **Money does not move per interaction** | Card rails cannot economically settle a $0.001 agent answer or a single pass. Everything gets bundled into slow, manual invoicing. |
+| **Operations need people at every step** | Planning a guest's day, quoting it, charging it, and issuing the pass is human labor per guest. |
+
+Open-Dome solves all three: a zero-trust docking protocol for tenant mini-apps, USDC settlement per interaction through Circle, and a Gemini agent that runs the plan-quote-charge-fulfill loop in production.
 
 ---
 
-## The Vision
+## What Open-Dome is
 
-Imagine **Tokyo Dome City** — a massive, self-contained entertainment complex in the heart of Tokyo. It's not just a stadium; it's a city with hotels, amusement parks, concert halls, restaurants, and shops.
+A production monorepo with three parts:
 
-Now, imagine a **single mobile app** that lets you experience it all without ever leaving the ecosystem. That's the vision of a **Super-App**, and **Open-Dome** is the invisible infrastructure that makes it possible.
-
-<img align="center" src="./Images/image.png" alt="Tokyo Dome">
-
-## What is Open-Dome?
-
-Open-Dome is a **plug-and-play, enterprise-grade infrastructure suite**. It provides the secure bridge, the multi-chain Web3 adapter, and the real-time communication network that powers next-generation Super-Apps.
-
-It is not a simple UI library. It is the core operational engine that cuts developer integration time from months to minutes.
+- **Host app** (`OpenDomeApp`) — the guest-facing super-app. Owns identity, payments, minting, and the agent. All secrets live here.
+- **Mini-apps** — tenant and staff surfaces (venues, wallet, agent chat, admin, gate scanner) loaded in sandboxed iframes.
+- **SDK** (`opendome`) — the library a tenant installs to dock into the host and get session, wallet, realtime, and location capabilities.
 
 ```mermaid
-flowchart TD
-    Host[📱 Main App] -->|Injects Secure User Data, GPS & Crypto Wallet Addresses| Bridge
+flowchart LR
+  Guest["Guest"] --> Host["OpenDomeApp host"]
 
-    subgraph The Bridge
-        Bridge((🔌 Open-Dome Infrastructure))
-        Bridge -.->|Handles| Sec[Zero-Trust Security]
-        Bridge -.->|Handles| Web3[Unified Web3 Access]
-        Bridge -.->|Handles| Live[Real-Time Events]
-        Bridge -.->|Handles| GPS[Location Privacy]
-    end
+  subgraph platform [Capabilities the host owns]
+    Auth["Passkey identity and roles"]
+    Agent["Gemini agent on Vertex AI"]
+    Pay["Circle USDC settlement"]
+    Mint["ERC-1155 pass mint on Base"]
+  end
 
-    Sec & Web3 & Live & GPS -->|Plug & Play SDK| App[🧩 3rd-Party Mini-App]
+  Host --> Auth
+  Host --> Agent
+  Host --> Pay
+  Host --> Mint
 
-    style Host fill:#0f172a,color:#fff,stroke:#3b82f6,stroke-width:2px
-    style Bridge fill:#1e40af,color:#fff,stroke:#60a5fa,stroke-width:3px
-    style App fill:#312e81,color:#fff,stroke:#a855f7,stroke-width:2px
+  subgraph tenants [Sandboxed mini-apps]
+    Venue["Venue apps"]
+    Wallet["Wallet"]
+    OpenAgent["OpenAgent chat"]
+    Staff["Admin and Scanner"]
+  end
 
+  Host -->|"iframe + short-lived JWT"| Venue
+  Host -->|"iframe + short-lived JWT"| Wallet
+  Host -->|"iframe + short-lived JWT"| OpenAgent
+  Host -->|"iframe + short-lived JWT"| Staff
+
+  Venue --> SDK["opendome SDK"]
+  Wallet --> SDK
+  OpenAgent --> SDK
+  Staff --> SDK
 ```
 
 ---
 
-## The Value Proposition
+## AI-native operations
 
-We translate complex technical hurdles into seamless business operations.
+The agent is not a chat widget bolted onto a catalog. It executes the revenue loop: it decides what to propose, prices it, triggers settlement, and the platform fulfills.
 
-| Enterprise Advantage | The Problem We Solve | How Open-Dome Delivers It |
+```mermaid
+sequenceDiagram
+  participant Guest
+  participant Agent as Gemini_on_Vertex_AI
+  participant Tools as Agent_tools
+  participant Circle as Circle_wallets
+  participant Chain as Base_ERC1155
+
+  Guest->>Agent: "Plan my evening around the 7pm game"
+  Agent->>Tools: search_events / list_amenities / plan_day
+  Tools-->>Agent: Scored itinerary with time windows
+  Agent->>Guest: Proposal and USDC quote
+  Guest->>Agent: Approve
+  Agent->>Circle: Settle USDC (x402)
+  Circle-->>Agent: Payment proof
+  Agent->>Chain: Mint passes for the approved stops
+  Chain-->>Guest: Passes in wallet, scannable at the gate
+```
+
+**What the AI decides:** which events match intent, which amenities fit each time slot, the schedule under travel and opening-hour constraints, the price of each answer, and which tools to call to inspect wallets and move funds.
+
+**What humans decide:** they approve payment. Nothing auto-charges a guest.
+
+Two agent layers run in production:
+
+| Layer | Model / method | Role |
 | --- | --- | --- |
-| **Zero Trust Security** | App-to-app logins are vulnerable to data leaks. | **Zero-trust architecture.** The Host app verifies all users server-side before injecting credentials. |
-| **Unified Web3 Access** | Supporting multiple blockchains is a technical nightmare. | **One unified API.** We seamlessly route across Ethereum, Solana, and Starknet with zero extra code. |
-| **Real-Time Data** | Live events require lightning-fast data syncing. | **Live Event Bus.** A dedicated, secure channel for instant messaging between apps. |
-| **Privacy by Default** | Mini-apps trigger scary iOS/Android permissions. | **Hardware Proxying.** The Host safely passes GPS data to the mini-app. No direct permissions needed. |
+| **Day-planner council** | Deterministic multi-agent scoring in the SDK | Scout, schedule, and critique itineraries with no LLM cost or nondeterminism |
+| **Host agent** | Gemini on Vertex AI with tool calling | Free-form guest requests, wallet operations, venue consulting |
+
+The council proposes; Gemini negotiates, explains, and executes tools. Splitting them keeps itinerary quality reproducible and keeps LLM spend tied to actual paid turns.
 
 ---
 
-## The Three Pillars of the Ecosystem
+## Payments: Circle wallets, USDC, and x402
 
-### 1. 🔌 The Engine: Open-Dome SDK
+Every priced interaction settles in USDC. There is no invoicing step and no card terminal.
 
-*Months of infrastructure engineering, reduced to a single line of code.*
+```mermaid
+flowchart TD
+  Request["Priced request (agent turn or checkout)"] --> Quote["Quote: base tariff + length"]
+  Quote --> Challenge["Service returns HTTP 402 challenge"]
+  Challenge --> Sign["Circle HSM signs EIP-3009 authorization"]
+  Sign --> Settle["USDC transfer settles"]
+  Settle --> Proof["Payment proof returned to service"]
+  Proof --> Fulfill["Agent answers or platform mints pass"]
+  Fulfill --> Log["Event written to Cloud Logging"]
+```
 
-Developers drop our lightweight SDK into their Mini App. Behind the scenes, it automatically handles the complex security handshakes, blockchain connections, and live event streaming. Developers can focus purely on building a great user experience, while we handle the pipes.
-
-### 2. 🧪 The Proving Ground: Open-Dome Sandbox
-
-*Test before you ship.*
-
-We provide a professional-grade testing laboratory. Development teams can load their Mini App into our Sandbox to simulate exactly how it will perform inside a massive Super-App. They can test security injections, user profiles, and real-time GPS tracking safely before deploying to millions of real users.
-
-### 3. 📱 The Blueprint: Example Mini App
-
-*A production-ready starting line.*
-
-To accelerate adoption, we built a fully functional reference app. It proves our technology works on day one, featuring a multi-chain crypto wallet, a live map using proxied GPS, and an interactive game powered by our real-time network. Companies can fork this blueprint and have a working app by the afternoon.
-
----
-
-## The Business Case: Why Open-Dome Wins
-
-* **Drastic Cost Reduction:** By standardizing the communication between Host apps and Mini Apps, we eliminate the need for expensive, custom security engineering for every new partnership.
-* **Total Data Control:** Our architecture guarantees that the Host Super-App remains the absolute authority. Third-party Mini Apps only see exactly what the Host allows them to see.
-* **Developer Adoption Engine:** Open-Dome is open-source. By making it free and incredibly easy for developers to use, we are building a massive funnel for ecosystem adoption, setting the standard for how Super-Apps operate.
-* **Future-Proof:** Whether a company is building traditional Web2 experiences or launching Web3 decentralized networks, Open-Dome natively supports both out of the box.
-
----
-
-## See It Live
-
-Experience the technology firsthand. Load the **Example Mini App** into the **Sandbox**, click *Inject Payload*, and watch the secure handshake, live data streaming, and multi-chain wallet in real-time.
-
-| Resource | Access Link |
+| Capability | How it works |
 | --- | --- |
-| 🏟️ **The Sandbox (Host Environment)** | [opendome.expo.app](https://opendome.expo.app/) |
-| 📱 **Example Mini App** | [miniapp.expo.app](https://miniapp.expo.app) |
+| **Programmable wallets** | Circle developer-controlled wallets, created per user in wallet sets. Keys never touch the client. |
+| **Gasless authorization** | Circle signs EIP-3009 typed data, so the guest authorizes a USDC transfer without holding gas. |
+| **x402 metering** | Each agent turn is priced as base tariff plus character length, challenged over HTTP 402, then settled before the model runs. |
+| **Multi-network** | Base, Arbitrum, Optimism, Polygon, Avalanche, and Solana USDC. Solana settles through Circle then proves payment. |
+| **Cross-chain** | CCTP moves USDC from EVM to Solana when the guest pays on a different network than the treasury holds. |
+| **Agent-callable** | Gemini can call wallet tools directly: `list_wallets`, `get_wallet_token_balance`, `estimate_transfer_fee`, `create_transaction`, `create_solana_pay`, `sign_message`. |
 
-> ⚠️ **Note:** The **Example Mini App** can only be accessed and run through the **Sandbox**. The Open-Dome SDK requires a secure, active connection between the sandbox host environment and the mini app to function correctly.
-
----
-
-## AI-native guest operations
-
-Open-Dome is built so an agent can **plan**, **pay**, and **mint** inside the same Super-App loop — not just chat.
-
-### Multi-agent day planner (SDK)
-
-A deterministic **council** of specialist planners turns “plan my day around this show” into a scored itinerary:
-
-| Agent | Role |
-| --- | --- |
-| **Pulse** | High-energy scout (thrill / sport / play) |
-| **Zen** | Calm pre-show scout (relax / spa / culture) |
-| **Curator** | Culture scout |
-| **Local** | Neighborhood day scout (family / food / play) |
-
-Pipeline: lock the event doors → scout amenities per slot → schedule open hours / travel buffers → critic picks the winner.  
-Implemented in `open-dome-lib` (`dayPlannerAgents.js`, `itinerary.js`, `planner.js`). No LLM required for the council itself.
-
-### Gemini host agent + Circle USDC
-
-| Layer | What it does |
-| --- | --- |
-| **Gemini** (Vertex / `@google/genai`) | Free-chat + tool use on the Host via `/api/agent` |
-| **x402 + Circle** | USDC settlement (EIP-3009 / developer-controlled wallets) for agent turns and checkout |
-| **Platform mint** | Host mints NFT / pass after payment settles |
-
-Docking stays zero-trust: mini-apps exchange a server-only enrollment credential for a short-lived host-signed JWT (`DOCKING_JWT_TOKEN` lives only on App / Sandbox).
-
-For deeper protocol detail see [`TECH.md`](./TECH.md) and the [`open-dome-lib` README](./open-dome-lib/README.md).
+Because settlement is per interaction, the unit economics are visible per guest, per turn, and per pass rather than at month end.
 
 ---
 
-*Open-Dome — Built by Effisend Labs*
+## Google Cloud footprint
+
+Google Cloud runs inference, state, and the evidence trail that proves the AI is operating live.
+
+```mermaid
+flowchart LR
+  Host["OpenDomeApp"] --> Vertex["Vertex AI: Gemini with tool calling"]
+  Host --> Firestore["Cloud Firestore: users, wallets, tickets"]
+  Host --> Logging["Cloud Logging: AI and platform events"]
+  Logging --> BigQuery["BigQuery: opendome_ai_events"]
+  BigQuery --> Dashboard["Operations dashboard"]
+```
+
+| Service | Use |
+| --- | --- |
+| **Vertex AI** (`@google/genai`) | Gemini 3.1 Flash-Lite, Gemini 3.6 Flash, and Gemini 3.1 Pro for guest chat, venue consulting, and wallet tool calling. |
+| **Cloud Firestore** | Guest identity and roles, Circle wallet references, issued passes and gate tickets, with separate dev and production namespaces. |
+| **Cloud Logging** | Two structured streams: `opendome-ai-events` (intent, model, latency, payment network) and `opendome-platform-events` (mints, transfers, checkouts, x402 payments, gate scans). |
+| **BigQuery** | Log sink into `ai_agent_logs.opendome_ai_events`, giving a queryable record of every agent decision and settlement for the operations dashboard. |
+
+Guest input is sanitized before logging: emails and wallet addresses are stripped, so the operational record stays useful without retaining personal data.
+
+---
+
+## Zero-trust docking
+
+A tenant mini-app must prove its identity to the host. The host never trusts iframe content, and the tenant's long-lived credential never reaches a browser.
+
+```mermaid
+sequenceDiagram
+  participant Browser as MiniApp_browser
+  participant MiniServer as MiniApp_server
+  participant HostAPI as Host_exchange
+  participant Verify as Host_verify
+
+  Browser->>MiniServer: GET /api/docking-token
+  Note over MiniServer: Enrollment credential stays server-side
+  MiniServer->>HostAPI: Present enrollment JWT
+  HostAPI->>HostAPI: Verify with host docking secret
+  HostAPI-->>MiniServer: Handshake JWT (about 10 minutes)
+  MiniServer-->>Browser: Handshake JWT only
+  Browser->>Verify: postMessage handshake JWT
+  Verify->>Verify: Verify, then mint realtime channel JWTs
+  Verify-->>Browser: Session context injected
+```
+
+Consequences that matter commercially: a leaked browser token expires in minutes, a compromised tenant cannot impersonate another tenant, and a tenant can be revoked by rotating one host secret. Location is proxied by the host, so tenants get geolocation without triggering their own device permission prompts.
+
+---
+
+## The ecosystem
+
+| Surface | Role | Live |
+| --- | --- | --- |
+| **OpenDomeApp** | Production host: identity, store, payments, agent, minting | [app.opendome.xyz](https://app.opendome.xyz/) |
+| **OpenDomeSandbox** | Host emulator for tenant developers | [opendome.expo.app](https://opendome.expo.app/) |
+| **Demo** | Reference guest guide mini-app | [demo.opendome.xyz](https://demo.opendome.xyz/) |
+| **Wallet** | USDC and pass wallet | [wallet.opendome.xyz](https://wallet.opendome.xyz/) |
+| **OpenAgent** | Pay-per-prompt Gemini chat | [agent.opendome.xyz](https://agent.opendome.xyz/) |
+| **Admin** | Staff issuing and fulfillment | [admin.opendome.xyz](https://admin.opendome.xyz/) |
+| **Scanner** | Gate verification | [scanner.opendome.xyz](https://scanner.opendome.xyz/) |
+| **Venue apps** | Tokyo Dome, IMM Theater, Korakuen Hall, Gallery AaMo | In-host |
+
+Mini-apps run inside a host iframe by design. Opening one directly leaves it locked, because it has no verified session.
+
+---
+
+## Run it locally
+
+```bash
+# 1. Host (owns secrets, verifies docking)
+cd OpenDome/OpenDomeApp && npm install && npm run web    # http://localhost:8082
+
+# 2. A mini-app
+cd OpenDome/OpenDomeMiniApps/Demo && npm install && npm run web   # http://localhost:8084
+```
+
+Open the mini-app from the host store so docking can complete. The docking host resolves automatically: `localhost:8082` in development, `app.opendome.xyz` in production. Copy `.env.example` in each app and keep real secrets out of git.
+
+Full port map, environment matrix, and protocol rules: [`AGENTS.md`](./AGENTS.md).
+
+---
+
+## Built for the agent economy
+
+Open-Dome is our entry for **[Build with Gemini XPRIZE](https://xprize.devpost.com/)**, in the spirit of the *Small Business Services* and *Entrepreneurship & Job Creation* categories: the venue and its tenants get an operation that runs on AI instead of headcount.
+
+- The business loop (plan, quote, charge, fulfill, verify at the gate) is executed by agents in production, not simulated in a demo.
+- Google Cloud is load-bearing: Vertex AI for inference, Firestore for state, Cloud Logging and BigQuery for the evidence trail.
+- Circle and USDC make per-interaction revenue viable, which is what lets a tenant onboard without a contract negotiation.
+- Every tenant that docks is a new revenue surface that costs the venue no additional engineering.
+
+---
+
+MIT © Effisend Labs
