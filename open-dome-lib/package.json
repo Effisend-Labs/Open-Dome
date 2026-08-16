@@ -1,16 +1,31 @@
 {
   "name": "opendome",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Enterprise SDK for Open-Dome module integration and secure handover.",
   "main": "dist/index.js",
   "module": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./src/*.js": "./src/*.js",
+    "./src/*": "./src/*.js",
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
   "files": [
     "src",
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "npx babel src --out-dir dist --extensions \".js,.jsx\" --copy-files",
-    "prepack": "npm run build"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepack": "npm run clean && npm run build",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "peerDependencies": {
     "react": ">=16.8.0",
@@ -21,28 +36,41 @@
     "opendome",
     "security",
     "handover",
-    "enterprise"
+    "enterprise",
+    "web3",
+    "usdc",
+    "expo"
   ],
   "author": "Effisend Labs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Effisend-Labs/Open-Dome.git",
+    "directory": "open-dome-lib"
+  },
+  "homepage": "https://github.com/Effisend-Labs/Open-Dome/tree/main/open-dome-lib#readme",
+  "bugs": {
+    "url": "https://github.com/Effisend-Labs/Open-Dome/issues"
+  },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@babel/cli": "^7.28.6",
-    "@babel/core": "^7.29.0",
-    "@babel/preset-env": "^7.29.3",
-    "@babel/preset-react": "^7.28.5",
-    "@babel/preset-typescript": "^7.28.5",
-    "babel-plugin-module-resolver": "^5.0.3",
-    "@openzeppelin/contracts": "^5.6.1",
     "@solana-program/system": "^0.13.0",
     "@solana-program/token": "^0.13.0",
     "@solana/kit": "^7.0.0",
     "@solana/web3.js": "^1.98.4",
     "ethers": "^6.16.0",
-    "mqtt": "^5.15.1",
     "starknet": "^10.0.2",
     "viem": "^2.48.11"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.28.6",
+    "@babel/core": "^7.29.0",
+    "@babel/preset-env": "^7.29.3",
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
+    "babel-plugin-module-resolver": "^5.0.3"
   }
 }

@@ -1,12 +1,10 @@
 import { verifyAuthenticationResponse } from '@simplewebauthn/server';
-import { Users, Passkeys, Wallets, getUserById, getPasskeyById } from '../../../utilsAPI/passkeyDb';
+import { Challenges, Users, Passkeys, Wallets, getUserById, getPasskeyById } from '../../../utilsAPI/passkeyDb';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 
 export const POST = async (request) => {
-  const expectedRPID = getDynamicRpID(request);
-  const expectedOrigin = request.headers.get("origin") || "http://localhost:8082";
   const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
   if (!SESSION_JWT_TOKEN) {
     return Response.json({ error: 'SESSION_JWT_TOKEN is not set' }, { status: 500 });
@@ -16,7 +14,6 @@ export const POST = async (request) => {
     const originStr = request.headers.get('origin') || '';
     let expectedRPID = 'localhost';
     if (originStr.includes('opendome.xyz')) expectedRPID = 'opendome.xyz';
-    else if (originStr.includes('opendome.expo.app')) expectedRPID = 'opendome.expo.app';
     const expectedOrigin = originStr || 'http://localhost:8083';
 
     const { challengeId, assertionResponse } = await request.json();
@@ -26,7 +23,7 @@ export const POST = async (request) => {
       return Response.json({ error: 'challengeId and assertionResponse are required' }, { status: 400 });
     }
 
-    const challengeDoc = await Users.firestore.collection('Challenges').doc(challengeId).get();
+    const challengeDoc = await Challenges.doc(challengeId).get();
     if (!challengeDoc.exists) {
       return Response.json({ error: 'Authentication challenge expired or not found' }, { status: 400 });
     }
@@ -72,7 +69,7 @@ export const POST = async (request) => {
       });
 
       // Clear the challenge
-      await Users.firestore.collection('Challenges').doc(challengeId).delete();
+      await Challenges.doc(challengeId).delete();
 
       // Auto-provision Solana wallet for users who registered before Solana was added
       let solanaAddress = user.solanaAddress;
@@ -106,11 +103,11 @@ export const POST = async (request) => {
         user.solanaAddress = solanaAddress;
       }
 
-      // Generate a mock JWT representing a successful Sandbox session
+      const role = user.role || 'user';
       const token = jwt.sign({ 
         userId: user.id, 
         username: user.username,
-        role: 'sandbox_user',
+        role,
         evm: user.evmAddress,
         solana: user.solanaAddress
       }, SESSION_JWT_TOKEN, { expiresIn: '30d' });

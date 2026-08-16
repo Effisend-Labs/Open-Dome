@@ -1,12 +1,6 @@
 // CORS helper for the OpenDomeApp API routes.
 // Strategy: any localhost/127.0.0.1 port is allowed (dev convenience);
-// production origins must be explicitly listed.
-
-const PRODUCTION_ALLOWED_ORIGINS = [
-  'https://opendome.expo.app',
-  'https://opendomeos.expo.app',
-  'https://miniapp.expo.app',
-];
+// production: opendome.xyz and *.opendome.xyz only.
 
 function isLocalhost(origin) {
   if (!origin) return false;
@@ -16,10 +10,7 @@ function isLocalhost(origin) {
 
 function isAllowedProductionOrigin(origin) {
   if (!origin) return false;
-  if (origin === 'https://opendome.xyz' || origin.endsWith('.opendome.xyz')) {
-    return true;
-  }
-  return PRODUCTION_ALLOWED_ORIGINS.some(allowed => origin === allowed);
+  return origin === 'https://opendome.xyz' || origin.endsWith('.opendome.xyz');
 }
 
 export function isAllowedOrigin(request) {
@@ -31,7 +22,7 @@ export function isAllowedOrigin(request) {
 export function getCorsHeaders(request) {
   const origin = request.headers.get('origin');
   const isAllowed = isLocalhost(origin) || isAllowedProductionOrigin(origin);
-  const allowOrigin = isAllowed ? origin : PRODUCTION_ALLOWED_ORIGINS[0];
+  const allowOrigin = isAllowed ? origin : 'https://app.opendome.xyz';
 
   return {
     'Access-Control-Allow-Origin': allowOrigin,
@@ -42,4 +33,3 @@ export function getCorsHeaders(request) {
 }
 
 export default function CorsHelper() { return null; }
-

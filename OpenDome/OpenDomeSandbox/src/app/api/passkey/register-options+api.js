@@ -1,15 +1,17 @@
 import { generateRegistrationOptions } from '@simplewebauthn/server';
-import { Users, getUserByUsername } from '../../../utilsAPI/passkeyDb';
+import { Users, getUserByUsername, normalizeUsername } from '../../../utilsAPI/passkeyDb';
 import { v4 as uuidv4 } from 'uuid';
 
+function isReservedAdminUsername(username) {
+  return normalizeUsername(username) === normalizeUsername(process.env.ADMIN_USERNAME || 'altaga');
+}
+
 export const POST = async (request) => {
-  const rpID = getDynamicRpID(request);
   console.log('[Passkey API] POST /api/passkey/register-options initiated');
   try {
     const originStr = request.headers.get('origin') || '';
     let rpID = 'localhost';
     if (originStr.includes('opendome.xyz')) rpID = 'opendome.xyz';
-    else if (originStr.includes('opendome.expo.app')) rpID = 'opendome.expo.app';
     const rpName = 'Open-Dome Sandbox';
 
     const { username } = await request.json();
@@ -21,9 +23,15 @@ export const POST = async (request) => {
 
     // 1. Find or create the user
     let user = await getUserByUsername(username);
+    if (!user && isReservedAdminUsername(username)) {
+      return Response.json(
+        { error: 'This reserved username cannot be registered publicly.' },
+        { status: 403 },
+      );
+    }
     if (!user) {
       const newId = uuidv4();
-      user = { id: newId, username };
+      user = { id: newId, username, usernameLower: normalizeUsername(username), role: 'user' };
       await Users.doc(newId).set(user);
     } else {
       // User already exists, they should use login, not register.

@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { getUserById } from '../../utilsAPI/passkeyDb';
 
 // Local Expo ports: App 8082, Sandbox 8083, Demo 8084, Wallet 8085,
@@ -16,27 +17,30 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8090',
   'http://localhost:8091',
   'http://localhost:8092',
-  'https://opendome.expo.app',
-  'https://opendomeos.expo.app',
+  'https://sandbox.opendome.xyz',
   'https://app.opendome.xyz',
   'https://demo.opendome.xyz',
   'https://wallet.opendome.xyz',
   'https://admin.opendome.xyz',
   'https://scanner.opendome.xyz',
   'https://agent.opendome.xyz',
-  'https://miniapp.expo.app',
 ];
 
 function getMatchedOrigin(origin) {
   if (!origin) return null;
-  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-    return origin;
+  try {
+    const url = new URL(origin);
+    const normalizedOrigin = url.origin;
+    const isLocalhost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    const isOpenDome = url.protocol === 'https:' && (
+      url.hostname === 'opendome.xyz' || url.hostname.endsWith('.opendome.xyz')
+    );
+    return isLocalhost || isOpenDome || ALLOWED_ORIGINS.includes(normalizedOrigin)
+      ? normalizedOrigin
+      : null;
+  } catch {
+    return null;
   }
-  if (origin.endsWith('.opendome.xyz') || origin === 'https://opendome.xyz') {
-    return origin;
-  }
-  const matched = ALLOWED_ORIGINS.find((allowed) => origin.startsWith(allowed));
-  return matched ? origin : null;
 }
 
 function verifyDockingToken(token) {
@@ -104,9 +108,6 @@ export async function POST(request) {
     const isAllowedOrigin =
       matchedOrigin &&
       (matchedOrigin.includes('localhost') ||
-        matchedOrigin.includes('opendome.expo.app') ||
-        matchedOrigin.includes('demo.opendome.xyz') ||
-        matchedOrigin.includes('miniapp.expo.app') ||
         matchedOrigin.includes('opendome.xyz') ||
         matchedOrigin.includes('effisend'));
 
@@ -118,6 +119,7 @@ export async function POST(request) {
     let role = null;
     let tokenToVerify = token;
     let dockedAppId = null;
+    let iframeToken = null;
 
     const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
     if (!SESSION_JWT_TOKEN) {
@@ -187,34 +189,32 @@ export async function POST(request) {
     }
 
     let wsJwt = null;
-    let hostJwt = null;
     try {
-      const MQTT_JWT_TOKEN = process.env.MQTT_JWT_TOKEN;
-      if (!MQTT_JWT_TOKEN) {
-        throw new Error('MQTT_JWT_TOKEN is not set');
+      if (userId) {
+        const dockingSecret = process.env.DOCKING_JWT_TOKEN;
+        if (!dockingSecret) {
+          throw new Error('DOCKING_JWT_TOKEN is not set');
+        }
+        iframeToken = jwt.sign(
+          {
+            token_use: 'iframe_context',
+            userId,
+            username,
+            role,
+            jti: crypto.randomUUID(),
+          },
+          dockingSecret,
+          {
+            expiresIn: '10m',
+            algorithm: 'HS512',
+            issuer: 'opendome-docking',
+            audience: 'opendome-iframe',
+          },
+        );
       }
 
-      const payload = {
-        id: 'opendome_mini_apps',
-        username: 'opendome_mini_apps',
-        role: 'mini_apps',
-        iss: 'altaga',
-      };
-      wsJwt = jwt.sign(payload, MQTT_JWT_TOKEN, {
-        expiresIn: '1d',
-        algorithm: 'HS512',
-      });
-
-      const hostPayload = {
-        id: 'opendome_host',
-        username: 'opendome_host',
-        role: 'host',
-        iss: 'altaga',
-      };
-      hostJwt = jwt.sign(hostPayload, MQTT_JWT_TOKEN, {
-        expiresIn: '1d',
-        algorithm: 'HS512',
-      });
+      // MQTT realtime is temporarily disabled — no broker JWT is minted.
+      wsJwt = null;
     } catch (err) {
       console.error('Error generating JWTs:', err.message);
     }
@@ -223,9 +223,11 @@ export async function POST(request) {
       {
         valid: true,
         authenticated: authenticated,
-        token: authenticated && userId ? tokenToVerify : null,
+        // Never expose the host session bearer token to a mini-app iframe.
+        // This token is display/context-only and is rejected by host APIs.
+        iframeToken,
+        token: null,
         wsJwt: wsJwt,
-        hostJwt: hostJwt,
         username: username,
         role: role,
         appId: dockedAppId,

@@ -1,25 +1,12 @@
 import { Firestore } from '@google-cloud/firestore';
-import path from 'path';
-import fs from 'fs';
 
 export function getFirestoreEnv() {
-  const explicit = String(process.env.FIRESTORE_ENV || '').trim().toLowerCase();
-  if (explicit === 'production' || explicit === 'prod') return 'production';
-  if (explicit === 'local' || explicit === 'dev') return 'dev';
-  if (process.env.VERCEL === '1' || process.env.VERCEL === 'true' || process.env.VERCEL_ENV) {
-    return 'production';
-  }
+  // Sandbox is a developer host and must never share production collections.
   return 'dev';
 }
 
 function collectionName(base) {
   return getFirestoreEnv() === 'dev' ? `Dev${base}` : base;
-}
-
-const keyPath = path.join(process.cwd(), 'credential.json');
-
-if (!fs.existsSync(keyPath) && !process.env.GCP_PRIVATE_KEY) {
-  console.error('❌ [Passkey DB] credential.json / GCP env not found in OpenDomeSandbox!');
 }
 
 function buildOptions() {
@@ -32,7 +19,7 @@ function buildOptions() {
       },
     };
   }
-  return { keyFilename: keyPath };
+  return {};
 }
 
 const db = new Firestore(buildOptions());
@@ -43,6 +30,7 @@ export const Passkeys = db.collection(collectionName('Passkeys'));
 export const Wallets = db.collection(collectionName('Wallets'));
 export const Transactions = db.collection(collectionName('Transactions'));
 export const LocationLogs = db.collection(collectionName('LocationLogs'));
+export const Challenges = db.collection(collectionName('Challenges'));
 
 console.log(
   `[Passkey DB] FIRESTORE_ENV=${env} → ${collectionName('Users')}, ${collectionName('Passkeys')}, …`

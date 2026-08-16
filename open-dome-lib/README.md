@@ -8,7 +8,14 @@ Enterprise SDK for secure mini-app docking, multi-chain Web3, realtime channels,
 
 ```bash
 npm install opendome
-# monorepo: "opendome": "file:../../../open-dome-lib"
+```
+
+Public package: [`opendome` on npm](https://www.npmjs.com/package/opendome).
+
+In this monorepo, apps keep a local link:
+
+```json
+"opendome": "file:../../../open-dome-lib"
 ```
 
 Server routes should import from `opendome/dist/...` (Babel build). Client hooks can use the package entry.

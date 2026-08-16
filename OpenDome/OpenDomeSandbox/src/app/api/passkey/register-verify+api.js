@@ -5,8 +5,6 @@ import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 
 export const POST = async (request) => {
-  const expectedRPID = getDynamicRpID(request);
-  const expectedOrigin = request.headers.get("origin") || "http://localhost:8082";
   const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
   if (!SESSION_JWT_TOKEN) {
     return Response.json({ error: 'SESSION_JWT_TOKEN is not set' }, { status: 500 });
@@ -16,7 +14,6 @@ export const POST = async (request) => {
     const originStr = request.headers.get('origin') || '';
     let expectedRPID = 'localhost';
     if (originStr.includes('opendome.xyz')) expectedRPID = 'opendome.xyz';
-    else if (originStr.includes('opendome.expo.app')) expectedRPID = 'opendome.expo.app';
     const expectedOrigin = originStr || 'http://localhost:8083';
 
     const { userId, credentialResponse } = await request.json();
@@ -121,11 +118,11 @@ export const POST = async (request) => {
         solanaAddress: solanaAddress // Store the Solana address on the user
       });
 
-      // Generate a mock JWT representing a successful Sandbox session
+      const role = user.role || 'user';
       const token = jwt.sign({ 
         userId: user.id, 
         username: user.username,
-        role: 'sandbox_user',
+        role,
         evm: evmAddress,
         solana: solanaAddress
       }, SESSION_JWT_TOKEN, { expiresIn: '30d' });

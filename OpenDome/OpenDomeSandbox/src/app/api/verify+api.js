@@ -1,4 +1,6 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import { getUserById } from '../../utilsAPI/passkeyDb.js';
 
 // Local Expo ports aligned with OpenDomeApp; any localhost is also accepted below.
 const ALLOWED_ORIGINS = [
@@ -13,7 +15,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8090',
   'http://localhost:8091',
   'http://localhost:8092',
-  'https://opendome.expo.app',
+  'https://sandbox.opendome.xyz',
   'https://app.opendome.xyz',
 ];
 
@@ -70,7 +72,7 @@ export async function POST(request) {
   const origin = request.headers.get('origin');
   const matchedOrigin = getMatchedOrigin(origin);
 
-  if (origin && !matchedOrigin) {
+  if (!matchedOrigin) {
     return Response.json({ error: 'CORS_BLOCKED' }, { status: 403 });
   }
 
@@ -95,7 +97,6 @@ export async function POST(request) {
       !origin ||
       (matchedOrigin &&
         (matchedOrigin.includes('localhost') ||
-          matchedOrigin.includes('opendome.expo.app') ||
           matchedOrigin.includes('effisend') ||
           matchedOrigin.includes('opendome.xyz')));
 
@@ -104,8 +105,10 @@ export async function POST(request) {
     let username = null;
     let evmAddress = null;
     let solanaAddress = null;
+    let role = null;
     let tokenToVerify = token;
     let dockedAppId = null;
+    let iframeToken = null;
 
     const SESSION_JWT_TOKEN = process.env.SESSION_JWT_TOKEN;
     if (!SESSION_JWT_TOKEN) {
@@ -120,8 +123,16 @@ export async function POST(request) {
         }
         userId = decoded.userId;
         username = decoded.username || null;
+        role = decoded.role || null;
         evmAddress = decoded.evm || null;
         solanaAddress = decoded.solana || null;
+        const user = userId ? await getUserById(userId) : null;
+        if (user) {
+          username = user.username || username;
+          role = user.role || role || 'user';
+          evmAddress = user.evmAddress || evmAddress;
+          solanaAddress = user.solanaAddress || solanaAddress;
+        }
         authenticated = true;
         console.log(
           `[Verify API] JWT decoded: userId="${userId}", username="${username}", evm="${evmAddress}", solana="${solanaAddress}"`
@@ -136,9 +147,6 @@ export async function POST(request) {
       if (docked) {
         authenticated = true;
         dockedAppId = docked.appId;
-        username = 'SandboxUser';
-        evmAddress = '0xb90513424b01eA257bF8f87223A6eD8fe0Ce0681';
-        solanaAddress = 'FUL1iK9p2jotYhjPAodbzbNQ5fmHWEyDa6RrBuy6tt8u';
         console.log(`[Verify API] Docking JWT valid for appId="${dockedAppId}"`);
       }
     }
@@ -150,34 +158,18 @@ export async function POST(request) {
     let wsJwt = null;
     let hostJwt = null;
     try {
-      const MQTT_JWT_TOKEN = process.env.MQTT_JWT_TOKEN;
-      if (!MQTT_JWT_TOKEN) {
-        throw new Error('MQTT_JWT_TOKEN is not set');
+      if (userId) {
+        const dockingSecret = process.env.DOCKING_JWT_TOKEN;
+        if (!dockingSecret) throw new Error('DOCKING_JWT_TOKEN is not set');
+        iframeToken = jwt.sign(
+          { token_use: 'iframe_context', userId, username, role, jti: crypto.randomUUID() },
+          dockingSecret,
+          { expiresIn: '10m', algorithm: 'HS512', issuer: 'opendome-docking', audience: 'opendome-iframe' },
+        );
       }
-
-      const payload = {
-        id: 'opendome_mini_apps',
-        username: 'opendome_mini_apps',
-        role: 'mini_apps',
-        iss: 'altaga',
-      };
-      const options = {
-        expiresIn: '1d',
-        algorithm: 'HS512',
-      };
-      wsJwt = jwt.sign(payload, MQTT_JWT_TOKEN, options);
-
-      const hostPayload = {
-        id: 'opendome_host',
-        username: 'opendome_host',
-        role: 'host',
-        iss: 'altaga',
-      };
-      const hostOptions = {
-        expiresIn: '1d',
-        algorithm: 'HS512',
-      };
-      hostJwt = jwt.sign(hostPayload, MQTT_JWT_TOKEN, hostOptions);
+      // MQTT realtime is temporarily disabled — no broker JWTs are minted.
+      wsJwt = null;
+      hostJwt = null;
     } catch (err) {
       console.error('Error generating JWTs:', err.message);
     }
@@ -186,10 +178,13 @@ export async function POST(request) {
       {
         valid: true,
         authenticated: authenticated,
-        token: authenticated && userId ? tokenToVerify : null,
+        // A mini-app receives only a scoped context token, never the host bearer session.
+        token: null,
+        iframeToken,
         wsJwt: wsJwt,
         hostJwt: hostJwt,
         username: username,
+        role: role,
         appId: dockedAppId,
         evmAddress: evmAddress,
         solanaAddress: solanaAddress,

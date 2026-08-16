@@ -138,13 +138,9 @@ export const POST = async (request) => {
         createdAt: new Date().toISOString(),
       });
 
-      const role =
-        user.role === 'god' ||
-        String(user.usernameLower || user.username || '')
-          .toLowerCase()
-          .replace(/^@/, '') === 'altaga'
-          ? 'god'
-          : 'user';
+      // Privileged roles are provisioned out-of-band; registration never escalates
+      // a user solely because of a username.
+      const role = user.role === 'god' ? 'god' : 'user';
 
       await Users.doc(user.id).update({
         currentChallenge: null,

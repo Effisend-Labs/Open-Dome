@@ -4,200 +4,54 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.CommunicationAPI = exports.Communication = void 0;
-var _mqtt = _interopRequireDefault(require("mqtt"));
-function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 /**
- * Open-Dome Communication SDK (Notice Board)
- * Powered by MQTT over WebSockets for real-time communication.
- *
- * Topic Hierarchy
- * ───────────────────────────────────────────────────────────────
- *  opendome/{appId}/{subtopic}   — App-scoped channel (default)
- *  opendome/public               — Ecosystem-wide public channel
- *    (any topic that equals or starts with PUBLIC_CHANNEL
- *     bypasses the appId prefix and is passed through as-is)
- *
- * Usage
- * ───────────────────────────────────────────────────────────────
- *  Communication.connect({ jwt, appId: 'my-app' })
- *  Communication.publish('chat', payload)           → opendome/my-app/chat
- *  Communication.publish(Communication.PUBLIC_CHANNEL, payload) → opendome/public
- *  Communication.subscribe('chat', cb)              → opendome/my-app/chat
- *  Communication.subscribeAll(cb)                   → opendome/# (wildcard, for sandbox debug)
+ * Open-Dome Communication SDK — temporarily disabled.
+ * MQTT realtime is parked until a broker + ACL model is ready again.
+ * API shape is kept so existing imports/call sites do not break.
  */
 class CommunicationAPI {
-  /** Ecosystem-wide public broadcast channel (no appId prefix). */
   static PUBLIC_CHANNEL = 'opendome/public';
+  static DISABLED_REASON = 'Communication (MQTT) is temporarily disabled.';
   constructor() {
     this.client = null;
     this.appId = null;
-    this.subscriptions = new Map(); // resolved topic → callback
+    this.subscriptions = new Map();
     this.PUBLIC_CHANNEL = CommunicationAPI.PUBLIC_CHANNEL;
+    this.disabled = true;
   }
-
-  // ── Internals ────────────────────────────────────────────────
-
   _buildTopic(subtopic) {
     if (!subtopic) return `opendome/${this.appId || 'unknown'}`;
-    const clean = String(subtopic).replace(/^\/+/, ''); // strip leading slashes
-
-    // 1. If it's a public channel, pass through
+    const clean = String(subtopic).replace(/^\/+/, '');
     if (clean === 'opendome/public' || clean.startsWith('opendome/public/')) {
       return clean;
     }
-
-    // 2. If it's already fully-qualified with this appId, pass through
     if (this.appId && (clean === `opendome/${this.appId}` || clean.startsWith(`opendome/${this.appId}/`))) {
       return clean;
     }
-
-    // 3. Otherwise, prefix it with opendome/{appId}/
-    if (!this.appId) {
-      console.warn('[Open-Dome Communication] appId not set — topic will not be namespaced.');
-      return `opendome/${clean}`;
-    }
+    if (!this.appId) return `opendome/${clean}`;
     return `opendome/${this.appId}/${clean}`;
   }
-
-  // ── Public API ───────────────────────────────────────────────
-
-  /**
-   * Connect to the MQTT Broker.
-   * @param {Object} config - { appId, host, port, username, password, jwt, protocol, path }
-   */
   connect(config) {
-    const {
-      appId,
-      host = 'mqtt.effisend.dpdns.org',
-      port = 443,
-      username,
-      password,
-      jwt,
-      protocol = 'wss',
-      path = '/'
-    } = config || {};
-    if (appId) this.appId = appId;
-    if (this.client && this.client.connected) {
-      console.log('[Open-Dome Communication] Already connected.');
-      return this.client;
-    }
-
-    // Drop a stale/failed client so reconnects don't stack listeners.
-    if (this.client) {
-      try {
-        this.client.removeAllListeners();
-        this.client.end(true);
-      } catch (e) {
-        // ignore teardown races
-      }
-      this.client = null;
-    }
-    const normalizedPath = path && path !== '/' ? path : '/';
-    const url = `${protocol}://${host}:${port}${normalizedPath}`;
-    const mqttUsername = username || (jwt ? 'opendome_mini_apps' : undefined);
-    const mqttPassword = jwt || password;
-    console.log(`[Open-Dome Communication] Connecting to ${url} as ${mqttUsername}, appId="${this.appId}"...`);
-    this.client = _mqtt.default.connect(url, {
-      username: mqttUsername,
-      password: mqttPassword ? String(mqttPassword) : undefined,
-      clientId: `opendome_mini_app_${Math.random().toString(16).slice(2, 8)}`,
-      rejectUnauthorized: false,
-      protocolVersion: 4,
-      connectTimeout: 20000,
-      reconnectPeriod: 5000,
-      clean: true,
-      wsOptions: {
-        protocol: 'mqtt'
-      }
-    });
-    this.client.on('connect', () => {
-      console.log('[Open-Dome Communication] Connected successfully.');
-      // Resubscribe to all previously registered topics
-      this.subscriptions.forEach((_, resolvedTopic) => {
-        this.client.subscribe(resolvedTopic);
-      });
-    });
-    this.client.on('message', (topic, message) => {
-      const payload = message.toString();
-      // Deliver to an exact-topic handler or the wildcard handler (stored as '#')
-      const handler = this.subscriptions.get(topic) || this.subscriptions.get('#');
-      if (!handler) return;
-      try {
-        handler(JSON.parse(payload), topic);
-      } catch (e) {
-        handler(payload, topic);
-      }
-    });
-    this.client.on('error', err => {
-      console.error('[Open-Dome Communication] Connection error:', err.message);
-    });
-    this.client.on('close', () => {
-      console.warn('[Open-Dome Communication] Connection closed.');
-    });
-    return this.client;
+    if (config?.appId) this.appId = config.appId;
+    console.warn(`[Open-Dome Communication] ${CommunicationAPI.DISABLED_REASON}`);
+    this.client = null;
+    return null;
   }
-
-  /**
-   * Subscribe to an app-scoped subtopic (or the public channel).
-   * @param {string} subtopic  e.g. 'chat', 'events', Communication.PUBLIC_CHANNEL
-   * @param {Function} callback  (data, resolvedTopic) => void
-   * @returns {string} The resolved full topic path
-   */
-  subscribe(subtopic, callback) {
-    if (!this.client) throw new Error('Must call connect() before subscribe().');
-    const resolved = this._buildTopic(subtopic);
-    this.subscriptions.set(resolved, callback);
-    this.client.subscribe(resolved);
-    console.log(`[Open-Dome Communication] Subscribed → ${resolved}`);
-    return resolved;
+  subscribe() {
+    throw new Error(CommunicationAPI.DISABLED_REASON);
   }
-
-  /**
-   * Subscribe to the full opendome/# wildcard.
-   * Intended for sandbox/debug use — receives every message across all apps.
-   * @param {Function} callback  (data, topic) => void
-   */
-  subscribeAll(callback) {
-    if (!this.client) throw new Error('Must call connect() before subscribeAll().');
-    const wildcard = 'opendome/#';
-    this.subscriptions.set('#', callback); // keyed by '#' for easy lookup in on('message')
-    this.client.subscribe(wildcard);
-    console.log(`[Open-Dome Communication] Subscribed (wildcard) → ${wildcard}`);
+  subscribeAll() {
+    throw new Error(CommunicationAPI.DISABLED_REASON);
   }
-
-  /**
-   * Publish a message to an app-scoped subtopic (or the public channel).
-   * @param {string} subtopic  e.g. 'chat', 'events', Communication.PUBLIC_CHANNEL
-   * @param {Object|string} message
-   * @returns {string} The resolved full topic path
-   */
-  publish(subtopic, message) {
-    if (!this.client) throw new Error('Must call connect() before publish().');
-    const resolved = this._buildTopic(subtopic);
-    const payload = typeof message === 'object' ? JSON.stringify(message) : message;
-    this.client.publish(resolved, payload);
-    console.log(`[Open-Dome Communication] Published → ${resolved}`);
-    return resolved;
+  publish() {
+    throw new Error(CommunicationAPI.DISABLED_REASON);
   }
-
-  /**
-   * Unsubscribe from a subtopic.
-   * @param {string} subtopic
-   */
   unsubscribe(subtopic) {
     const resolved = this._buildTopic(subtopic);
-    if (this.client) this.client.unsubscribe(resolved);
     this.subscriptions.delete(resolved);
   }
-
-  /**
-   * Disconnect from the broker.
-   */
   disconnect() {
-    if (this.client) {
-      this.client.end();
-      this.client = null;
-    }
+    this.client = null;
     this.subscriptions.clear();
   }
 }

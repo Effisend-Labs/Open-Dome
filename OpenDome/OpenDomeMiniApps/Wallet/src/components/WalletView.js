@@ -273,6 +273,37 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
     setShowReceiveModal(true);
   };
 
+  const chainKeys = Object.keys(CHAINS);
+  const globalBalance = Object.entries(balances).reduce((sum, [chain, balObj]) => {
+    if (!balObj || typeof balObj !== 'object') return sum;
+    const meta = CHAINS[chain];
+    const nBal = parseFloat(balObj.native) || 0;
+    const uBal = parseFloat(balObj.usdc) || 0;
+    const price = meta ? priceOf(meta.ticker) : 0;
+    const combinedUsd = (nBal * price) + (uBal * priceOf('USDC'));
+    return sum + combinedUsd;
+  }, 0);
+
+  // Count-up animation (dopamine banking — making digital money feel tangible)
+  useEffect(() => {
+    if (!isAuthorized || loading) return;
+    const target = globalBalance;
+    const startVal = balanceTarget.current;
+    balanceTarget.current = target;
+    const duration = 600;
+    const startTime = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = startVal + (target - startVal) * eased;
+      setDisplayBalance(current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [isAuthorized, loading, globalBalance]);
+
   // ── Not Authenticated ──────────────────────────────────────────────────────
 
   if (!isAuthorized) {
@@ -287,8 +318,6 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
   }
 
   // ── Authenticated ──────────────────────────────────────────────────────────
-
-  const chainKeys = Object.keys(CHAINS);
 
   // Priority tiebreaker when USD value is zero on both chains
   const ZERO_PRIORITY = { base: 0, solana: 1, mainnet: 2, arbitrum: 3, optimism: 4, polygon: 5, avalanche: 6, monad: 7 };
@@ -308,36 +337,6 @@ export default function WalletView({ theme, tokens, t, isDark, onGoToAccount }) 
   });
 
   const activeChains = chainKeys.filter(k => (parseFloat(balances[k]?.native) || 0) + (parseFloat(balances[k]?.usdc) || 0) > 0).length;
-
-  const globalBalance = Object.entries(balances).reduce((sum, [chain, balObj]) => {
-    if (!balObj || typeof balObj !== 'object') return sum;
-    const meta = CHAINS[chain];
-    const nBal = parseFloat(balObj.native) || 0;
-    const uBal = parseFloat(balObj.usdc) || 0;
-    const price = meta ? priceOf(meta.ticker) : 0;
-    const combinedUsd = (nBal * price) + (uBal * priceOf('USDC'));
-    return sum + combinedUsd;
-  }, 0);
-
-  // Count-up animation (dopamine banking — making digital money feel tangible)
-  useEffect(() => {
-    if (loading) return;
-    const target = globalBalance;
-    const startVal = balanceTarget.current;
-    balanceTarget.current = target;
-    const duration = 600;
-    const startTime = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Ease-out cubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const current = startVal + (target - startVal) * eased;
-      setDisplayBalance(current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }));
-      if (progress < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, [loading, globalBalance]);
 
   return (
     <ScrollView

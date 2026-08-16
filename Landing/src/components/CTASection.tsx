@@ -32,7 +32,7 @@ export function CTASection() {
 
             <Pressable
               onPress={() => {
-                if (Platform.OS === 'web') window.open('https://opendome.expo.app/', '_blank');
+                if (Platform.OS === 'web') window.open('https://sandbox.opendome.xyz/', '_blank');
               }}
               style={({ pressed }) => [styles.secondaryBtn, pressed && styles.secondaryBtnPressed]}
               accessibilityRole="link"
@@ -43,7 +43,7 @@ export function CTASection() {
 
             <Pressable
               onPress={() => {
-                if (Platform.OS === 'web') window.open('https://miniapp.expo.app', '_blank');
+                if (Platform.OS === 'web') window.open('https://demo.opendome.xyz', '_blank');
               }}
               style={({ pressed }) => [styles.secondaryBtn, pressed && styles.secondaryBtnPressed]}
               accessibilityRole="link"

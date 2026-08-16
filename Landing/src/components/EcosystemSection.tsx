@@ -19,7 +19,7 @@ const PILLARS: { number: string; icon: FeatherIconName; title: string; subtitle:
     title: 'The Sandbox',
     subtitle: 'The Proving Ground',
     description: 'A professional-grade testing laboratory. Load your Mini-App into the Sandbox to simulate exactly how it performs when interacting with an AI agent — test security injections, user profiles, themes, and real-time GPS tracking safely before deploying to production.',
-    tag: 'opendome.expo.app',
+    tag: 'sandbox.opendome.xyz',
   },
   {
     number: '03',
@@ -27,7 +27,7 @@ const PILLARS: { number: string; icon: FeatherIconName; title: string; subtitle:
     title: 'Example Mini-App',
     subtitle: 'The Blueprint',
     description: 'A production-ready reference implementation featuring a multi-chain crypto wallet, live map using proxied GPS, and an interactive game powered by real-time MQTT. Fork this blueprint and have a working app by the afternoon.',
-    tag: 'miniapp.expo.app',
+    tag: 'demo.opendome.xyz',
   },
 ];
 

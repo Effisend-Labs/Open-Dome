@@ -11,7 +11,6 @@ export const locales = {
       MAP: "LOCATION",
       WALLET: "WALLET",
       USER: "USER",
-      COMMS: "COMMS",
       AGENT: "AGENT",
       EVENTS: "EVENTS"
     },
@@ -89,7 +88,6 @@ export const locales = {
       MAP: "MAPA",
       WALLET: "WALLET",
       USER: "PERFIL",
-      COMMS: "MENSAJES",
       AGENT: "AGENTE IA",
       EVENTS: "EVENTOS"
     },
@@ -167,7 +165,6 @@ export const locales = {
       MAP: "マップ",
       WALLET: "ウォレット",
       USER: "ユーザー",
-      COMMS: "通信",
       AGENT: "エージェント",
       EVENTS: "イベント"
     },
@@ -245,7 +242,6 @@ export const locales = {
       MAP: "LOCALISATION",
       WALLET: "PORTEFEUILLE",
       USER: "UTILISATEUR",
-      COMMS: "COMMS",
       AGENT: "AGENT",
       EVENTS: "ÉVÉNEMENTS"
     },
@@ -323,7 +319,6 @@ export const locales = {
       MAP: "定位",
       WALLET: "钱包",
       USER: "用户",
-      COMMS: "通讯",
       AGENT: "特工",
       EVENTS: "活动"
     },

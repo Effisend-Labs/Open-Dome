@@ -30,23 +30,19 @@ function normalizeUsername(name) {
     .trim();
 }
 
-/**
- * Admin is visible only for @altaga (unique GOD).
- * Do not require role claim — older tokens may say "user" or omit role.
- */
+/** Admin is visible only when the host-issued context token has god role. */
 export function isAltagaGodToken(token) {
   const claims = parseHostJwt(token);
   if (!claims) return false;
-  return normalizeUsername(claims.username) === 'altaga';
+  return String(claims.role || '').toLowerCase() === 'god';
 }
 
 /**
- * Staff for Scanner mini-app: god (@altaga), admin, scanner.
+ * Staff for Scanner mini-app: god, admin, scanner.
  */
 export function getStaffRoleFromToken(token) {
   const claims = parseHostJwt(token);
   if (!claims) return null;
-  if (normalizeUsername(claims.username) === 'altaga') return 'god';
   const role = String(claims.role || '').toLowerCase();
   if (role === 'god') return 'god';
   if (role === 'admin') return 'admin';

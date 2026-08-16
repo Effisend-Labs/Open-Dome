@@ -12,7 +12,8 @@
     "android": "expo start --android --port 8082",
     "ios": "expo start --ios --port 8082",
     "web": "set BROWSER=none&& expo start --web --port 8082 -c",
-    "build": "npx expo export -p web"
+    "build": "npx expo export -p web",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1054.0",
@@ -53,7 +54,6 @@
     "expo-web-browser": "57.0.2",
     "google-auth-library": "^10.9.1",
     "jsonwebtoken": "^9.0.3",
-    "mqtt": "^5.15.1",
     "ol": "^10.9.0",
     "opendome": "file:../../open-dome-lib",
     "qrcode": "^1.5.4",
@@ -75,9 +75,9 @@
   },
   "devDependencies": {
     "@types/react": "19.2.14",
-    "eslint": "10.3.0",
-    "eslint-config-expo": "57.0.1",
-    "typescript": "6.0.3"
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.1",
+    "typescript": "^6.0.3"
   },
   "private": true,
   "overrides": {

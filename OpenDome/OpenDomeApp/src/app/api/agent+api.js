@@ -11,6 +11,7 @@ import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
  */
 
 const rateLimitStore = new Map();
+const AGENT_REQUESTS_PER_MINUTE = 12;
 
 function ensureGcpCredentials() {
   const gcpCredsPath = path.join(os.tmpdir(), 'opendome-app-gcp-creds.json');
@@ -91,6 +92,9 @@ export async function POST(req) {
         );
       }
     }
+    if (!decoded) {
+      return Response.json({ error: 'Sign in is required to use the AI agent.' }, { status: 401 });
+    }
 
     const body = await req.json();
     const { nodeRequire } = await import('../../utilsAPI/nodeRequire.js');
@@ -120,20 +124,20 @@ export async function POST(req) {
       );
     }
 
-    if (decoded) {
-      const now = Date.now();
-      const recent = (rateLimitStore.get(decoded.userId) || []).filter(
-        (ts) => now - ts < 60000,
+    const now = Date.now();
+    const recent = (rateLimitStore.get(decoded.userId) || []).filter(
+      (ts) => now - ts < 60000,
+    );
+    if (recent.length >= AGENT_REQUESTS_PER_MINUTE) {
+      return Response.json(
+        {
+          error: `Rate limit exceeded: Maximum ${AGENT_REQUESTS_PER_MINUTE} requests per minute.`,
+        },
+        { status: 429 },
       );
-      if (recent.length >= 5) {
-        return Response.json(
-          { error: 'Rate limit exceeded: Maximum 5 requests per minute.' },
-          { status: 429 },
-        );
-      }
-      recent.push(now);
-      rateLimitStore.set(decoded.userId, recent);
     }
+    recent.push(now);
+    rateLimitStore.set(decoded.userId, recent);
 
     const { quotePromptTariff } = nodeRequire('opendome/dist/agentTariff.js');
     const tariff = quotePromptTariff(userPrompt, body.modelId);
@@ -241,7 +245,6 @@ export async function POST(req) {
         }
       }
 
-      if (!decoded) decoded = { userId: 'x402-user', username: 'x402 Payer' };
       telemetry.network = cfg.key || null;
       emitPlatformEvent({
         event_type: 'x402_payment',

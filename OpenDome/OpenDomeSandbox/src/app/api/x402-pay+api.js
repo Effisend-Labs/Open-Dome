@@ -1,8 +1,11 @@
-import { GatewayClient } from "@circle-fin/x402-batching/client";
 import { Wallets } from '../../utilsAPI/passkeyDb';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import {
+  parseQuotedUsdcAmount,
+  validateX402ServiceUrl,
+} from '../../utilsAPI/x402ServicePolicy.js';
 
 // Monkey-patch BigInt serialization because the @circle-fin GatewayClient 
 // internally calls JSON.stringify() on payloads containing BigInts without a replacer.
@@ -38,6 +41,22 @@ export async function POST(request) {
     if (!serviceUrl) {
       return Response.json({ error: 'Service URL is required' }, { status: 400 });
     }
+    let paymentUrl;
+    let quotedAmount;
+    try {
+      paymentUrl = await validateX402ServiceUrl(serviceUrl);
+      quotedAmount = parseQuotedUsdcAmount(amount);
+    } catch (error) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
+    const safeFetchOptions = {
+      method: ['GET', 'POST'].includes(String(fetchOptions?.method || 'GET').toUpperCase())
+        ? String(fetchOptions?.method || 'GET').toUpperCase()
+        : 'GET',
+      headers: fetchOptions?.headers?.['x-payment-network']
+        ? { 'x-payment-network': fetchOptions.headers['x-payment-network'] }
+        : undefined,
+    };
 
     console.log(`[x402 Custodial Backend] Received payment intent for ${serviceUrl} from user ${decoded.username}`);
 
@@ -100,18 +119,19 @@ export async function POST(request) {
       }
     };
 
-    const targetNetwork = fetchOptions.headers?.['x-payment-network']?.toLowerCase() || 'base';
+    const targetNetwork = safeFetchOptions.headers?.['x-payment-network']?.toLowerCase() || 'base';
 
     if (targetNetwork === 'solana') {
-      console.log(`[x402 Custodial Backend] Bypassing EVM Gateway Client... simulating Solana x402 nanopayment...`);
-      // Simulate typical latency for Solana signing/settlement
-      await new Promise(resolve => setTimeout(resolve, 800));
-      return Response.json({ 
-        success: true, 
-        data: { 
-          response: "Hello from OpenDome! The Solana payment was processed and verified successfully.\n\nTransaction Explorer: https://explorer.solana.com/tx/5" + Date.now().toString(16)
-        } 
-      }, { status: 200 });
+      return Response.json(
+        { error: 'Solana x402 payments are not available in Sandbox.' },
+        { status: 501 },
+      );
+    }
+    if (targetNetwork !== 'base') {
+      return Response.json(
+        { error: 'Sandbox supports Base x402 payments only.' },
+        { status: 400 },
+      );
     }
 
     // 3. Import OpenDomeBuyer from the official library (deep import to bypass React peer deps in API routes)
@@ -120,7 +140,7 @@ export async function POST(request) {
 
     // Fetch the challenge
     console.log(`[x402 Custodial Backend] Fetching challenge from ${serviceUrl}...`);
-    const challengeRes = await fetch(serviceUrl, fetchOptions || {});
+    const challengeRes = await fetch(paymentUrl, { ...safeFetchOptions, redirect: 'error' });
     if (challengeRes.status !== 402) {
       throw new Error(`Expected 402 challenge, got ${challengeRes.status}`);
     }
@@ -131,6 +151,9 @@ export async function POST(request) {
     // Parse challenge
     const challengeData = OpenDomeBuyer.parseChallenge(challengeHeader);
     if (!challengeData.asset || !challengeData.amount || !challengeData.payTo) throw new Error("Invalid challenge parameters");
+    if (BigInt(challengeData.amount) !== quotedAmount) {
+      throw new Error('Payment challenge amount does not match the approved quote');
+    }
 
     // Construct native EIP-3009 payload for receiveWithAuthorization
     const eip3009Payload = buyer.generateEIP3009Payload(challengeData.payTo, challengeData.amount);
@@ -139,7 +162,7 @@ export async function POST(request) {
     
     const signatureResponse = await circleClient.signTypedData({
       walletId: evmWalletId,
-      data: JSON.stringify(buyer.getTypedDataParams(challengeData.asset, eip3009Payload)),
+      data: JSON.stringify(buyer.getTypedDataParams(challengeData.asset, eip3009Payload, 'BASE')),
       fee: { type: 'level', config: { feeLevel: 'MEDIUM' } } // Circle API requirement, though it's just signing
     });
 
@@ -155,15 +178,16 @@ export async function POST(request) {
 
     console.log(`[x402 Custodial Backend] Executing self-hosted relayer payment to Agent...`);
     const finalHeaders = {
-      ...(fetchOptions?.headers || {}),
+      ...(safeFetchOptions.headers || {}),
       'payment-signature': paymentSignatureBase64
     };
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-    const response = await fetch(serviceUrl, {
-      ...fetchOptions,
+    const response = await fetch(paymentUrl, {
+      ...safeFetchOptions,
+      redirect: 'error',
       headers: finalHeaders,
       signal: controller.signal
     });

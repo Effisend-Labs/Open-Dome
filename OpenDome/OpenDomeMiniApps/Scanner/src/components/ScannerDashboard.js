@@ -36,7 +36,7 @@ export default function ScannerDashboard({ hostToken, currentUser }) {
     setRecent,
     stats,
     lookup,
-    usePass,
+    usePass: consumePass,
     resetGuest,
     pasteClipboard,
   } = useGuestLookup();
@@ -177,7 +177,7 @@ export default function ScannerDashboard({ hostToken, currentUser }) {
           if (!usingId) setPendingPass(null);
         }}
         onConfirm={async (amount) => {
-          const ok = await usePass(pendingPass, amount);
+          const ok = await consumePass(pendingPass, amount);
           if (ok) setPendingPass(null);
         }}
       />

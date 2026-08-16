@@ -7,9 +7,6 @@ export function normalizeUsername(name) {
 
 /** Staff roles allowed in Scanner: god | admin | scanner */
 export function getStaffRoleFromUser(user, token) {
-  const username = normalizeUsername(user?.username);
-  if (username === 'altaga') return 'god';
-
   let role = String(user?.role || '').toLowerCase();
   if (!role && token) {
     try {
@@ -21,9 +18,6 @@ export function getStaffRoleFromUser(user, token) {
             : Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
         );
         role = String(json.role || '').toLowerCase();
-        if (!username && json.username) {
-          if (normalizeUsername(json.username) === 'altaga') return 'god';
-        }
       }
     } catch {
       // ignore

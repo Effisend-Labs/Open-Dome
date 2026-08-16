@@ -45,7 +45,6 @@
     "expo-web-browser": "57.0.2",
     "hono": "^4.12.32",
     "jsonwebtoken": "^9.0.3",
-    "mqtt": "^5.15.2",
     "opendome": "file:../../open-dome-lib",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -62,9 +61,9 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "eslint": "^10.8.0",
-    "eslint-config-expo": "57.0.1",
-    "typescript": "~7.0.2"
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.1",
+    "typescript": "^6.0.3"
   },
   "overrides": {
     "expo-modules-core": {

@@ -5,6 +5,10 @@ import jwt from 'jsonwebtoken';
 import { nodeRequire } from '../../utilsAPI/nodeRequire';
 import { signSolanaPaymentProof } from '../../utilsAPI/solanaPaymentProof.js';
 import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
+import {
+  parseQuotedUsdcAmount,
+  validateX402ServiceUrl,
+} from '../../utilsAPI/x402ServicePolicy.js';
 
 BigInt.prototype.toJSON = function () {
   return this.toString();
@@ -72,6 +76,22 @@ export async function POST(request) {
     if (!serviceUrl) {
       return Response.json({ error: 'Service URL is required' }, { status: 400 });
     }
+    let paymentUrl;
+    let quotedAmount;
+    try {
+      paymentUrl = await validateX402ServiceUrl(serviceUrl);
+      quotedAmount = parseQuotedUsdcAmount(amount);
+    } catch (error) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
+    const safeFetchOptions = {
+      method: ['GET', 'POST'].includes(String(fetchOptions?.method || 'GET').toUpperCase())
+        ? String(fetchOptions?.method || 'GET').toUpperCase()
+        : 'GET',
+      headers: fetchOptions?.headers?.['x-payment-network']
+        ? { 'x-payment-network': fetchOptions.headers['x-payment-network'] }
+        : undefined,
+    };
 
     const {
       OpenDomeBuyer,
@@ -110,7 +130,7 @@ export async function POST(request) {
     console.log(`[x402 Host] Fetching 402 challenge from ${serviceUrl}...`);
     let challengeRes;
     try {
-      challengeRes = await fetch(serviceUrl, fetchOptions || {});
+      challengeRes = await fetch(paymentUrl, { ...safeFetchOptions, redirect: 'error' });
     } catch (fetchErr) {
       const detail = formatX402Error(fetchErr);
       const hint = /8083/.test(serviceUrl)
@@ -134,6 +154,9 @@ export async function POST(request) {
     const challengeData = OpenDomeBuyer.parseChallenge(challengeHeader);
     if (!challengeData.asset || !challengeData.amount || !challengeData.payTo) {
       throw new Error('Invalid challenge parameters');
+    }
+    if (BigInt(challengeData.amount) !== quotedAmount) {
+      throw new Error('Payment challenge amount does not match the approved quote');
     }
 
     // —— Solana: settle USDC via Circle, then prove payment to the agent ——
@@ -176,10 +199,11 @@ export async function POST(request) {
         JSON.stringify(solanaPayment),
       ).toString('base64');
 
-      const response = await fetch(serviceUrl, {
-        ...fetchOptions,
+      const response = await fetch(paymentUrl, {
+        ...safeFetchOptions,
+        redirect: 'error',
         headers: {
-          ...(fetchOptions?.headers || {}),
+          ...(safeFetchOptions.headers || {}),
           'payment-signature': paymentSignatureBase64,
         },
       });
@@ -263,10 +287,11 @@ export async function POST(request) {
     ).toString('base64');
 
     console.log('[x402 Host] Submitting payment-signature to service...');
-    const response = await fetch(serviceUrl, {
-      ...fetchOptions,
+    const response = await fetch(paymentUrl, {
+      ...safeFetchOptions,
+      redirect: 'error',
       headers: {
-        ...(fetchOptions?.headers || {}),
+        ...(safeFetchOptions.headers || {}),
         'payment-signature': paymentSignatureBase64,
       },
     });

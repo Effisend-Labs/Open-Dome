@@ -8,7 +8,8 @@
     "android": "expo start --android --port 8090",
     "ios": "expo start --ios --port 8090",
     "web": "set BROWSER=none&& expo start --web --port 8090 -c",
-    "build": "npx expo export -p web"
+    "build": "npx expo export -p web",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@expo/metro-runtime": "^57.0.8",
@@ -29,8 +30,9 @@
     "react-native-web": "0.21.2"
   },
   "devDependencies": {
-    "eslint": "^10.8.0",
-    "eslint-config-expo": "57.0.1"
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.1",
+    "typescript": "^6.0.3"
   },
   "overrides": {
     "react": "$react",

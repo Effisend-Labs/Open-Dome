@@ -1,0 +1,17 @@
+# Local / monorepo only — never ship in the public tarball
+node_modules/
+scripts/
+app/
+*.tgz
+_fn_inventory.json
+package-lock.json
+.npmrc
+.env
+.env.*
+creds.log
+*.pem
+test/
+tests/
+**/__tests__/
+**/*.test.js
+**/*.spec.js

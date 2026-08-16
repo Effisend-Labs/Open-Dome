@@ -192,8 +192,8 @@ sequenceDiagram
 
 | 画面 | 役割 | 公開 URL |
 | --- | --- | --- |
-| **OpenDomeApp** | 本番ホスト: ID、ストア、決済、エージェント、ミント | [app.opendome.xyz](https://app.opendome.xyz/) |
-| **OpenDomeSandbox** | テナント開発者向けホストエミュレータ | [opendome.expo.app](https://opendome.expo.app/) |
+| **OpenDomeApp** | 本番ホスト: ID、ストア、決済、エージェント、ミント | [app.opendome.xyz](https://app.opendome.xyz) |
+| **OpenDomeSandbox** | テナント開発者向けホストエミュレータ | [sandbox.opendome.xyz](https://sandbox.opendome.xyz) |
 | **Demo** | ゲストガイドのリファレンス実装 | [demo.opendome.xyz](https://demo.opendome.xyz/) |
 | **Wallet** | USDC とパスのウォレット | [wallet.opendome.xyz](https://wallet.opendome.xyz/) |
 | **OpenAgent** | プロンプト従量課金の Gemini チャット | [agent.opendome.xyz](https://agent.opendome.xyz/) |

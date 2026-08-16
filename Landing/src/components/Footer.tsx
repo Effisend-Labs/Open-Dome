@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleSheet, Text, View, Pressable, Platform, useWindowDimensions, Image as RNImage } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 
 const LogoImage = require('../../assets/images/logo.png');
 
@@ -9,8 +8,8 @@ const FOOTER_COLUMNS = [
     title: 'Product',
     links: [
       { label: 'SDK Library', href: 'https://github.com/Effisend-Labs/Open-Dome/tree/main/open-dome-lib' },
-      { label: 'Sandbox', href: 'https://opendome.expo.app/' },
-      { label: 'Example Mini-App', href: 'https://miniapp.expo.app' },
+      { label: 'Sandbox', href: 'https://sandbox.opendome.xyz/' },
+      { label: 'Example Mini-App', href: 'https://demo.opendome.xyz' },
     ],
   },
   {

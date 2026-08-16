@@ -159,7 +159,7 @@ export default function QrCameraStage({ active, onDetected, onClose }) {
   return (
     <View style={s.stage}>
       <View style={s.videoShell}>
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        {/* media caption not applicable for live QR camera preview */}
         <video
           ref={videoRef}
           playsInline

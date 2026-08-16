@@ -6,8 +6,9 @@ import { colors, space, radii, type as typeTokens } from '../core/tokens';
 export default function TransactionModal({ visible, intent, onApprove, onReject, balances }) {
   if (!intent) return null;
 
-  const { chain = 'evm', to = '', amount = '0' } = intent;
-  const activeBalance = chain.toLowerCase() === 'solana' ? balances.solana : balances.evm;
+  const { chain = 'evm', to = '', amount = '0', asset = 'USDC', kind = 'transfer' } = intent;
+  const isPayment = kind === 'payment';
+  const activeBalance = chain.toLowerCase() === 'solana' ? balances?.solana : balances?.evm;
 
   return (
     <Modal
@@ -23,9 +24,11 @@ export default function TransactionModal({ visible, intent, onApprove, onReject,
               <Ionicons name="shield-checkmark" size={12} color={colors.status.warning} style={{ marginRight: 4 }} />
               <Text style={styles.alertBadge}>SECURITY GATEWAY</Text>
             </View>
-            <Text style={styles.alertTitle}>Approve Transaction</Text>
+            <Text style={styles.alertTitle}>{isPayment ? 'Approve Payment' : 'Approve Transaction'}</Text>
             <Text style={styles.alertSubtitle}>
-              An active mini-app is requesting authorization to transfer assets from your connected wallet.
+              {isPayment
+                ? 'An active mini-app is requesting a USDC payment to the service shown below.'
+                : 'An active mini-app is requesting authorization to transfer assets from your connected wallet.'}
             </Text>
           </View>
 
@@ -33,21 +36,25 @@ export default function TransactionModal({ visible, intent, onApprove, onReject,
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Network</Text>
               <Text style={styles.detailValue}>
-                {chain.toUpperCase() === 'SOLANA' ? 'Solana Mainnet' : 'EVM / Base Network'}
+                {chain.toUpperCase() === 'SOLANA'
+                  ? 'Solana Mainnet'
+                  : isPayment
+                    ? `${chain.toUpperCase()} / USDC`
+                    : 'EVM / Base Network'}
               </Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>To Address</Text>
+              <Text style={styles.detailLabel}>{isPayment ? 'Service URL' : 'To Address'}</Text>
               <Text style={[styles.detailValue, styles.mono]}>
-                {to.slice(0, 10)}...{to.slice(-8)}
+                {isPayment ? to : `${to.slice(0, 10)}...${to.slice(-8)}`}
               </Text>
             </View>
 
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount</Text>
               <Text style={[styles.detailValue, styles.highlightAmount]}>
-                {amount} {chain.toUpperCase() === 'SOLANA' ? 'SOL' : 'ETH'}
+                {amount} {asset.toUpperCase()}
               </Text>
             </View>
 
@@ -56,7 +63,7 @@ export default function TransactionModal({ visible, intent, onApprove, onReject,
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Connected Balance</Text>
               <Text style={styles.detailValue}>
-                {activeBalance} {chain.toUpperCase() === 'SOLANA' ? 'SOL' : 'ETH'}
+                {activeBalance ?? '—'} {asset.toUpperCase()}
               </Text>
             </View>
           </View>
@@ -83,7 +90,7 @@ export default function TransactionModal({ visible, intent, onApprove, onReject,
               ]}
               onPress={onApprove}
               accessibilityRole="button"
-              accessibilityLabel={`Approve and sign transaction: ${amount} ${chain.toUpperCase() === 'SOLANA' ? 'SOL' : 'ETH'}`}
+              accessibilityLabel={`Approve and sign transaction: ${amount} ${asset.toUpperCase()}`}
             >
               <Text style={styles.approveButtonText}>Approve & Sign</Text>
             </Pressable>
@@ -166,6 +173,8 @@ const styles = StyleSheet.create({
   },
   mono: {
     fontFamily: typeTokens.fontFamilyCode,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   highlightAmount: {
     color: colors.status.warning,

@@ -13,9 +13,6 @@ export function normalizeUsername(name) {
 
 export function jwtRoleFromUser(user) {
   if (!user) return 'user';
-  if (normalizeUsername(user.usernameLower || user.username) === 'altaga') {
-    return 'god';
-  }
   const r = String(user.role || '').toLowerCase();
   if (r === 'god') return 'god';
   if (r === 'admin') return 'admin';
@@ -24,9 +21,8 @@ export function jwtRoleFromUser(user) {
 }
 
 export function staffRoleFromUser(user, jwtClaims = {}) {
-  const username = normalizeUsername(user?.username || jwtClaims.username);
-  if (username === 'altaga') return 'god';
-  const r = String(user?.role || jwtClaims.role || '').toLowerCase();
+  if (!user) return null;
+  const r = String(user.role || '').toLowerCase();
   if (r === 'god') return 'god';
   if (r === 'admin') return 'admin';
   if (r === 'scanner' || r === 'checker') return 'scanner';

@@ -44,7 +44,7 @@ export function Hero() {
             </Pressable>
             <Pressable 
               onPress={() => {
-                if (Platform.OS === 'web') window.open('https://opendome.expo.app/', '_blank');
+                if (Platform.OS === 'web') window.open('https://sandbox.opendome.xyz/', '_blank');
               }}
               style={({ pressed }) => [styles.btnOutline, pressed && styles.btnOutlinePressed]}
               accessibilityRole="link"

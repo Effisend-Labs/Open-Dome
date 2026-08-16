@@ -36,23 +36,6 @@ export default function UserView({ tokens, theme, t }) {
     logout();
   };
 
-  const handleDebugDelete = async () => {
-    if (!username.trim()) {
-      setLocalError('DEBUG: Enter username above to nuke first');
-      return;
-    }
-    setLocalError('Nuking via Sandbox...');
-    if (window.parent !== window) {
-      window.parent.postMessage({
-        type: 'OPENDOME_DEBUG_DELETE_USER',
-        payload: { username: username.trim().toLowerCase() }
-      }, '*'); // Wildcard because it's a debug command
-      
-      // Simulate success since we just send the message
-      setTimeout(() => setLocalError(`[DEBUG] Nuke signal sent for ${username}`), 500);
-    }
-  };
-
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: tokens.BG }}
@@ -179,17 +162,6 @@ export default function UserView({ tokens, theme, t }) {
             </Text>
           )}
 
-          {__DEV__ && (
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: 'transparent', marginTop: 20, borderColor: tokens.NEON_DANGER, borderRadius: tokens.shape.buttonRadius }]}
-              onPress={handleDebugDelete}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.buttonText, { color: tokens.NEON_DANGER, fontFamily: tokens.font.primary }]}>
-                [DEBUG] NUKE USER "{username || '?'}"
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       )}
     </ScrollView>

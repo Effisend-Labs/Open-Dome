@@ -9,7 +9,7 @@
 - **Remote:** `Effisend-Labs/Open-Dome` (public)
 - **Stack:** Expo 57 / Expo Router, React Native Web, `opendome` SDK (`open-dome-lib`), Vercel server output, Circle developer-controlled wallets, Google Cloud (Vertex AI / Firestore / Logging / BigQuery), MQTT
 - **Product shape:** Super-App **host** loads tenant **mini-apps** in iframes; zero-trust docking; USDC settlement per interaction; Gemini agent with tool calling on host
-- **Audience split (do not blur):** Guests only use **OpenDomeApp** (`https://app.opendome.xyz`). Developers build **mini-apps** and may test in **OpenDomeSandbox** (`https://opendome.expo.app`). External/tenant developers never modify App or Sandbox to ship features.
+- **Audience split (do not blur):** Guests only use **OpenDomeApp** ([app.opendome.xyz](https://app.opendome.xyz)). Developers build **mini-apps** and may test in **OpenDomeSandbox** ([sandbox.opendome.xyz](https://sandbox.opendome.xyz)). External/tenant developers never modify App or Sandbox to ship features.
 - **Contest framing (do not delete from READMEs):** Build with Gemini XPRIZE — AI-native operations, Google Cloud required, Circle/USDC revenue loop
 
 ## Doc map (do not confuse)
@@ -66,7 +66,7 @@ Open-Dome/
   open-dome-lib/                 # npm name "opendome" — SDK source + dist/
   OpenDome/
     OpenDomeApp/                 # PRODUCTION host — guests only (app.opendome.xyz)
-    OpenDomeSandbox/             # DEVELOPER test host only (opendome.expo.app)
+    OpenDomeSandbox/             # DEVELOPER test host only (sandbox.opendome.xyz)
     OpenDomeMiniApps/            # What external developers build / extend
       Demo/ Wallet/ OpenAgent/ Admin/ Scanner/
       TokyoDome/ IMMTheater/ KorakuenHall/ GalleryAaMo/
@@ -80,7 +80,7 @@ There is **no** top-level `MiniApp/` folder. Do not invent paths under `./MiniAp
 
 | Actor | Uses | May change | Must not change |
 |-------|------|------------|-----------------|
-| Guest | `https://app.opendome.xyz` | nothing | Sandbox URLs, host source |
+| Guest | [app.opendome.xyz](https://app.opendome.xyz) | nothing | Sandbox URLs, host source |
 | External / tenant developer | Sandbox to test; App only as the live target | their mini-app + `opendome` consumer usage | `OpenDome/OpenDomeApp/`, `OpenDome/OpenDomeSandbox/` |
 | Platform maintainers (Effisend) | App + Sandbox + SDK | host, sandbox, SDK, shared infra | — |
 
@@ -171,8 +171,8 @@ Constants also live in `open-dome-lib/src/dockingHost.js` → `LOCAL_EXPO_PORTS`
 
 | Role | URL | Audience |
 |------|-----|----------|
-| Host (App) | `https://app.opendome.xyz` | Guests |
-| Sandbox | `https://opendome.expo.app` | Developers (test only) |
+| Host (App) | [app.opendome.xyz](https://app.opendome.xyz) | Guests |
+| Sandbox | [sandbox.opendome.xyz](https://sandbox.opendome.xyz) | Developers (test only) |
 | Demo | `https://demo.opendome.xyz` | Reference mini-app |
 | Wallet | `https://wallet.opendome.xyz` | Guests via App |
 | OpenAgent | `https://agent.opendome.xyz` | Guests via App |

@@ -24,8 +24,9 @@ if (!fs.existsSync(gcpCredsPath) && process.env.GCP_PRIVATE_KEY) {
 }
 process.env.GOOGLE_APPLICATION_CREDENTIALS = gcpCredsPath;
 
-// In-memory store for rate limiting (max 5 requests per minute per user)
+// In-memory store for rate limiting (medium demo-friendly limit per user).
 const rateLimitStore = new Map();
+const AGENT_REQUESTS_PER_MINUTE = 12;
 
 // Initialize GenAI Client for Vertex AI
 const ai = new GoogleGenAI({
@@ -55,8 +56,6 @@ export async function POST(req) {
     if (!SESSION_JWT_TOKEN) {
       return Response.json({ error: 'SESSION_JWT_TOKEN is not set' }, { status: 500 });
     }
-    console.log(`[Agent API] Incoming Headers:`, Object.fromEntries(req.headers.entries()));
-
     const authHeader = req.headers.get('authorization');
     
     // Check for free Bearer token
@@ -69,6 +68,9 @@ export async function POST(req) {
         console.error(`[Agent API] JWT Verification failed:`, err.message);
         return Response.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
       }
+    }
+    if (!decoded) {
+      return Response.json({ error: 'Sign in is required to use the AI agent.' }, { status: 401 });
     }
 
     const body = await req.json();
@@ -92,21 +94,19 @@ export async function POST(req) {
       return Response.json({ error: 'Input too long: Maximum 1000 characters allowed to prevent context overload.' }, { status: 400 });
     }
 
-    // --- GUARDRAIL 2: Rate Limiting (5 requests / min) ---
-    // If authenticated via Bearer token, apply rate limiting per user.
-    // If not authenticated (will use x402), use a generic identifier or skip rate limit since they are paying.
-    if (decoded) {
-      const now = Date.now();
-      const userLimits = rateLimitStore.get(decoded.userId) || [];
-      const recentRequests = userLimits.filter(ts => now - ts < 60000); // within last 60s
-      
-      if (recentRequests.length >= 5) {
-        console.warn(`[Agent API] Rate limit exceeded for user ${decoded.userId}`);
-        return Response.json({ error: 'Rate limit exceeded: Maximum 5 requests per minute. Please slow down.' }, { status: 429 });
-      }
-      recentRequests.push(now);
-      rateLimitStore.set(decoded.userId, recentRequests);
+    // --- GUARDRAIL 2: Rate Limiting (12 requests / min) ---
+    const now = Date.now();
+    const userLimits = rateLimitStore.get(decoded.userId) || [];
+    const recentRequests = userLimits.filter(ts => now - ts < 60000);
+    if (recentRequests.length >= AGENT_REQUESTS_PER_MINUTE) {
+      console.warn(`[Agent API] Rate limit exceeded for user ${decoded.userId}`);
+      return Response.json(
+        { error: `Rate limit exceeded: Maximum ${AGENT_REQUESTS_PER_MINUTE} requests per minute. Please slow down.` },
+        { status: 429 },
+      );
     }
+    recentRequests.push(now);
+    rateLimitStore.set(decoded.userId, recentRequests);
 
     const { quotePromptTariff } = await import('opendome/dist/agentTariff.js');
     const tariff = quotePromptTariff(userPrompt, body.modelId);
@@ -153,7 +153,6 @@ export async function POST(req) {
         return Response.json({ error: err.message }, { status: 500 });
       }
 
-      if (!decoded) decoded = { userId: 'x402-user', username: 'x402 Payer' };
     }
 
     const tools =

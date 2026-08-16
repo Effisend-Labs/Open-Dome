@@ -136,9 +136,9 @@ export default function IframeContainer({
           onAddLog('[Bridge] Validating App Token on server...');
           const appRes = await verifyTokenOnServer(appDebugToken);
 
-          if (appRes && appRes.wsJwt) {
-            const wsJwt = appRes.wsJwt;
-            onAddLog(`[Bridge] App verified. wsJwt generated successfully.`);
+          if (appRes?.valid) {
+            const wsJwt = appRes.wsJwt || null;
+            onAddLog(`[Bridge] App verified.${wsJwt ? ' wsJwt present.' : ' MQTT disabled (no wsJwt).'}`);
 
             // Check if there is an active Host User Session
             if (verifiedToken) {
@@ -150,9 +150,10 @@ export default function IframeContainer({
                 sourceWindow.postMessage({
                   type: 'OPENDOME_HANDSHAKE',
                   status: 'VERIFIED',
-                  payload: userRes.token,
+                  payload: userRes.iframeToken,
                   user: {
                     username: userRes.username,
+                    role: userRes.role,
                     evmAddress: userRes.evmAddress,
                     solanaAddress: userRes.solanaAddress
                   },
@@ -166,7 +167,7 @@ export default function IframeContainer({
 
                 // Sync profile state back
                 onUserAuthChanged({
-                  token: userRes.token,
+                  token: verifiedToken,
                   profile: {
                     username: userRes.username,
                     evmAddress: userRes.evmAddress,
@@ -213,7 +214,24 @@ export default function IframeContainer({
         const { id, payload: payPayload } = event.data;
         const { serviceUrl: rawServiceUrl, amount, fetchOptions } = payPayload || {};
         const serviceUrl = resolveHostServiceUrl(rawServiceUrl);
+        if (!/^\d+(\.\d{1,6})?$/.test(String(amount ?? '').trim())) {
+          event.source?.postMessage(
+            {
+              type: 'OPENDOME_PAYMENT_RESPONSE',
+              id,
+              error: 'Payment requires a valid USDC amount with up to six decimal places.',
+            },
+            origin,
+          );
+          return;
+        }
         onAddLog(`[Bridge] Payment intent: ${amount} USDC → ${serviceUrl}`);
+        const requestedNetwork = String(
+          fetchOptions?.headers?.['x-payment-network'] || 'base',
+        ).toUpperCase();
+        const paymentChain = requestedNetwork === 'SOL' || requestedNetwork === 'SOLANA'
+          ? 'SOLANA'
+          : requestedNetwork;
 
         if (!verifiedToken) {
           const sourceWindow = event.source;
@@ -228,6 +246,16 @@ export default function IframeContainer({
         }
 
         try {
+          const approved = await onTransactionIntent({
+            chain: paymentChain,
+            to: serviceUrl,
+            amount,
+            asset: 'USDC',
+            kind: 'payment',
+          });
+          if (!approved) {
+            throw new Error('Payment rejected by user.');
+          }
           const payRes = await fetch('/api/x402-pay', {
             method: 'POST',
             headers: {
@@ -298,7 +326,7 @@ export default function IframeContainer({
           sourceWindow.postMessage({
             type: 'OPENDOME_REGISTER_RESPONSE',
             status: 'SUCCESS',
-            payload: { token: verifyResult.token },
+            payload: { token: userProfile?.iframeToken || null },
             user: {
               username: userProfile?.username || null,
               evmAddress: userProfile?.evmAddress || null,
@@ -361,7 +389,7 @@ export default function IframeContainer({
           sourceWindow.postMessage({
             type: 'OPENDOME_LOGIN_RESPONSE',
             status: 'SUCCESS',
-            payload: { token: verifyResult.token },
+            payload: { token: userProfile?.iframeToken || null },
             user: {
               username: userProfile?.username || null,
               evmAddress: userProfile?.evmAddress || null,
@@ -405,6 +433,17 @@ export default function IframeContainer({
           if (!verifiedToken) {
             throw new Error('Not authenticated. Sign in on OpenDome first.');
           }
+          if (hostPayload?.action === 'transfer') {
+            const approved = await onTransactionIntent({
+              chain: hostPayload.blockchain || hostPayload.chain || 'BASE',
+              to: hostPayload.destination,
+              amount: hostPayload.amount,
+              asset: hostPayload.asset || 'USDC',
+            });
+            if (!approved) {
+              throw new Error('Transfer rejected by user.');
+            }
+          }
           onAddLog(`[Bridge] Host request: ${hostPayload?.action || 'unknown'}`);
           const response = await runHostRequest(hostPayload, verifiedToken);
           if (sourceWindow) {
@@ -428,6 +467,13 @@ export default function IframeContainer({
       // 6. Handle AI Agent Prompt from Mini App
       if (type === 'OPENDOME_AI_PROMPT') {
         const { id, payload: aiPayload } = event.data;
+        if (!verifiedToken) {
+          event.source?.postMessage(
+            { type: 'OPENDOME_AI_RESPONSE', id, error: 'Sign in is required to use the AI agent.' },
+            origin,
+          );
+          return;
+        }
         const promptText = aiPayload?.prompt || '';
         const agentMode = aiPayload?.mode || 'dome';
         onAddLog(`[Bridge] Received AI prompt (${agentMode}): "${promptText.substring(0, 30)}..."`);
@@ -502,7 +548,7 @@ export default function IframeContainer({
       iframe.contentWindow.postMessage({
         type: 'OPENDOME_HANDSHAKE',
         status: 'VERIFIED',
-        payload: userRes.token || verifiedToken,
+        payload: userRes.iframeToken || null,
         user: {
           username: userRes.username,
           evmAddress: userRes.evmAddress,

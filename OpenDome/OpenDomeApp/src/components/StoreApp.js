@@ -51,7 +51,6 @@ export default function StoreApp({
       cancelled = true;
     };
     // Refresh once when OpenStore opens so a just-assigned staff role appears.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

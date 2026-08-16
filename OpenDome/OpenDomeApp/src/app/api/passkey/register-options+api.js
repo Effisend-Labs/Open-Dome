@@ -22,7 +22,6 @@ const getDynamicRpID = (req) => {
     const origin = req.headers.get('origin') || 'http://localhost';
     const host = new URL(origin).hostname;
     if (host === 'opendome.xyz' || host.endsWith('.opendome.xyz')) return 'opendome.xyz';
-    if (host.endsWith('.expo.app')) return host;
     return host;
   } catch {
     return 'localhost';
@@ -55,6 +54,12 @@ export const POST = async (request) => {
     }
 
     let user = await getUserByUsername(usernameLower);
+    if (isGodUsername(usernameLower) && !user) {
+      return Response.json(
+        { error: 'This reserved username cannot be registered publicly.' },
+        { status: 403 },
+      );
+    }
     if (!user) {
       const newId = randomUUID();
       const displayName = String(rawUsername).trim();
@@ -62,7 +67,7 @@ export const POST = async (request) => {
         id: newId,
         username: displayName,
         usernameLower,
-        role: isGodUsername(usernameLower) ? 'god' : 'user',
+        role: 'user',
       };
       await Users.doc(newId).set(user);
     } else if (user.currentChallenge == null && user.evmAddress) {
@@ -73,7 +78,6 @@ export const POST = async (request) => {
     } else {
       const patch = {};
       if (!user.usernameLower) patch.usernameLower = usernameLower;
-      if (isGodUsername(usernameLower) && user.role !== 'god') patch.role = 'god';
       if (Object.keys(patch).length) {
         await Users.doc(user.id).update(patch);
         user = { ...user, ...patch };

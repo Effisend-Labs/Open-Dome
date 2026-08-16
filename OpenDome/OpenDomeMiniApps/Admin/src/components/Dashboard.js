@@ -152,7 +152,7 @@ export default function Dashboard({ currentUser }) {
       setSearch('');
       fetchUsers();
     }
-  }, [screen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase().replace(/^@/, '');

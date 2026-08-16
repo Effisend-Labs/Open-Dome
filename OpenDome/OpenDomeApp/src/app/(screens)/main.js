@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import IframeContainer from '../../components/IframeContainer';
+import TransactionModal from '../../components/TransactionModal';
 import { springboardApps } from '../../core/tokens';
 import { useSmartSize } from '../../providers/smartProvider';
 import { useTheme, WALLPAPERS } from '../../providers/ThemeProvider';
@@ -82,7 +83,7 @@ export default function Main() {
   ], [themeId, language]);
   
   const glassStyles = React.useMemo(() => getGlassStyles(theme), [theme]);
-  const s = React.useMemo(() => useStyles(n, theme), [n, theme]);
+  const s = React.useMemo(() => createStyles(n, theme), [n, theme]);
   
   const [activeApp, setActiveApp] = useState(null);
   const [appsLayout, setAppsLayout] = useState(CORE_APPS);
@@ -95,12 +96,28 @@ export default function Main() {
   const [nextEvent, setNextEvent] = useState(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [appToDelete, setAppToDelete] = useState(null);
+  const [transferIntent, setTransferIntent] = useState(null);
+  const transferApprovalRef = useRef(null);
 
   const confirmDelete = () => {
     if (appToDelete) {
       handleUninstallApp(appToDelete.id);
       setAppToDelete(null);
     }
+  };
+
+  const requestTransferApproval = (intent) => new Promise((resolve) => {
+    if (transferApprovalRef.current) {
+      transferApprovalRef.current(false);
+    }
+    transferApprovalRef.current = resolve;
+    setTransferIntent(intent);
+  });
+
+  const resolveTransferApproval = (approved) => {
+    transferApprovalRef.current?.(approved);
+    transferApprovalRef.current = null;
+    setTransferIntent(null);
   };
 
   useEffect(() => {
@@ -340,7 +357,7 @@ export default function Main() {
                 verifiedToken={verifiedToken}
                 contextVariables={CTX_VARS}
                 onUserAuthChanged={handleUserAuthChanged}
-                onTransactionIntent={() => {}}
+                onTransactionIntent={requestTransferApproval}
                 onAddLog={(msg) => console.log(msg)}
                 gpsLocation={null}
               />
@@ -530,6 +547,14 @@ export default function Main() {
           </View>
         </Modal>
 
+        <TransactionModal
+          visible={!!transferIntent}
+          intent={transferIntent}
+          balances={{ evm: '—', solana: '—' }}
+          onApprove={() => resolveTransferApproval(true)}
+          onReject={() => resolveTransferApproval(false)}
+        />
+
         <Modal visible={showEventModal} transparent animationType="slide">
           <View style={s.modalOverlay}>
             <View style={s.eventModalCard}>
@@ -570,7 +595,7 @@ export default function Main() {
   );
 }
 
-const useStyles = (n, theme) => StyleSheet.create({
+const createStyles = (n, theme) => StyleSheet.create({
   desktopWrapper: {
     flex: 1,
     minHeight: 0,

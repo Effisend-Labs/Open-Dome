@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Platform, Image, ActivityIndicator, Animated } from 'react-native';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import SmartProvider from '../components/SmartProvider';
-import EventBoard from '../components/EventBoard';
 import LogoO from '../assets/logoopen.png';
 import { runHostRequest } from '../features/bridge/runHostRequest';
 
@@ -20,10 +19,13 @@ const verifyTokenOnServer = async (token) => {
     const data = await response.json();
     if (data.valid) {
       return { 
+        valid: data.valid,
         token: data.token, 
+        iframeToken: data.iframeToken,
         wsJwt: data.wsJwt, 
         hostJwt: data.hostJwt,
         username: data.username,
+        role: data.role,
         evmAddress: data.evmAddress,
         solanaAddress: data.solanaAddress,
         authenticated: data.authenticated
@@ -141,7 +143,7 @@ export default function App() {
         return 'http://localhost:8085/';
       }
     } catch (e) {}
-    return 'https://miniapp.expo.app';
+    return 'https://demo.opendome.xyz';
   });
   const [verifiedToken, setVerifiedToken] = useState(() => {
     try {
@@ -165,7 +167,6 @@ export default function App() {
   const [isConfigExpanded, setIsConfigExpanded] = useState(true);
   const [isContextExpanded, setIsContextExpanded] = useState(true);
   const [isLogsExpanded, setIsLogsExpanded] = useState(true);
-  const [eventsConfig, setEventsConfig] = useState({ jwt: '' });
   const [activeUrl, setActiveUrl] = useState(null);
   const [isInjecting, setIsInjecting] = useState(false);
 
@@ -193,7 +194,7 @@ export default function App() {
     } catch (e) {
       // ignore
     }
-    return 'https://miniapp.expo.app';
+    return 'https://demo.opendome.xyz';
   };
 
   const addLog = (msg) => {
@@ -284,10 +285,11 @@ export default function App() {
             type: 'OPENDOME_REGISTER_RESPONSE',
             status: 'SUCCESS',
             payload: {
-              token: verifyResult.token
+              token: profile.iframeToken || null
             },
             user: {
               username: profile.username,
+              role: profile.role,
               evmAddress: profile.evmAddress,
               solanaAddress: profile.solanaAddress
             },
@@ -357,10 +359,11 @@ export default function App() {
             type: 'OPENDOME_LOGIN_RESPONSE',
             status: 'SUCCESS',
             payload: {
-              token: verifyResult.token
+              token: profile.iframeToken || null
             },
             user: {
               username: profile.username,
+              role: profile.role,
               evmAddress: profile.evmAddress,
               solanaAddress: profile.solanaAddress
             },
@@ -398,11 +401,11 @@ export default function App() {
         } catch (e) {}
         setUserProfile({
           username: res.username || 'SandboxUser',
+          role: res.role,
+          iframeToken: res.iframeToken,
           evmAddress: res.evmAddress,
           solanaAddress: res.solanaAddress
         });
-        setEventsConfig({ jwt: res.hostJwt || '' });
-        
         addLog(`Profile loaded: @${res.username}`);
       }
     } catch (e) {
@@ -411,23 +414,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Always fetch a generic host token on mount to keep the Communication API connected permanently
-    const initHostToken = async () => {
-      try {
-        const res = await verifyTokenOnServer(null);
-        if (res && res.hostJwt) {
-          setEventsConfig({ jwt: res.hostJwt });
-          addLog('[SYSTEM] Permanent Sandbox host token initialized for Communication API.');
-        }
-      } catch (err) {
-        console.error('Failed to init host token:', err);
-      }
-    };
-    initHostToken();
-
     if (verifiedToken) {
-      addLog('[SESSION] Stored session token detected. Restoring profile...');
-      fetchProfile(verifiedToken);
+      addLog('[SESSION] Stored session token detected. Restoring profile...');      fetchProfile(verifiedToken);
     }
   }, []);
 
@@ -481,20 +469,20 @@ export default function App() {
               }, getMiniAppOrigin());
             }
           }
+        } else if (intent.type === 'host_transfer') {
+          const response = await runHostRequest(intent.payload, verifiedTokenRef.current);
+          intent.source.postMessage(
+            { type: 'OPENDOME_HOST_RESPONSE', id: intent.id, response },
+            intent.origin,
+          );
+          addLog('[BRIDGE] transfer approved and completed.');
         } else if (iframe && iframe.contentWindow) {
-          // Generate a mock hash for the approval
-          const txHash = `0x_sig_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
           iframe.contentWindow.postMessage({
             type: 'OPENDOME_INTENT_RESPONSE',
-            status: 'SUCCESS',
-            payload: {
-              hash: txHash,
-              chain: intent.chain,
-              to: intent.to,
-              amount: intent.amount
-            }
+            status: 'REJECTED',
+            error: 'Legacy transaction intents are not supported. Use Host.transfer instead.',
           }, getMiniAppOrigin());
-          addLog(`Sent SUCCESS response to Mini App: ${txHash.substring(0, 15)}...`);
+          addLog('Legacy transaction intent rejected; no transaction was created.');
         }
         
         if (!directIntent) {
@@ -510,11 +498,13 @@ export default function App() {
     addLog('Transaction intent rejected by user.');
     const iframe = document.querySelector('iframe');
     if (iframe && iframe.contentWindow) {
-      iframe.contentWindow.postMessage({
-        type: 'OPENDOME_INTENT_RESPONSE',
-        status: 'REJECTED',
-        error: 'USER_REJECTED'
-      }, getMiniAppOrigin());
+      const message = pendingIntent.type === 'payment'
+        ? { type: 'OPENDOME_PAYMENT_RESPONSE', id: pendingIntent.id, error: 'USER_REJECTED' }
+        : pendingIntent.type === 'host_transfer'
+          ? { type: 'OPENDOME_HOST_RESPONSE', id: pendingIntent.id, error: 'USER_REJECTED' }
+          : { type: 'OPENDOME_INTENT_RESPONSE', status: 'REJECTED', error: 'USER_REJECTED' };
+      const targetOrigin = pendingIntent.origin || getMiniAppOrigin();
+      (pendingIntent.source || iframe.contentWindow).postMessage(message, targetOrigin);
     }
     setPendingIntent(null);
   };
@@ -580,8 +570,6 @@ export default function App() {
         const { token: appDebugToken, appId } = event.data;
         addLog(`[HANDSHAKE] OPENDOME_READY received. AppId="${appId || 'unknown'}", AppToken="${appDebugToken ? appDebugToken.slice(0, 10) + '...' : 'none'}"`);
         
-        setEventsConfig(prev => ({ ...prev, appId: appId }));
-
         const iframeEl = document.querySelector('iframe');
         if (iframeEl && iframeEl.contentWindow) {
           // Build context from the ref (always current, no stale closure)
@@ -590,13 +578,13 @@ export default function App() {
             if (row.key) contextObj[row.key] = row.value;
           });
 
-          const currentOrigin = getOrigin() || 'https://miniapp.expo.app';
+          const currentOrigin = getOrigin() || 'https://demo.opendome.xyz';
 
-          addLog('[HANDSHAKE] Validating App Token on server to retrieve communication wsJwt...');
+          addLog('[HANDSHAKE] Validating App Token on server...');
           verifyTokenOnServer(appDebugToken).then(async (appRes) => {
-            if (appRes && appRes.wsJwt) {
-              const wsJwt = appRes.wsJwt;
-              addLog(`[HANDSHAKE] App verified successfully. wsJwt generated.`);
+            if (appRes?.valid) {
+              const wsJwt = appRes.wsJwt || null;
+              addLog(`[HANDSHAKE] App verified.${wsJwt ? ' wsJwt present.' : ' MQTT disabled (no wsJwt).'}`);
 
               // Read verifiedToken from ref — always current regardless of when OPENDOME_READY fires
               const currentToken = verifiedTokenRef.current;
@@ -609,9 +597,10 @@ export default function App() {
                     iframeEl.contentWindow.postMessage({
                       type: 'OPENDOME_HANDSHAKE',
                       status: 'VERIFIED',
-                      payload: userRes.token,
+                      payload: userRes.iframeToken,
                       user: {
                         username: userRes.username,
+                        role: userRes.role,
                         evmAddress: userRes.evmAddress,
                         solanaAddress: userRes.solanaAddress
                       },
@@ -623,6 +612,8 @@ export default function App() {
 
                     setUserProfile({
                       username: userRes.username,
+                      role: userRes.role,
+                      iframeToken: userRes.iframeToken,
                       evmAddress: userRes.evmAddress,
                       solanaAddress: userRes.solanaAddress
                     });
@@ -633,8 +624,8 @@ export default function App() {
                 }
               }
 
-              // Default: Unauthenticated but with valid communication wsJwt
-              addLog('[HANDSHAKE] Guest Mode: Sending UNAUTHENTICATED handshake with valid communication wsJwt.');
+              // Default: Unauthenticated guest handshake (MQTT optional)
+              addLog('[HANDSHAKE] Guest Mode: Sending UNAUTHENTICATED handshake.');
               iframeEl.contentWindow.postMessage({
                 type: 'OPENDOME_HANDSHAKE',
                 status: 'UNAUTHENTICATED',
@@ -672,24 +663,22 @@ export default function App() {
           rawServiceUrl && !/^https?:\/\//i.test(rawServiceUrl)
             ? `${window.location.origin}${rawServiceUrl.startsWith('/') ? rawServiceUrl : `/${rawServiceUrl}`}`
             : rawServiceUrl;
+        if (!verifiedTokenRef.current) {
+          event.source.postMessage(
+            { type: 'OPENDOME_PAYMENT_RESPONSE', id, error: 'Not authenticated. Please log in first.' },
+            event.origin,
+          );
+          return;
+        }
+        if (!/^\d+(\.\d{1,6})?$/.test(String(amount ?? '').trim())) {
+          event.source.postMessage(
+            { type: 'OPENDOME_PAYMENT_RESPONSE', id, error: 'Payment requires a valid USDC amount.' },
+            event.origin,
+          );
+          return;
+        }
         addLog(`[PAYMENT] Incoming intent: Pay ${amount} USDC to ${serviceUrl}`);
-        handleApproveIntent({ type: 'payment', id, serviceUrl, amount, fetchOptions });
-      }
-
-      // Handle Debug Delete User from Mini App
-      if (event.data && event.data.type === 'OPENDOME_DEBUG_DELETE_USER') {
-        const { username } = event.data.payload;
-        addLog(`[DEBUG] Mini App requested to nuke user: "${username}"`);
-        fetch('/api/debug/delete-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username })
-        }).then(async (res) => {
-          const data = await res.json();
-          addLog(res.ok ? `[DEBUG OK] ${data.message}` : `[DEBUG ERROR] ${data.error}`);
-        }).catch(err => {
-          addLog(`[DEBUG ERROR] Failed to hit debug API: ${err.message}`);
-        });
+        setPendingIntent({ type: 'payment', id, serviceUrl, amount, fetchOptions, source: event.source, origin: event.origin });
       }
 
       // Handle Delegated Register from Mini App
@@ -724,6 +713,26 @@ export default function App() {
         const { id, payload: hostPayload } = event.data;
         const action = hostPayload?.action;
         addLog(`[BRIDGE] Host request: ${action || 'unknown'}`);
+        if (action === 'transfer') {
+          if (!verifiedTokenRef.current) {
+            event.source.postMessage(
+              { type: 'OPENDOME_HOST_RESPONSE', id, error: 'Not authenticated. Please log in first.' },
+              event.origin,
+            );
+            return;
+          }
+          setPendingIntent({
+            type: 'host_transfer',
+            id,
+            payload: hostPayload,
+            chain: hostPayload.blockchain || hostPayload.chain || 'BASE',
+            to: hostPayload.destination,
+            amount: hostPayload.amount,
+            source: event.source,
+            origin: event.origin,
+          });
+          return;
+        }
         runHostRequest(hostPayload, verifiedTokenRef.current)
           .then((response) => {
             event.source.postMessage({
@@ -746,6 +755,13 @@ export default function App() {
       // Handle AI Agent Prompt from Mini App
       if (event.data && event.data.type === 'OPENDOME_AI_PROMPT') {
         const { id, payload: aiPayload } = event.data;
+        if (!verifiedTokenRef.current) {
+          event.source.postMessage(
+            { type: 'OPENDOME_AI_RESPONSE', id, error: 'Sign in is required to use the AI agent.' },
+            event.origin,
+          );
+          return;
+        }
         const promptText = aiPayload?.prompt || '';
         addLog(`[AGENT] Received prompt: "${promptText.substring(0, 30)}..."`);
         
@@ -823,7 +839,6 @@ export default function App() {
 
     // Clean session and force iframe unmount
     setActiveUrl(null);
-    setEventsConfig(prev => ({ jwt: prev.jwt })); // Drops appId
     await new Promise(resolve => setTimeout(resolve, 50));
 
     const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -856,10 +871,12 @@ export default function App() {
       return;
     }
 
-    const { token, wsJwt, hostJwt } = res;
+    const { token } = res;
     setVerifiedToken(token);
     setUserProfile({
       username: res.username || 'SandboxUser',
+      role: res.role,
+      iframeToken: res.iframeToken,
       evmAddress: res.evmAddress,
       solanaAddress: res.solanaAddress
     });
@@ -873,7 +890,6 @@ export default function App() {
 
     const separator = url.includes('?') ? '&' : '?';
     setActiveUrl(`${url}${separator}theme=dark&parentOrigin=${encodeURIComponent(parentOrigin)}${extraQuery}`);
-    setEventsConfig({ jwt: hostJwt || '' });
 
     setTimeout(() => setIsInjecting(false), 500);
   };
@@ -941,8 +957,9 @@ export default function App() {
               <View style={styles.intentBox}>
                 <Text style={styles.intentTitle}>🚨 ACTION INTENT REQUEST</Text>
                 <View style={styles.intentDetails}>
-                  {pendingIntent.type === 'transfer' ? (
+                  {pendingIntent.type === 'transfer' || pendingIntent.type === 'host_transfer' ? (
                     <>
+                      <Text style={styles.intentField}>TYPE: <Text style={styles.intentVal}>USDC TRANSFER</Text></Text>
                       <Text style={styles.intentField}>CHAIN: <Text style={styles.intentVal}>{pendingIntent.chain.toUpperCase()}</Text></Text>
                       <Text style={styles.intentField}>AMOUNT: <Text style={styles.intentVal}>{pendingIntent.amount}</Text></Text>
                       <Text style={styles.intentField}>TO: <Text style={styles.intentVal}>{pendingIntent.to}</Text></Text>
@@ -1142,10 +1159,6 @@ export default function App() {
                   ))}
               </View>
             )}
-          </View>
-
-          <View style={[styles.noticeSection, { flex: 1 }]}>
-            <EventBoard config={eventsConfig} />
           </View>
         </View>
       </View>

@@ -184,7 +184,6 @@ export default function EventsView({ theme, tokens, t }) {
       console.error('[EventsView] search error →', err);
       setEvents([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedCategory, selectedLocation, selectedTimeframe]);
 
   // ── Mouse-wheel support on web ─────────────────────────────────────────────

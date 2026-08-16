@@ -8,12 +8,10 @@ import { Host } from './host';
 import { resolveAppCredentials } from './docking';
 
 const ALLOWED_ORIGINS = [
-  'https://opendome.expo.app',
-  'https://opendomeos.expo.app',
+  'https://sandbox.opendome.xyz',
   'https://app.opendome.xyz',
-  'https://demo.opendome.xyz',
-  'https://wallet.opendome.xyz',
   'http://localhost:8082',
+  'http://localhost:8083',
 ];
 
 const isLocalhostOrigin = (urlStr) => {
@@ -25,20 +23,15 @@ const isLocalhostOrigin = (urlStr) => {
   }
 };
 
-const isOpenDomeOrigin = (urlStr) => {
-  try {
-    const url = new URL(urlStr);
-    return url.hostname === 'opendome.xyz' || url.hostname.endsWith('.opendome.xyz');
-  } catch (e) {
-    return urlStr.includes('opendome.xyz');
-  }
-};
-
 const checkOrigin = (origin) => {
-  const normalized = origin.replace(/\/$/, '');
+  let normalized;
+  try {
+    normalized = new URL(origin).origin;
+  } catch {
+    return false;
+  }
   if (ALLOWED_ORIGINS.includes(normalized)) return true;
   if (isLocalhostOrigin(normalized)) return true;
-  if (isOpenDomeOrigin(normalized)) return true;
   return false;
 };
 

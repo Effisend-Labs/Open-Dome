@@ -22,7 +22,7 @@ export default function SettingsApp() {
     }).start();
   }, [fadeAnim]);
 
-  const s = React.useMemo(() => useStyles(n, activeTheme), [n, activeTheme]);
+  const s = React.useMemo(() => createStyles(n, activeTheme), [n, activeTheme]);
 
   const renderSectionHeader = (title) => (
     <Text style={s.sectionHeader}>{title}</Text>
@@ -117,7 +117,7 @@ const defaultFont = Platform.select({
   default: 'sans-serif',
 });
 
-const useStyles = (n, theme) => StyleSheet.create({
+const createStyles = (n, theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',

@@ -12,7 +12,7 @@ var _communication = require("./communication");
 var _agent = require("./agent");
 var _host = require("./host");
 var _docking = require("./docking");
-const ALLOWED_ORIGINS = ['https://opendome.expo.app', 'https://opendomeos.expo.app', 'https://app.opendome.xyz', 'https://demo.opendome.xyz', 'https://wallet.opendome.xyz', 'http://localhost:8082'];
+const ALLOWED_ORIGINS = ['https://sandbox.opendome.xyz', 'https://app.opendome.xyz', 'http://localhost:8082', 'http://localhost:8083'];
 const isLocalhostOrigin = urlStr => {
   try {
     const url = new URL(urlStr);
@@ -21,19 +21,15 @@ const isLocalhostOrigin = urlStr => {
     return urlStr.includes('localhost') || urlStr.includes('127.0.0.1');
   }
 };
-const isOpenDomeOrigin = urlStr => {
-  try {
-    const url = new URL(urlStr);
-    return url.hostname === 'opendome.xyz' || url.hostname.endsWith('.opendome.xyz');
-  } catch (e) {
-    return urlStr.includes('opendome.xyz');
-  }
-};
 const checkOrigin = origin => {
-  const normalized = origin.replace(/\/$/, '');
+  let normalized;
+  try {
+    normalized = new URL(origin).origin;
+  } catch {
+    return false;
+  }
   if (ALLOWED_ORIGINS.includes(normalized)) return true;
   if (isLocalhostOrigin(normalized)) return true;
-  if (isOpenDomeOrigin(normalized)) return true;
   return false;
 };
 

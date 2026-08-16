@@ -2,9 +2,9 @@
 
 Dev host that mirrors production docking so you can test mini-apps in an iframe before shipping.
 
-**Live:** [opendome.expo.app](https://opendome.expo.app/) · **Local:** `npm run web` → `http://localhost:8083`
+**Live:** [sandbox.opendome.xyz](https://sandbox.opendome.xyz) · **Local:** `npm run web` → `http://localhost:8083`
 
-Production host is [app.opendome.xyz](https://app.opendome.xyz/) (`OpenDomeApp`, port `8082`).
+Production host is [app.opendome.xyz](https://app.opendome.xyz) (`OpenDomeApp`, port `8082`).
 
 ---
 

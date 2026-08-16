@@ -55,7 +55,9 @@
   },
   "devDependencies": {
     "@types/react": "18.3.31",
-    "typescript": "5.9.2"
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.1",
+    "typescript": "^6.0.3"
   },
   "private": true
 }

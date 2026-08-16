@@ -22,8 +22,8 @@ Three pieces, nothing more:
 
 | Piece | Who uses it | Plain description |
 | --- | --- | --- |
-| **App** (`app.opendome.xyz`) | Guests only | The real OpenDome host. Login, wallet, money, AI agent, and live mini-apps. Guests never open Sandbox. |
-| **Sandbox** (`opendome.expo.app`) | Developers only | A test host that behaves like App. Use it to try your mini-app. Do not treat it as the product guests use. |
+| **App** ([app.opendome.xyz](https://app.opendome.xyz)) | Guests only | The real OpenDome host. Login, wallet, money, AI agent, and live mini-apps. Guests never open Sandbox. |
+| **Sandbox** ([sandbox.opendome.xyz](https://sandbox.opendome.xyz)) | Developers only | A test host that behaves like App. Use it to try your mini-app. Do not treat it as the product guests use. |
 | **Mini-apps** | Built by developers | Your own web apps. You build these. You never change App or Sandbox to ship a feature. |
 | **SDK** (`opendome`) | Developers only | One package to dock into App or Sandbox and use identity, wallet, location, events, and payments. |
 
@@ -57,8 +57,8 @@ You do not fork or edit OpenDomeApp / OpenDomeSandbox to add a feature. Those ho
 | Step | Where | What you do |
 | --- | --- | --- |
 | 1. Build | Your mini-app repo | Install `opendome` and ship your UI |
-| 2. Test | [OpenDomeSandbox](https://opendome.expo.app/) | Open your mini-app inside Sandbox and verify docking, session, wallet, and flows |
-| 3. Go live | [app.opendome.xyz](https://app.opendome.xyz/) | Guests open your mini-app from the real App store |
+| 2. Test | [sandbox.opendome.xyz](https://sandbox.opendome.xyz) | Open your mini-app inside Sandbox and verify docking, session, wallet, and flows |
+| 3. Go live | [app.opendome.xyz](https://app.opendome.xyz) | Guests open your mini-app from the real App store |
 
 ```bash
 npm install opendome
@@ -90,7 +90,7 @@ That single hook gives you:
 
 **Your credentials never ship to the browser.** Your mini-app server holds one long-lived token; the host hands back a short-lived session for the browser.
 
-**Host selection is automatic.** Local default docks to App on `:8082`. On Vercel it docks to `app.opendome.xyz`. Point at Sandbox only when you are testing (`OPENDOME_DOCKING_HOST_URL` override). Guests still only use App.
+**Host selection is automatic.** Local default docks to App on `:8082`. On Vercel it docks to [app.opendome.xyz](https://app.opendome.xyz). Point at Sandbox only when you are testing (`OPENDOME_DOCKING_HOST_URL` → [sandbox.opendome.xyz](https://sandbox.opendome.xyz)). Guests still only use App.
 
 <p align="center">
   <img src="./Images/image.png" alt="From SDK integration to Tokyo Dome City and global scale" width="100%"/>
@@ -226,8 +226,8 @@ Consequences that matter commercially: a leaked browser token expires in minutes
 
 | Surface | Audience | Role | Live |
 | --- | --- | --- | --- |
-| **OpenDomeApp** | Guests | Production host: identity, store, payments, agent, minting | [app.opendome.xyz](https://app.opendome.xyz/) |
-| **OpenDomeSandbox** | Developers | Test host only — never the guest product | [opendome.expo.app](https://opendome.expo.app/) |
+| **OpenDomeApp** | Guests | Production host: identity, store, payments, agent, minting | [app.opendome.xyz](https://app.opendome.xyz) |
+| **OpenDomeSandbox** | Developers | Test host only — never the guest product | [sandbox.opendome.xyz](https://sandbox.opendome.xyz) |
 | **Demo** | Reference | Example mini-app for builders | [demo.opendome.xyz](https://demo.opendome.xyz/) |
 | **Wallet** | Guests (via App) | USDC and pass wallet mini-app | [wallet.opendome.xyz](https://wallet.opendome.xyz/) |
 | **OpenAgent** | Guests (via App) | Pay-per-prompt Gemini chat mini-app | [agent.opendome.xyz](https://agent.opendome.xyz/) |
@@ -254,7 +254,7 @@ cd OpenDome/OpenDomeSandbox && npm install && npm run web   # developer test hos
 cd OpenDome/OpenDomeMiniApps/Demo && npm install && npm run web   # e.g. :8084
 ```
 
-Open the mini-app from **Sandbox** while testing, or from **App** when validating the guest path. Docking defaults to App (`localhost:8082` / `app.opendome.xyz`); set `OPENDOME_DOCKING_HOST_URL` only to aim at Sandbox. Copy `.env.example` and keep real secrets out of git.
+Open the mini-app from **Sandbox** while testing, or from **App** when validating the guest path. Docking defaults to App (`localhost:8082` / [app.opendome.xyz](https://app.opendome.xyz)); set `OPENDOME_DOCKING_HOST_URL` only to aim at [sandbox.opendome.xyz](https://sandbox.opendome.xyz). Copy `.env.example` and keep real secrets out of git.
 
 Full port map, environment matrix, and protocol rules: [`AGENTS.md`](./AGENTS.md).
 
