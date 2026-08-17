@@ -197,8 +197,12 @@ flowchart LR
   Payment --> Result["Deliver answer or pass"]
 ```
 
-Open Dome Facilitator Transactions: Live on base mainnet
-https://basescan.org/address/0xd2D5196DbC7a285Fa96d193A91E40F5e4BB39C60
+## Open Dome Facilitator Transactions
+
+The Open Dome Facilitator is officially deployed and actively processing transactions on the Base network. You can verify the address and monitor on-chain activity directly via the block explorer:
+
+**[View on Basescan](https://basescan.org/address/0xd2D5196DbC7a285Fa96d193A91E40F5e4BB39C60)**  
+**Address:** `0xd2D5196DbC7a285Fa96d193A91E40F5e4BB39C60`
 
 | Capability | How it works |
 | --- | --- |
