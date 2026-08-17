@@ -1,4 +1,4 @@
-# Open-Dome
+# Open Dome OS
 
 ### Gemini operates the venue. Circle makes every action payable in USDC.
 
@@ -155,7 +155,7 @@ sequenceDiagram
 
 **What the AI decides:** which events match intent, which amenities fit each time slot, the schedule under travel and opening-hour constraints, the price of each answer, and which tools to call to inspect wallets and move funds.
 
-**What humans decide:** they approve payment. Nothing auto-charges a guest.
+**What humans decide:** Approve once, the agent takes care of the rest.
 
 <p align="center">
   <strong>Dome Agent</strong><br>
@@ -196,6 +196,15 @@ flowchart LR
   Approval --> Payment["Settle USDC"]
   Payment --> Result["Deliver answer or pass"]
 ```
+
+## Open Dome Facilitator Transactions
+
+The Open Dome Facilitator is officially deployed and actively processing transactions on the Base network. You can verify the address and monitor on-chain activity directly via the block explorer:
+
+**[View on Basescan](https://basescan.org/address/0xd2D5196DbC7a285Fa96d193A91E40F5e4BB39C60)**  
+**Address:** `0xd2D5196DbC7a285Fa96d193A91E40F5e4BB39C60`
+
+## Circle Tech Stack:
 
 | Capability | How it works |
 | --- | --- |
