@@ -79,7 +79,7 @@ const balances = await blockchain.getBalances({
 });
 ```
 
-Adapters: EVM (ethers/viem), Solana (`@solana/kit`), Starknet.
+Adapters: EVM (ethers/viem), Solana (`@solana/kit` + `@solana-program/*`), Starknet. App server sponsorship reuses the same Kit helpers via `opendome/dist/solana/*`.
 
 ---
 

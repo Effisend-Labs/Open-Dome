@@ -331,7 +331,7 @@ sequenceDiagram
 | Agent → Circle tools | `src/utilsAPI/circleAgentRuntime.js` | `runCircleAgentTool(name, args, ctx)`, `buildWalletAgentContext`, `fetchBalancesForUserWallets`. Circle rejects `blockchain` when `walletIds` is set |
 | x402 buyer | `src/app/api/x402-pay+api.js` | `x402Version: 2`; header `x402-challenge`; guest `approvedAmount` must match; SSRF policy in `src/utilsAPI/x402ServicePolicy.js` |
 | x402 primitives | `open-dome-lib/src/x402Challenge.js`, `eip3009.js`, `usdcChains.js`, `x402.js` | Chains: `BASE`, `ARB`, `OP`, `MATIC`, `AVAX`, `SOL` |
-| Sponsored USDC transfer | `src/app/api/transfer+api.js` + `src/utilsAPI/sponsorUsdcTransfer.js`, `sponsorSolanaTransfer.js` | Guest-approved; merchant pays gas |
+| Sponsored USDC transfer | `src/app/api/transfer+api.js` + `src/utilsAPI/sponsorUsdcTransfer.js`, `sponsorSolanaTransfer.js` → `opendome/dist/solana/*` (Kit) | Guest-approved; merchant pays gas |
 | Checkout + mint | `src/app/api/checkout+api.js`, `mint+api.js`, `opendome/dist/platformMint.js` | Pay then mint ERC-1155 pass on Base (`CONTRACT_ADDRESS`) |
 | CCTP | `src/utilsAPI/cctp/*` | EVM → Solana USDC when pay network ≠ treasury network |
 | Balances / NFTs | `src/app/api/wallet-balances+api.js`, `nfts+api.js` | Circle + chain reads; also via `Host.walletBalances` / `Host.listNfts` |

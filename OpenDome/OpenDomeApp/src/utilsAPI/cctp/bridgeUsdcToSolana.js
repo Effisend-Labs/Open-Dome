@@ -45,7 +45,7 @@ export async function bridgeUsdcToSolana({ client, walletId, destination, amount
   }
 
   try {
-    const mintRecipient = usdcAtaBytes32(destination);
+    const mintRecipient = await usdcAtaBytes32(destination);
     const { transferAmount, totalAmount, maxFee, forwardFee } = await quoteBridgeTotals(amount);
     const calls = encodeCalls(
       maxFee,

@@ -4,41 +4,28 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.SolanaAdapter = void 0;
-var _system = require("@solana-program/system");
 var _token = require("@solana-program/token");
 var _kit = require("@solana/kit");
-var _ethers = require("ethers");
+var _instructions = require("../solana/instructions.js");
+var _rpc = require("../solana/rpc.js");
 class SolanaAdapter {
   constructor(endpoints = ['https://api.mainnet-beta.solana.com']) {
     this.endpoints = Array.isArray(endpoints) ? endpoints : [endpoints];
-    const transport = (0, _kit.createDefaultRpcTransport)({
-      url: this.endpoints[0]
-    });
-    this.rpc = (0, _kit.createSolanaRpcFromTransport)(transport);
+    this.rpc = (0, _rpc.createSolanaRpc)(this.endpoints);
   }
   async getRpc() {
-    for (const url of this.endpoints) {
-      try {
-        const transport = (0, _kit.createDefaultRpcTransport)({
-          url
-        });
-        const tempRpc = (0, _kit.createSolanaRpcFromTransport)(transport);
-        await tempRpc.getSlot().send();
-        this.rpc = tempRpc;
-        return tempRpc;
-      } catch (e) {
-        console.warn(`Solana RPC failed: ${url}`);
-      }
-    }
-    throw new Error("All Solana RPCs failed");
+    this.rpc = await (0, _rpc.resolveWorkingRpc)(this.endpoints);
+    return this.rpc;
   }
   async getBalance(addr) {
+    const rpc = await this.getRpc();
     const {
       value: balance
-    } = await this.rpc.getBalance((0, _kit.address)(addr)).send();
+    } = await rpc.getBalance((0, _kit.address)(addr)).send();
     return Number(balance) / 1e9;
   }
   async getBalanceToken(ownerAddr, tokenAddr) {
+    const rpc = await this.getRpc();
     const [ata] = await (0, _token.findAssociatedTokenPda)({
       mint: (0, _kit.address)(tokenAddr),
       owner: (0, _kit.address)(ownerAddr),
@@ -47,68 +34,69 @@ class SolanaAdapter {
     try {
       const {
         value: balance
-      } = await this.rpc.getTokenAccountBalance(ata).send();
+      } = await rpc.getTokenAccountBalance(ata).send();
       return balance.uiAmountString;
-    } catch (e) {
-      return "0";
+    } catch {
+      return '0';
     }
   }
   async getBalanceTokens(ownerAddr, tokenAddrs) {
     return Promise.all(tokenAddrs.map(token => this.getBalanceToken(ownerAddr, token)));
   }
   async sign(privateKey, data) {
-    const keypair = await (0, _kit.createKeyPairFromBytes)((0, _kit.getBase58Encoder)().encode(privateKey));
-    // Signing logic for messages
-    return "signature_placeholder";
+    const keypair = await (0, _kit.createKeyPairSignerFromBytes)((0, _kit.getBase58Encoder)().encode(privateKey));
+    const message = (0, _kit.createSignableMessage)(typeof data === 'string' ? data : String(data));
+    const signatureBytes = await (0, _kit.signBytes)(keypair.keyPair.privateKey, message.content);
+    return (0, _kit.getBase58Encoder)().decode(signatureBytes);
   }
-  async signAndSend(privateKey, txInstructions) {
-    const keypair = await (0, _kit.createKeyPairFromBytes)((0, _kit.getBase58Encoder)().encode(privateKey));
-    const signer = await (0, _kit.createSignerFromKeyPair)(keypair);
+
+  /**
+   * @param {string} privateKey base58-encoded 64-byte keypair
+   * @param {{ type: 'sol' | 'usdc', source: string, destination: string, amount: string, mint?: string }} tx
+   */
+  async signAndSend(privateKey, tx) {
+    const rpc = await this.getRpc();
+    const signer = await (0, _kit.createKeyPairSignerFromBytes)((0, _kit.getBase58Encoder)().encode(privateKey));
     const {
       value: latestBlockhash
-    } = await this.rpc.getLatestBlockhash().send();
-    const transactionMessage = (0, _kit.pipe)((0, _kit.createTransactionMessage)({
+    } = await rpc.getLatestBlockhash().send();
+    let instructions;
+    if (tx.type === 'sol') {
+      instructions = [(0, _instructions.buildNativeTransferInstruction)({
+        ownerAddress: tx.source,
+        destination: tx.destination,
+        amount: tx.amount,
+        ownerSigner: signer
+      })];
+    } else if (tx.type === 'usdc') {
+      if (!tx.mint) throw new Error('mint is required for USDC transfers');
+      instructions = await (0, _instructions.buildUsdcTransferInstructions)({
+        rpc,
+        facilitatorAddress: signer.address,
+        ownerAddress: tx.source,
+        destinationAddress: tx.destination,
+        mintAddress: tx.mint,
+        amount: tx.amount,
+        ownerSigner: signer
+      });
+    } else {
+      throw new Error(`Unsupported Solana transfer type: ${tx.type}`);
+    }
+    const message = (0, _kit.pipe)((0, _kit.createTransactionMessage)({
       version: 0
-    }), tx => (0, _kit.setTransactionMessageFeePayerSigner)(signer, tx), tx => (0, _kit.setTransactionMessageLifetimeUsingBlockhash)(latestBlockhash, tx), tx => (0, _kit.appendTransactionMessageInstructions)(txInstructions, tx));
-    const signedTransaction = await (0, _kit.signTransactionMessageWithSigners)(transactionMessage);
+    }), m => (0, _kit.setTransactionMessageFeePayerSigner)(signer, m), m => (0, _kit.setTransactionMessageLifetimeUsingBlockhash)(latestBlockhash, m), m => (0, _kit.appendTransactionMessageInstructions)(instructions, m));
+    const signedTransaction = await (0, _kit.signTransactionMessageWithSigners)(message);
+    const wireBase64 = (0, _kit.getBase64EncodedWireTransaction)(signedTransaction);
     const signature = (0, _kit.getSignatureFromTransaction)(signedTransaction);
-    const base64WireTransaction = (0, _kit.getBase64EncodedWireTransaction)(signedTransaction);
-    await this.rpc.sendTransaction(base64WireTransaction, {
-      encoding: "base64"
+    await rpc.sendTransaction(wireBase64, {
+      encoding: 'base64'
     }).send();
-    await this.confirmTransactionByPolling(signature, latestBlockhash.lastValidBlockHeight);
+    await (0, _rpc.confirmTransactionByPolling)(rpc, signature, latestBlockhash.lastValidBlockHeight);
     return signature;
   }
-  async confirmTransactionByPolling(signature, lastValidBlockHeight, commitment = "confirmed", intervalMs = 2000) {
-    const commitmentRank = {
-      processed: 0,
-      confirmed: 1,
-      finalized: 2
-    };
-    const targetRank = commitmentRank[commitment] ?? 1;
-    while (true) {
-      const {
-        value: blockHeight
-      } = await this.rpc.getBlockHeight({
-        commitment: "finalized"
-      }).send();
-      if (blockHeight > lastValidBlockHeight) {
-        throw new Error(`Transaction expired`);
-      }
-      const {
-        value: statuses
-      } = await this.rpc.getSignatureStatuses([signature]).send();
-      const status = statuses[0];
-      if (status) {
-        if (status.err) throw new Error(`Transaction failed: ${JSON.stringify(status.err)}`);
-        const confirmedRank = commitmentRank[status.confirmationStatus] ?? -1;
-        if (confirmedRank >= targetRank) return status;
-      }
-      await new Promise(r => setTimeout(r, intervalMs));
-    }
-  }
   async getTokenDecimals(tokenAddr) {
-    const mint = await (0, _token.fetchMint)(this.rpc, (0, _kit.address)(tokenAddr));
+    const rpc = await this.getRpc();
+    const mint = await (0, _token.fetchMint)(rpc, (0, _kit.address)(tokenAddr));
     return mint.data.decimals;
   }
 }
