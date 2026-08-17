@@ -22,6 +22,7 @@ import ContextModule from '../../providers/contextModule';
 import { Events } from '../../core/events';
 import StoreApp from '../../components/StoreApp';
 import { enrichStoreApp } from '../../core/storeAppIcons';
+import { AppStoreIcon } from '../../features/store/AppStoreIcon';
 import MapApp from '../../components/MapApp';
 import { isAltagaGodToken, isStaffToken, withStaffApps } from '../../core/godAccess';
 import { refreshHostSession } from '../../features/session/refreshHostSession';
@@ -480,14 +481,16 @@ export default function Main() {
                           onLongPress={handleLongPress}
                           delayLongPress={500}
                         >
-                          <View style={[s.appIcon, app.iconSource ? s.appIconLogoShell : { backgroundColor: appColor }, isSelected && s.appIconSelected]}>
-                            {app.iconSource ? (
-                              <Image source={app.iconSource} style={s.appIconLogo} contentFit="cover" />
-                            ) : app.iconUrl ? (
-                              <Image source={{ uri: app.iconUrl }} style={[s.appIconImage, (theme.icons?.overrideColor || theme.icons?.mapColors) ? { tintColor: iconColor } : {}]} contentFit="contain" />
-                            ) : (
-                              <Ionicons name={app.icon} size={n(28)} color={iconColor} />
-                            )}
+                          <View style={[s.appIcon, (app.iconUrl || app.iconSource) ? s.appIconLogoShell : { backgroundColor: appColor }, isSelected && s.appIconSelected]}>
+                            <AppStoreIcon
+                              app={app}
+                              style={app.iconSource ? s.appIconLogo : s.appIconImage}
+                              imageStyle={app.iconSource ? s.appIconLogo : s.appIconImage}
+                              contentFit={app.iconSource ? 'cover' : 'contain'}
+                              fallbackIconSize={n(28)}
+                              fallbackIconColor={iconColor}
+                              tintColor={(theme.icons?.overrideColor || theme.icons?.mapColors) ? iconColor : undefined}
+                            />
                           </View>
                           <Text style={s.appLabel}>{t.apps[app.id] || app.name}</Text>
                         </Pressable>

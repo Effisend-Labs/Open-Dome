@@ -38,6 +38,9 @@ function collectRoots() {
   roots.add(path.join(task, 'OpenDome', 'OpenDomeApp'));
   roots.add(path.join(cwd, 'api'));
   roots.add(path.join(cwd, 'dist', 'server'));
+  // Solana Kit lives under opendome; allow host code to resolve those nested deps.
+  roots.add(path.join(cwd, 'node_modules', 'opendome'));
+  roots.add(path.join(task, 'node_modules', 'opendome'));
 
   return [...roots].filter(exists);
 }
@@ -56,6 +59,8 @@ function collectRequireFiles(id) {
       path.join(root, 'api', 'load-viem.js'),
       path.join(root, 'api', 'load-ethers.js'),
       path.join(root, relPkg),
+      path.join(root, 'node_modules', 'opendome', 'package.json'),
+      path.join(root, 'node_modules', 'opendome', relPkg),
     ]) {
       if (exists(file)) files.push(file);
     }

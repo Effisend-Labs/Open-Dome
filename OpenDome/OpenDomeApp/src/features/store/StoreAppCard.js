@@ -1,7 +1,6 @@
 import React from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { AppStoreIcon } from './AppStoreIcon';
 
 export function StoreAppCard({
   app,
@@ -18,11 +17,15 @@ export function StoreAppCard({
   return (
     <View style={[styles.card(n, theme), isPending && styles.cardPending(theme)]}>
       <Animated.View style={[styles.iconWrap(n, theme), { transform: [{ scale: iconPulse }] }]}>
-        {iconSource ? (
-          <Image source={iconSource} style={styles.logo} contentFit="contain" />
-        ) : (
-          <Ionicons name={app.icon || 'apps'} size={n(26)} color={theme.text.primary} />
-        )}
+        <AppStoreIcon
+          app={app}
+          iconSource={iconSource}
+          style={styles.logo}
+          imageStyle={styles.logo}
+          contentFit="contain"
+          fallbackIconSize={n(26)}
+          fallbackIconColor={theme.text.primary}
+        />
       </Animated.View>
 
       <View style={styles.meta}>

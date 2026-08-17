@@ -122,7 +122,7 @@ The production routes below live under `OpenDome/OpenDomeApp/src/app/api/`. The 
 
 | Route | Method | Caller / responsibility |
 |-------|--------|-------------------------|
-| `/api/apps` | GET | Host store catalog and resolved mini-app URLs |
+| `/api/apps` | GET | Host store catalog and resolved mini-app URLs; `iconUrl` = each mini-app `/app-icon.png` |
 | `/api/docking-token` | POST | Mini-app server exchanges Bearer enrollment JWT for handshake JWT |
 | `/api/verify` | POST | Host bridge verifies handshake and mints browser session/channel JWTs |
 | `/api/session` | POST | Host session validation/refresh |

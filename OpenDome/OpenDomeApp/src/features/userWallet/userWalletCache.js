@@ -42,7 +42,10 @@ async function requestJson(path, token, { method = 'GET', body } = {}) {
     body: body != null ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || data.message || 'Wallet cache request failed');
+  if (!res.ok) {
+    const detail = data.error || data.message || `HTTP ${res.status}`;
+    throw new Error(detail);
+  }
   return data;
 }
 

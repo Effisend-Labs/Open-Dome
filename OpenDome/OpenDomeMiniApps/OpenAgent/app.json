@@ -4,12 +4,12 @@
     "slug": "openagent",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/logoMA.png",
+    "icon": "./public/app-icon.png",
     "scheme": "opendome-openagent",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./src/assets/logoMA.png",
+      "image": "./public/app-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0A0A0A"
     },
@@ -18,14 +18,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/logoMA.png",
+        "foregroundImage": "./public/app-icon.png",
         "backgroundColor": "#0A0A0A"
       },
       "edgeToEdgeEnabled": true
     },
     "web": {
       "output": "server",
-      "favicon": "./src/assets/logoMA.png"
+      "favicon": "./public/app-icon.png"
     },
     "plugins": [
       [

@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSmartSize } from '../providers/smartProvider';
 import { useTheme } from '../providers/ThemeProvider';
-import { STORE_APP_ICONS } from '../core/storeAppIcons';
+import { STORE_APP_ICONS, enrichStoreApp } from '../core/storeAppIcons';
 import { isAltagaGodToken, isStaffToken } from '../core/godAccess';
 import { StoreAppCard } from '../features/store/StoreAppCard';
 import { refreshHostSession } from '../features/session/refreshHostSession';
@@ -176,12 +176,13 @@ export default function StoreApp({
         ) : (
           <View style={{ gap: n(10) }}>
             {visibleApps.map((app) => {
+              const enriched = enrichStoreApp(app);
               const isInstalled = installedAppIds.includes(app.id);
               const pending = pendingActions[app.id];
               return (
                 <StoreAppCard
                   key={app.id}
-                  app={app}
+                  app={enriched}
                   iconSource={STORE_APP_ICONS[app.id]}
                   isInstalled={isInstalled}
                   isPending={Boolean(pending)}

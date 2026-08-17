@@ -4,12 +4,14 @@
     "slug": "opendome-scanner",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./public/app-icon.png",
     "scheme": "opendomescanner",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "web": {
       "output": "server",
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./public/app-icon.png"
     },
     "plugins": ["expo-router"],
     "experiments": {

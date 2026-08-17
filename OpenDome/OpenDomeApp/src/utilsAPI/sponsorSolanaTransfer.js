@@ -1,8 +1,14 @@
 import { nodeRequire } from './nodeRequire.js';
 
-const { createSignerFromSecretKey } = nodeRequire('opendome/dist/solana/keypair.js');
-const { createSolanaRpc } = nodeRequire('opendome/dist/solana/rpc.js');
-const { sponsorTransferWithCircle } = nodeRequire('opendome/dist/solana/sponsorWithCircle.js');
+function solanaSponsor() {
+  return {
+    createSignerFromSecretKey: nodeRequire('opendome/dist/solana/keypair.js')
+      .createSignerFromSecretKey,
+    createSolanaRpc: nodeRequire('opendome/dist/solana/rpc.js').createSolanaRpc,
+    sponsorTransferWithCircle: nodeRequire('opendome/dist/solana/sponsorWithCircle.js')
+      .sponsorTransferWithCircle,
+  };
+}
 
 function solanaRpcUrl() {
   if (process.env.RPC_URL_SOLANA) return process.env.RPC_URL_SOLANA;
@@ -12,7 +18,7 @@ function solanaRpcUrl() {
   return cfg.defaultRpc || cfg.rpcs?.[0] || 'https://api.mainnet-beta.solana.com';
 }
 
-async function parseFacilitatorSigner() {
+async function parseFacilitatorSigner(createSignerFromSecretKey) {
   const signer = await createSignerFromSecretKey(process.env.MERCHANT_SOLANA_PRIVATE_KEY);
   const expectedAddress = String(process.env.MERCHANT_SOLANA_ADDRESS || '').trim();
   if (expectedAddress && signer.address !== expectedAddress) {
@@ -35,7 +41,9 @@ export async function sponsorSolanaTransferWithCircle({
   asset = 'USDC',
 }) {
   try {
-    const facilitatorSigner = await parseFacilitatorSigner();
+    const { createSignerFromSecretKey, createSolanaRpc, sponsorTransferWithCircle } =
+      solanaSponsor();
+    const facilitatorSigner = await parseFacilitatorSigner(createSignerFromSecretKey);
     const rpc = createSolanaRpc(solanaRpcUrl());
     const { getUsdcChain } = nodeRequire('opendome/dist/x402.js');
     const usdcMint = asset === 'USDC' ? getUsdcChain('SOL').usdc : undefined;

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { nodeRequire } from './nodeRequire';
+import { nodeRequire } from './nodeRequire.js';
 import { isSolanaAddress } from './cctp/solanaAddress.js';
-import { bridgeUsdcToSolana } from './cctp/bridgeUsdcToSolana.js';
 
 let _circleClient = null;
 
@@ -200,6 +199,8 @@ export async function executeCircleNanoPayment({
 
     const toSolana = isSolanaAddress(destination);
     if (toSolana && chainKey === 'BASE') {
+      // Lazy: CCTP pulls Solana Kit; keep it off the wallet-balances / nfts cold path.
+      const { bridgeUsdcToSolana } = await import('./cctp/bridgeUsdcToSolana.js');
       return bridgeUsdcToSolana({
         client,
         walletId: sourceWallet.id,

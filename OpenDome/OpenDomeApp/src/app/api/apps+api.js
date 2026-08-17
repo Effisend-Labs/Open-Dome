@@ -15,6 +15,10 @@ function resolveMiniAppUrl(request, devPort, envKey, prodUrl) {
   return prodUrl;
 }
 
+function resolveIconUrl(baseUrl) {
+  return new URL('app-icon.png', baseUrl).href;
+}
+
 export async function GET(request) {
   const storeApps = [
     {
@@ -81,5 +85,10 @@ export async function GET(request) {
     },
   ];
 
-  return Response.json({ success: true, data: storeApps });
+  const data = storeApps.map((app) => ({
+    ...app,
+    iconUrl: resolveIconUrl(app.url),
+  }));
+
+  return Response.json({ success: true, data });
 }

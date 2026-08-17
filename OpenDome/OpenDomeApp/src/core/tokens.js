@@ -147,7 +147,7 @@ export const springboardApps = [
   {
     id: "sandbox_app",
     name: "Sandbox",
-    iconUrl: "https://demo.opendome.xyz/favicon.ico",
+    iconUrl: "https://demo.opendome.xyz/app-icon.png",
     url: "https://demo.opendome.xyz/",
   }
 ];
