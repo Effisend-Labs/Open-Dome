@@ -204,6 +204,8 @@ The Open Dome Facilitator is officially deployed and actively processing transac
 **[View on Basescan](https://basescan.org/address/0xd2D5196DbC7a285Fa96d193A91E40F5e4BB39C60)**  
 **Address:** `0xd2D5196DbC7a285Fa96d193A91E40F5e4BB39C60`
 
+## Circle Tech Stack:
+
 | Capability | How it works |
 | --- | --- |
 | **Programmable wallets** | Circle developer-controlled wallets, created per user in wallet sets. Keys never touch the client. |
