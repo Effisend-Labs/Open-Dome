@@ -8,6 +8,7 @@ import { emitPlatformEvent } from '../../utilsAPI/platformTelemetry.js';
 import {
   parseQuotedUsdcAmount,
   validateX402ServiceUrl,
+  buildX402ServiceFetchOptions,
 } from '../../utilsAPI/x402ServicePolicy.js';
 
 BigInt.prototype.toJSON = function () {
@@ -84,14 +85,12 @@ export async function POST(request) {
     } catch (error) {
       return Response.json({ error: error.message }, { status: 400 });
     }
-    const safeFetchOptions = {
-      method: ['GET', 'POST'].includes(String(fetchOptions?.method || 'GET').toUpperCase())
-        ? String(fetchOptions?.method || 'GET').toUpperCase()
-        : 'GET',
-      headers: fetchOptions?.headers?.['x-payment-network']
-        ? { 'x-payment-network': fetchOptions.headers['x-payment-network'] }
-        : undefined,
-    };
+    const serviceFetch = buildX402ServiceFetchOptions(
+      paymentUrl,
+      fetchOptions,
+      authHeader,
+      request.url,
+    );
 
     const {
       OpenDomeBuyer,
@@ -130,7 +129,7 @@ export async function POST(request) {
     console.log(`[x402 Host] Fetching 402 challenge from ${serviceUrl}...`);
     let challengeRes;
     try {
-      challengeRes = await fetch(paymentUrl, { ...safeFetchOptions, redirect: 'error' });
+      challengeRes = await fetch(paymentUrl, serviceFetch);
     } catch (fetchErr) {
       const detail = formatX402Error(fetchErr);
       const hint = /8083/.test(serviceUrl)
@@ -200,10 +199,9 @@ export async function POST(request) {
       ).toString('base64');
 
       const response = await fetch(paymentUrl, {
-        ...safeFetchOptions,
-        redirect: 'error',
+        ...serviceFetch,
         headers: {
-          ...(safeFetchOptions.headers || {}),
+          ...serviceFetch.headers,
           'payment-signature': paymentSignatureBase64,
         },
       });
@@ -288,10 +286,9 @@ export async function POST(request) {
 
     console.log('[x402 Host] Submitting payment-signature to service...');
     const response = await fetch(paymentUrl, {
-      ...safeFetchOptions,
-      redirect: 'error',
+      ...serviceFetch,
       headers: {
-        ...(safeFetchOptions.headers || {}),
+        ...serviceFetch.headers,
         'payment-signature': paymentSignatureBase64,
       },
     });

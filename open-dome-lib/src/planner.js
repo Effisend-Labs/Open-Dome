@@ -72,7 +72,7 @@ export function isEventsListIntent(text) {
 
 export function isItineraryFollowUpIntent(text, session) {
   if (!session?.lastEventsList?.length && !session?.selectedEvent) return false;
-  return /\b(that day|full (day|itinerary)|plan (my|the) day|make (an |a )?itinerary|tdc day|tokyo dome city)\b/i.test(text)
+  return /\b(that day|full (day|itinerary)|plan (my|the) day|make (an |a )?itinerary|tdc day)\b/i.test(text)
     || (/\b(itinerary|plan|schedule)\b/i.test(text) && session?.selectedEvent);
 }
 

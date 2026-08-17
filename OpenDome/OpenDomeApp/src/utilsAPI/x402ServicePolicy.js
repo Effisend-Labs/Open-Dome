@@ -72,3 +72,52 @@ export function parseQuotedUsdcAmount(value) {
   const [whole, fractional = ''] = amount.split('.');
   return BigInt(`${whole}${fractional.padEnd(6, '0')}`);
 }
+
+function isLocalHostname(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+}
+
+/** Same host as this API route — session JWT may be forwarded (never to third-party x402 URLs). */
+export function isSameHostX402Service(paymentUrl, requestUrl) {
+  const serviceHost = paymentUrl.hostname.toLowerCase();
+  let requestHost;
+  try {
+    requestHost = new URL(requestUrl).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  if (serviceHost === requestHost) return true;
+  return isLocalHostname(serviceHost) && isLocalHostname(requestHost);
+}
+
+/**
+ * Build the outbound fetch to a priced service: POST body + network headers,
+ * and host session auth only when the service URL is same-origin.
+ */
+export function buildX402ServiceFetchOptions(paymentUrl, fetchOptions, authHeader, requestUrl) {
+  const method = ['GET', 'POST'].includes(String(fetchOptions?.method || 'GET').toUpperCase())
+    ? String(fetchOptions?.method || 'GET').toUpperCase()
+    : 'GET';
+
+  const headers = {};
+  const network = fetchOptions?.headers?.['x-payment-network'];
+  if (network) {
+    headers['x-payment-network'] = network;
+  }
+
+  let body;
+  if (method === 'POST' && fetchOptions?.body != null) {
+    body =
+      typeof fetchOptions.body === 'string'
+        ? fetchOptions.body
+        : JSON.stringify(fetchOptions.body);
+    headers['Content-Type'] = 'application/json';
+  }
+
+  if (authHeader && isSameHostX402Service(paymentUrl, requestUrl)) {
+    headers.Authorization = authHeader;
+  }
+
+  return { method, headers, body, redirect: 'error' };
+}

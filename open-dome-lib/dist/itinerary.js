@@ -66,7 +66,8 @@ function buildDemoItineraryProposal() {
   });
 }
 function isPlanningIntent(text) {
-  return /\b(plan|itinerary|schedule|show day|day trip|full day|before the show|korakuen|tokyo dome|tokyo dome city|spa|golf|mini golf|concert day|game day)\b/i.test(text.trim());
+  const normalized = String(text || '').trim();
+  return /\b(itinerary|show day|day trip|full day|concert day|game day|before (?:the )?(?:show|game|event))\b/i.test(normalized) || /\b(?:plan|schedule|organize|build)\b.{0,48}\b(?:day|itinerary|visit|outing|before|after|around)\b/i.test(normalized);
 }
 function getAmenities() {
   return _amenities.default;

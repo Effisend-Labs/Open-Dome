@@ -73,8 +73,7 @@ export function routeAgentTurn(text, session, { t } = {}) {
     const event =
       pickEventFromMessage(trimmed, session) ||
       session.selectedEvent ||
-      session.lastEventsList?.[0] ||
-      listUpcomingEvents({ placeName: DEFAULT_EVENT_VENUE, limit: 1 })[0];
+      session.lastEventsList?.[0];
 
     if (!event) {
       messages.push(

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import {
   parseQuotedUsdcAmount,
   validateX402ServiceUrl,
+  buildX402ServiceFetchOptions,
 } from '../../utilsAPI/x402ServicePolicy.js';
 
 // Monkey-patch BigInt serialization because the @circle-fin GatewayClient 
@@ -49,14 +50,12 @@ export async function POST(request) {
     } catch (error) {
       return Response.json({ error: error.message }, { status: 400 });
     }
-    const safeFetchOptions = {
-      method: ['GET', 'POST'].includes(String(fetchOptions?.method || 'GET').toUpperCase())
-        ? String(fetchOptions?.method || 'GET').toUpperCase()
-        : 'GET',
-      headers: fetchOptions?.headers?.['x-payment-network']
-        ? { 'x-payment-network': fetchOptions.headers['x-payment-network'] }
-        : undefined,
-    };
+    const serviceFetch = buildX402ServiceFetchOptions(
+      paymentUrl,
+      fetchOptions,
+      authHeader,
+      request.url,
+    );
 
     console.log(`[x402 Custodial Backend] Received payment intent for ${serviceUrl} from user ${decoded.username}`);
 
@@ -119,7 +118,7 @@ export async function POST(request) {
       }
     };
 
-    const targetNetwork = safeFetchOptions.headers?.['x-payment-network']?.toLowerCase() || 'base';
+    const targetNetwork = serviceFetch.headers?.['x-payment-network']?.toLowerCase() || 'base';
 
     if (targetNetwork === 'solana') {
       return Response.json(
@@ -140,7 +139,7 @@ export async function POST(request) {
 
     // Fetch the challenge
     console.log(`[x402 Custodial Backend] Fetching challenge from ${serviceUrl}...`);
-    const challengeRes = await fetch(paymentUrl, { ...safeFetchOptions, redirect: 'error' });
+    const challengeRes = await fetch(paymentUrl, serviceFetch);
     if (challengeRes.status !== 402) {
       throw new Error(`Expected 402 challenge, got ${challengeRes.status}`);
     }
@@ -178,18 +177,17 @@ export async function POST(request) {
 
     console.log(`[x402 Custodial Backend] Executing self-hosted relayer payment to Agent...`);
     const finalHeaders = {
-      ...(safeFetchOptions.headers || {}),
-      'payment-signature': paymentSignatureBase64
+      ...serviceFetch.headers,
+      'payment-signature': paymentSignatureBase64,
     };
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     const response = await fetch(paymentUrl, {
-      ...safeFetchOptions,
-      redirect: 'error',
+      ...serviceFetch,
       headers: finalHeaders,
-      signal: controller.signal
+      signal: controller.signal,
     });
     
     clearTimeout(timeoutId);

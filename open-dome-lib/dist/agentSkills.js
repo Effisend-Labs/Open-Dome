@@ -14,7 +14,11 @@ const GOOGLE_SEARCH_TOOLS = exports.GOOGLE_SEARCH_TOOLS = [{
 }];
 const DOME_CONSULTANT_PROMPT = exports.DOME_CONSULTANT_PROMPT = `You are the OpenDome consultant for Tokyo Dome City (Tokyo, Japan). You help with venues, events, amenities, and day plans.
 
-Use tools for catalog facts. Do not invent showtimes. Do not take payments, mint tickets, or move USDC — send people to Wallet / OpenAgent for that.
+Use tools for every catalog or availability fact. For amenities, opening hours, or "open now" questions, call list_amenities and answer from its hours and openNow fields. Never turn an amenities question into a day plan.
+
+Only call plan_day when the user explicitly asks for an itinerary or day plan. A day plan must be anchored to an eventId selected with search_events or get_event; if the user has not identified an event, ask them to choose one. Do not silently pick a baseball game or other event.
+
+Do not invent showtimes or opening hours. Do not take payments, mint tickets, or move USDC — send people to Wallet / OpenAgent for that.
 
 Voice: concise, specific, local. No receptionist filler.`;
 const DOME_CONSULTANT_TOOLS = exports.DOME_CONSULTANT_TOOLS = [{
@@ -60,7 +64,7 @@ const DOME_CONSULTANT_TOOLS = exports.DOME_CONSULTANT_TOOLS = [{
     }
   }, {
     name: 'list_amenities',
-    description: 'List TDC amenities (spa, batting, TeNQ, food, etc).',
+    description: 'List TDC amenities with Tokyo opening hours and whether each is open now. Use for amenities, hours, availability, spa, attractions, and food questions.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -71,20 +75,18 @@ const DOME_CONSULTANT_TOOLS = exports.DOME_CONSULTANT_TOOLS = [{
     }
   }, {
     name: 'plan_day',
-    description: 'Build a Pulse/Zen/Curator/Local day plan around a show.',
+    description: 'Build a Pulse/Zen/Curator/Local day plan around a specific event. Use only for an explicit itinerary request after selecting an event.',
     parameters: {
       type: 'OBJECT',
       properties: {
         eventId: {
           type: 'NUMBER'
         },
-        placeName: {
-          type: 'STRING'
-        },
         userText: {
           type: 'STRING'
         }
-      }
+      },
+      required: ['eventId']
     }
   }]
 }];
@@ -335,6 +337,28 @@ function summarizeEvent(event) {
     fromTime: event.fromTime
   };
 }
+function getTokyoClock(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Tokyo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(now);
+  const hour = Number(parts.find(part => part.type === 'hour')?.value || 0);
+  const minute = Number(parts.find(part => part.type === 'minute')?.value || 0);
+  return {
+    label: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+    minutes: hour * 60 + minute
+  };
+}
+function isOpenAt(amenity, minutes) {
+  const opens = Number(amenity.openFromMinutes);
+  const closes = Number(amenity.openToMinutes);
+  if (!Number.isFinite(opens) || !Number.isFinite(closes)) return null;
+  if (opens === closes) return true;
+  if (closes > opens) return minutes >= opens && minutes < closes;
+  return minutes >= opens || minutes < closes;
+}
 function runDomeConsultantTool(name, args = {}) {
   if (name === 'search_events') {
     const placeName = args.placeName || (0, _planner.resolveVenueFromMessage)(args.query || '', _planner.DEFAULT_EVENT_VENUE);
@@ -366,21 +390,35 @@ function runDomeConsultantTool(name, args = {}) {
   if (name === 'list_amenities') {
     const tag = String(args.tag || '').toLowerCase();
     const rows = (0, _itinerary.getAmenities)().filter(a => !tag || (a.tags || []).includes(tag));
+    const tokyoClock = getTokyoClock();
     return {
+      timeZone: 'Asia/Tokyo',
+      currentTime: tokyoClock.label,
       amenities: rows.map(a => ({
         id: a.id,
         name: a.name,
+        placeName: a.placeName,
         tags: a.tags,
         description: a.description,
-        priceUsd: a.priceUsd
+        priceUsd: a.priceUsd,
+        opensAt: (0, _itinerary.formatTime)(a.openFromMinutes),
+        closesAt: (0, _itinerary.formatTime)(a.openToMinutes),
+        openNow: isOpenAt(a, tokyoClock.minutes)
       }))
     };
   }
   if (name === 'plan_day') {
-    const event = (args.eventId != null ? _events.Events.getById(args.eventId) : null) || (0, _planner.listUpcomingEvents)({
-      placeName: args.placeName || _planner.DEFAULT_EVENT_VENUE,
-      limit: 1
-    })[0];
+    if (args.eventId == null) {
+      return {
+        error: 'Choose an event before requesting a day plan.'
+      };
+    }
+    const event = _events.Events.getById(args.eventId);
+    if (!event) {
+      return {
+        error: `Event ${args.eventId} was not found.`
+      };
+    }
     const proposal = (0, _planner.buildItineraryForEvent)(event, {
       userText: args.userText
     });

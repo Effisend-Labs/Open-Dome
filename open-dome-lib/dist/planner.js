@@ -84,7 +84,7 @@ function isEventsListIntent(text) {
 }
 function isItineraryFollowUpIntent(text, session) {
   if (!session?.lastEventsList?.length && !session?.selectedEvent) return false;
-  return /\b(that day|full (day|itinerary)|plan (my|the) day|make (an |a )?itinerary|tdc day|tokyo dome city)\b/i.test(text) || /\b(itinerary|plan|schedule)\b/i.test(text) && session?.selectedEvent;
+  return /\b(that day|full (day|itinerary)|plan (my|the) day|make (an |a )?itinerary|tdc day)\b/i.test(text) || /\b(itinerary|plan|schedule)\b/i.test(text) && session?.selectedEvent;
 }
 function isPurchaseIntent(text) {
   return /\b(buy|book|reserve|checkout|purchase|get tickets|pay|sign)\b/i.test(text) && /\b(ticket|pass|itinerary|hours?|slot|reservation|all|everything)\b/i.test(text) || /\b(buy the tickets and reserve|reserve that hours?|ok buy)\b/i.test(text);
