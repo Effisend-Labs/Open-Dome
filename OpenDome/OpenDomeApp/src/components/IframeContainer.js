@@ -226,12 +226,6 @@ export default function IframeContainer({
           return;
         }
         onAddLog(`[Bridge] Payment intent: ${amount} USDC → ${serviceUrl}`);
-        const requestedNetwork = String(
-          fetchOptions?.headers?.['x-payment-network'] || 'base',
-        ).toUpperCase();
-        const paymentChain = requestedNetwork === 'SOL' || requestedNetwork === 'SOLANA'
-          ? 'SOLANA'
-          : requestedNetwork;
 
         if (!verifiedToken) {
           const sourceWindow = event.source;
@@ -246,16 +240,8 @@ export default function IframeContainer({
         }
 
         try {
-          const approved = await onTransactionIntent({
-            chain: paymentChain,
-            to: serviceUrl,
-            amount,
-            asset: 'USDC',
-            kind: 'payment',
-          });
-          if (!approved) {
-            throw new Error('Payment rejected by user.');
-          }
+          // Guest already confirmed in the mini-app PaymentIntentSheet (Sign & Send).
+          // Skip host TransactionModal for x402; Host.transfer still requires it.
           const payRes = await fetch('/api/x402-pay', {
             method: 'POST',
             headers: {

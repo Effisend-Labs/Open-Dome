@@ -23,7 +23,7 @@ Open-Dome’s load-bearing story is **agentic operations + USDC payments**, not 
 | **Identity + wallet refs** | Google Cloud Firestore | Users, roles, Circle wallet IDs, tickets | `src/utilsAPI/passkeyDb.js`, `ticketsDb.js` |
 | **Programmable money** | Circle developer-controlled wallets | Per-user wallets; HSM signs EIP-3009; Solana USDC transfers | `src/utilsAPI/circleTools.js`, `src/utilsAPI/circleAgentRuntime.js` |
 | **Per-interaction USDC** | Circle + x402 | OpenAgent turns and paid HTTP services settle in USDC before delivery | `src/app/api/x402-pay+api.js`, `open-dome-lib/src/agentTariff.js`, `open-dome-lib/src/x402.js` |
-| **Guest approval** | Host UI bridge | Nothing auto-pays; transfer/x402 require explicit approve | `src/components/IframeContainer.js`, `src/components/TransactionModal.js` |
+| **Guest approval** | Host + mini-app UI | Transfers: host `TransactionModal`. x402 (OpenAgent): mini-app `PaymentIntentSheet` only — host does not re-prompt | `IframeContainer.js`, `TransactionModal.js`, OpenAgent `PaymentIntentSheet.js` |
 
 When documenting or demoing the product, lead with the complete **Gemini + Circle user journey**: Gemini understands the request and calls tools; the guest sees a clear USDC quote; Circle supplies the wallet, balance, network choice, approval, and settlement; the requested answer or pass is delivered. Circle's importance should be evident through usability, not repeated provider-name claims. Screenshots must prove this flow first. Generic host, profile, store, and docking screens are supporting material only. Do not frame the product primarily as a hackathon entry.
 
@@ -335,7 +335,7 @@ sequenceDiagram
 | Checkout + mint | `src/app/api/checkout+api.js`, `mint+api.js`, `opendome/dist/platformMint.js` | Pay then mint ERC-1155 pass on Base (`CONTRACT_ADDRESS`) |
 | CCTP | `src/utilsAPI/cctp/*` | EVM → Solana USDC when pay network ≠ treasury network |
 | Balances / NFTs | `src/app/api/wallet-balances+api.js`, `nfts+api.js` | Circle + chain reads; also via `Host.walletBalances` / `Host.listNfts` |
-| Approval UX | `src/components/TransactionModal.js`, `IframeContainer.js` | Shows network + amount; reject cancels; no auto-pay |
+| Approval UX | `TransactionModal.js` (transfers); OpenAgent `PaymentIntentSheet` (x402) | Transfers: host gate. x402: mini-app Sign & Send → host `/api/x402-pay` with no second modal |
 
 ### Payment examples (agents: copy patterns, not secrets)
 
@@ -357,7 +357,7 @@ const result = await Host.transfer({
 ```js
 import { quotePromptTariff } from 'opendome'; // agentTariff
 const quote = quotePromptTariff(prompt, modelId);
-// Host: TransactionModal approve → POST /api/x402-pay → POST /api/agent
+// OpenAgent PaymentIntentSheet Sign & Send → host POST /api/x402-pay → /api/agent
 ```
 
 **Circle wallet tool from Gemini** (`wallet` mode): schemas in `open-dome-lib/src/agentSkills.js`; execution in `circleAgentRuntime.js` → Circle Programmable Wallets API.

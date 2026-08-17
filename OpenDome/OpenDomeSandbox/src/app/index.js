@@ -186,6 +186,7 @@ export default function App() {
   // calls the latest version (fixes stale closure on activeUrl / getMiniAppOrigin)
   const handleDelegatedRegisterRef = useRef(null);
   const handleDelegatedAuthenticateRef = useRef(null);
+  const handleApproveIntentRef = useRef(null);
 
   const getMiniAppOrigin = () => {
     try {
@@ -211,6 +212,7 @@ export default function App() {
   // Sync handler refs every render so stable listener always calls latest version
   useEffect(() => { handleDelegatedRegisterRef.current = handleDelegatedRegister; });
   useEffect(() => { handleDelegatedAuthenticateRef.current = handleDelegatedAuthenticate; });
+  useEffect(() => { handleApproveIntentRef.current = handleApproveIntent; });
 
   const addContextRow = () => {
     setDynamicContext([...dynamicContext, { key: '', value: '' }]);
@@ -434,6 +436,8 @@ export default function App() {
         
         if (intent.type === 'payment') {
           addLog(`[PAYMENT] Forwarding payment request to backend for ${intent.serviceUrl}...`);
+          const replyTarget = intent.source || iframe?.contentWindow;
+          const replyOrigin = intent.origin || getMiniAppOrigin();
           try {
             const payRes = await fetch('/api/x402-pay', {
               method: 'POST',
@@ -451,22 +455,22 @@ export default function App() {
             
             if (!payRes.ok) throw new Error(payData.error || 'Payment failed');
             
-            if (iframe && iframe.contentWindow) {
-              iframe.contentWindow.postMessage({
+            if (replyTarget) {
+              replyTarget.postMessage({
                 type: 'OPENDOME_PAYMENT_RESPONSE',
                 id: intent.id,
                 response: payData.data
-              }, getMiniAppOrigin());
+              }, replyOrigin);
               addLog(`[PAYMENT] Success. Data returned to Mini App.`);
             }
           } catch (payErr) {
             addLog(`[PAYMENT] Error: ${payErr.message}`);
-            if (iframe && iframe.contentWindow) {
-              iframe.contentWindow.postMessage({
+            if (replyTarget) {
+              replyTarget.postMessage({
                 type: 'OPENDOME_PAYMENT_RESPONSE',
                 id: intent.id,
                 error: payErr.message
-              }, getMiniAppOrigin());
+              }, replyOrigin);
             }
           }
         } else if (intent.type === 'host_transfer') {
@@ -678,7 +682,16 @@ export default function App() {
           return;
         }
         addLog(`[PAYMENT] Incoming intent: Pay ${amount} USDC to ${serviceUrl}`);
-        setPendingIntent({ type: 'payment', id, serviceUrl, amount, fetchOptions, source: event.source, origin: event.origin });
+        // Mini-app PaymentIntentSheet already confirmed; skip Sandbox ACTION INTENT UI.
+        void handleApproveIntentRef.current?.({
+          type: 'payment',
+          id,
+          serviceUrl,
+          amount,
+          fetchOptions,
+          source: event.source,
+          origin: event.origin,
+        });
       }
 
       // Handle Delegated Register from Mini App
