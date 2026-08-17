@@ -4,17 +4,19 @@ import {
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionInstruction,
 } from '@solana/web3.js';
-import {
-  createAssociatedTokenAccountInstruction,
-  createTransferCheckedInstruction,
-  getAssociatedTokenAddress,
-} from '@solana/spl-token';
 import bs58 from 'bs58';
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from './cctp/constants.js';
 import { nodeRequire } from './nodeRequire.js';
 
 const USDC_DECIMALS = 6;
 const SOL_DECIMALS = 9;
+const TOKEN_PROGRAM = new PublicKey(TOKEN_PROGRAM_ID);
+const ATA_PROGRAM = new PublicKey(ASSOCIATED_TOKEN_PROGRAM_ID);
 
 function parseSecretKey(raw) {
   const value = String(raw || '').trim();
@@ -67,6 +69,53 @@ function solanaRpcUrl() {
   return cfg.defaultRpc || cfg.rpcs?.[0] || 'https://api.mainnet-beta.solana.com';
 }
 
+function getAssociatedTokenAddress(mint, owner) {
+  const [ata] = PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), TOKEN_PROGRAM.toBuffer(), mint.toBuffer()],
+    ATA_PROGRAM,
+  );
+  return ata;
+}
+
+function createAssociatedTokenAccountInstruction(payer, ata, owner, mint) {
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: payer, isSigner: true, isWritable: true },
+      { pubkey: ata, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      { pubkey: TOKEN_PROGRAM, isSigner: false, isWritable: false },
+    ],
+    programId: ATA_PROGRAM,
+    data: Buffer.alloc(0),
+  });
+}
+
+function createTransferCheckedInstruction(
+  source,
+  mint,
+  destination,
+  owner,
+  amount,
+  decimals,
+) {
+  const data = Buffer.alloc(10);
+  data.writeUInt8(12, 0); // TransferChecked
+  data.writeBigUInt64LE(BigInt(amount), 1);
+  data.writeUInt8(decimals, 9);
+  return new TransactionInstruction({
+    keys: [
+      { pubkey: source, isSigner: false, isWritable: true },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: destination, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: true, isWritable: false },
+    ],
+    programId: TOKEN_PROGRAM,
+    data,
+  });
+}
+
 async function addUsdcTransfer({
   connection,
   transaction,
@@ -77,8 +126,8 @@ async function addUsdcTransfer({
 }) {
   const { getUsdcChain } = nodeRequire('opendome/dist/x402.js');
   const mint = new PublicKey(getUsdcChain('SOL').usdc);
-  const sourceAta = await getAssociatedTokenAddress(mint, owner);
-  const destinationAta = await getAssociatedTokenAddress(mint, destination);
+  const sourceAta = getAssociatedTokenAddress(mint, owner);
+  const destinationAta = getAssociatedTokenAddress(mint, destination);
 
   const [sourceInfo, destinationInfo] = await Promise.all([
     connection.getAccountInfo(sourceAta),

@@ -31,7 +31,6 @@
     "@simplewebauthn/browser": "^13.0.0",
     "@simplewebauthn/server": "^13.3.2",
     "@smithy/node-http-handler": "^4.7.4",
-    "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.98.4",
     "bs58": "^6.0.0",
     "buffer": "6.0.3",
@@ -86,6 +85,23 @@
     "react-native-worklets": "$react-native-worklets",
     "typescript": "$typescript",
     "eslint": "$eslint",
-    "uuid": "^11.0.0"
+    "uuid": "^11.0.0",
+    "shell-quote": "^1.10.0",
+    "nanoid": "^3.3.18",
+    "@expo/fingerprint": {
+      "brace-expansion": "^5.0.9"
+    },
+    "minimatch@9.0.9": {
+      "brace-expansion": "^2.1.4"
+    },
+    "minimatch@8.0.7": {
+      "brace-expansion": "^2.1.4"
+    },
+    "@react-native/dev-middleware": {
+      "ws": "^7.5.13"
+    },
+    "react-native": {
+      "ws": "^7.5.13"
+    }
   }
 }

@@ -1,6 +1,6 @@
 # Open-Dome
 
-### 会場向けスーパーアプリを AI エージェントが運営するためのインフラ
+### Gemini が会場を運営し、Circle がすべてのアクションを USDC で決済可能にする
 
 <p align="center">
   <img src="./Images/logo.png" alt="Open-Dome" width="70%" align="center"/>
@@ -24,7 +24,15 @@ English: [`README.md`](./README.md) · コーディングエージェント向�
 | **インタラクション単位で決済できない** | カード決済では 0.001 ドルのエージェント応答や 1 枚のパスを採算的に処理できず、遅くて手作業の請求に集約されます。 |
 | **運用のあらゆる工程に人手が必要** | ゲストごとに、当日の計画・見積・課金・パス発行を人が行うことになります。 |
 
-Open-Dome はこの 3 つを同時に解決します。テナント用ミニアプリのゼロトラスト・ドッキング、Circle による USDC のインタラクション単位決済、そして「計画 → 見積 → 課金 → 履行」のループを本番環境で実行する Gemini エージェントです。
+Open-Dome はこの 3 つを一つの流れで解決します。**依頼 → 判断 → 承認 → 決済 → 履行**です。Google Cloud 上の Gemini が依頼を理解して会場・ウォレットツールを呼び出し、Circle がゲストごとのウォレットと承認済み USDC 決済を担います。回答・送金・パスは同じアプリに届きます。
+
+<table>
+  <tr>
+    <td align="center"><strong>Gemini が体験を探す</strong><br><sub>エージェントツールで最新の会場データを取得</sub><br><img src="./Images/app-dome-agent-events.png" alt="Dome Agent がイベントを回答" width="210"></td>
+    <td align="center"><strong>ゲストが USDC を承認</strong><br><sub>金額・モデル・ネットワーク・料金を明示</sub><br><img src="./Images/openagent-x402-payment.png" alt="OpenAgent USDC 支払い承認" width="210"></td>
+    <td align="center"><strong>Circle が資金を利用可能にする</strong><br><sub>複数ネットワークの残高を一つの会話で確認</sub><br><img src="./Images/wallet-agent-balances.png" alt="Wallet Agent が Circle USDC 残高を表示" width="210"></td>
+  </tr>
+</table>
 
 ---
 
@@ -99,6 +107,12 @@ sequenceDiagram
 
 **人が判断すること:** 支払い承認です。自動課金は行いません。
 
+<p align="center">
+  <strong>Dome Agent</strong><br>
+  <sub>Gemini がゲストの依頼をツールに基づく会場案内へ変換</sub><br>
+  <img src="./Images/app-dome-agent.png" alt="Dome Agent 会場チャット" width="230">
+</p>
+
 本番では 2 層のエージェントが動作します。
 
 | 層 | モデル / 方式 | 役割 |
@@ -108,11 +122,23 @@ sequenceDiagram
 
 評議会が提案し、Gemini が説明・調整・ツール実行を担います。分離することで行程品質の再現性を保ち、LLM の費用を実際の課金ターンに紐付けられます。
 
+### エージェント実装の場所
+
+| 部品 | パス |
+| --- | --- |
+| ホスト Gemini API（`dome` / `wallet` / `openagent`） | [`OpenDome/OpenDomeApp/src/app/api/agent+api.js`](./OpenDome/OpenDomeApp/src/app/api/agent+api.js) |
+| ツール呼び出しループ | [`OpenDome/OpenDomeApp/src/utilsAPI/geminiToolLoop.js`](./OpenDome/OpenDomeApp/src/utilsAPI/geminiToolLoop.js) |
+| ツールスキーマ（会場 + Circle ウォレット） | [`open-dome-lib/src/agentSkills.js`](./open-dome-lib/src/agentSkills.js) |
+| Circle ツール実行 | [`OpenDome/OpenDomeApp/src/utilsAPI/circleAgentRuntime.js`](./OpenDome/OpenDomeApp/src/utilsAPI/circleAgentRuntime.js) |
+| 有料ターンの USDC 料金表 | [`open-dome-lib/src/agentTariff.js`](./open-dome-lib/src/agentTariff.js) |
+| OpenAgent ミニアプリ UI | [`OpenDome/OpenDomeMiniApps/OpenAgent/`](./OpenDome/OpenDomeMiniApps/OpenAgent/) |
+| 決定論的プランナーエージェント | [`open-dome-lib/src/dayPlannerAgents.js`](./open-dome-lib/src/dayPlannerAgents.js) |
+
 ---
 
 ## 決済: Circle ウォレット、USDC、x402
 
-価格が付くすべてのインタラクションは USDC で決済されます。請求処理もカード端末も不要です。
+価格が付くすべてのインタラクションは **USDC** で決済されます。請求処理もカード端末も不要です。資金は Circle の developer-controlled wallets にあり、ゲストが毎回承認します。
 
 ```mermaid
 flowchart TD
@@ -134,13 +160,54 @@ flowchart TD
 | **クロスチェーン** | 支払いネットワークが資金保有先と異なる場合、CCTP で EVM から Solana へ USDC を移動します。 |
 | **エージェントから呼び出し可能** | Gemini が `list_wallets`、`get_wallet_token_balance`、`estimate_transfer_fee`、`create_transaction`、`create_solana_pay`、`sign_message` を直接実行します。 |
 
+ゲストは Circle に紐づく同じ ID に EVM / Solana のどちらでも入金できます。
+
+<table>
+  <tr>
+    <td align="center"><strong>受け取り</strong><br><sub>EVM アドレス QR</sub><br><img src="./Images/app-receive-evm.png" alt="EVM アドレス QR" width="210"></td>
+    <td align="center"><strong>受け取り</strong><br><sub>Solana アドレス QR</sub><br><img src="./Images/app-receive-solana.png" alt="Solana アドレス QR" width="210"></td>
+  </tr>
+</table>
+
+Gemini は Circle ツールでウォレットを参照するため、チェーン・アドレス・残高・取引詳細は別のダッシュボードではなく会話の中で返ります。
+
+<p align="center">
+  <strong>Wallet Agent</strong><br>
+  <sub>Gemini が Circle を通じてゲストの Base ウォレットを確認</sub><br>
+  <img src="./Images/wallet-agent-base-details.png" alt="Wallet Agent Base ウォレット詳細" width="230">
+</p>
+
+### Circle / USDC 実装の場所
+
+| 部品 | パス |
+| --- | --- |
+| Circle クライアント + ウォレット作成 | [`OpenDome/OpenDomeApp/src/utilsAPI/circleTools.js`](./OpenDome/OpenDomeApp/src/utilsAPI/circleTools.js) |
+| x402 USDC 購入（EVM + Solana） | [`OpenDome/OpenDomeApp/src/app/api/x402-pay+api.js`](./OpenDome/OpenDomeApp/src/app/api/x402-pay+api.js) |
+| スポンサード USDC 送金 | [`transfer+api.js`](./OpenDome/OpenDomeApp/src/app/api/transfer+api.js)、[`sponsorUsdcTransfer.js`](./OpenDome/OpenDomeApp/src/utilsAPI/sponsorUsdcTransfer.js) |
+| 決済後のチェックアウト / パスミント | [`checkout+api.js`](./OpenDome/OpenDomeApp/src/app/api/checkout+api.js)、[`mint+api.js`](./OpenDome/OpenDomeApp/src/app/api/mint+api.js) |
+| 共有 x402 / EIP-3009 / USDC チェーン | [`open-dome-lib/src/x402.js`](./open-dome-lib/src/x402.js)、[`eip3009.js`](./open-dome-lib/src/eip3009.js)、[`usdcChains.js`](./open-dome-lib/src/usdcChains.js) |
+| ゲスト承認 UI | [`TransactionModal.js`](./OpenDome/OpenDomeApp/src/components/TransactionModal.js) |
+
+例（ミニアプリ → ホストブリッジ。ホスト UI でゲスト承認が必須）:
+
+```js
+import { Host } from 'opendome';
+
+await Host.transfer({
+  amount: '1.00',
+  destination: '0x…',
+  blockchain: 'BASE',
+  asset: 'USDC',
+});
+```
+
 インタラクション単位で決済するため、ゲスト単位・応答単位・パス単位で採算が可視化されます（月末集計ではありません）。
 
 ---
 
 ## Google Cloud の利用
 
-Google Cloud が推論・状態管理・「AI が実際に稼働している証跡」を担います。
+Google Cloud が推論・状態管理・「AI が実際に稼働している証跡」、そして **USDC 決済の証跡** を担います。
 
 ```mermaid
 flowchart LR
@@ -157,6 +224,16 @@ flowchart LR
 | **Cloud Firestore** | ゲスト ID とロール、Circle ウォレット参照、発行済みパスとゲートチケット。開発用と本番用の名前空間を分離。 |
 | **Cloud Logging** | 2 系統の構造化ログ: `opendome-ai-events`（意図・モデル・レイテンシ・決済ネットワーク）と `opendome-platform-events`（ミント、送金、チェックアウト、x402 決済、ゲート通過）。 |
 | **BigQuery** | `ai_agent_logs.opendome_ai_events` へのログシンク。すべてのエージェント判断と決済を検索可能な記録として保持します。 |
+
+### Google Cloud 実装の場所
+
+| 部品 | パス |
+| --- | --- |
+| Vertex Gemini ホストルート | [`OpenDome/OpenDomeApp/src/app/api/agent+api.js`](./OpenDome/OpenDomeApp/src/app/api/agent+api.js) |
+| Firestore ユーザー / ウォレット | [`OpenDome/OpenDomeApp/src/utilsAPI/passkeyDb.js`](./OpenDome/OpenDomeApp/src/utilsAPI/passkeyDb.js) |
+| AI イベントログ | [`OpenDome/OpenDomeApp/src/utilsAPI/aiTelemetry.js`](./OpenDome/OpenDomeApp/src/utilsAPI/aiTelemetry.js) |
+| プラットフォーム / USDC イベントログ | [`OpenDome/OpenDomeApp/src/utilsAPI/platformTelemetry.js`](./OpenDome/OpenDomeApp/src/utilsAPI/platformTelemetry.js) |
+| 運用テレメトリ API | [`OpenDome/OpenDomeApp/src/app/api/ai-telemetry+api.js`](./OpenDome/OpenDomeApp/src/app/api/ai-telemetry+api.js) |
 
 ゲスト入力はログ記録前にサニタイズされ、メールアドレスやウォレットアドレスは除去されます。運用上の有用性を保ちながら個人情報を残しません。
 
@@ -221,14 +298,14 @@ cd OpenDome/OpenDomeMiniApps/Demo && npm install && npm run web   # http://local
 
 ---
 
-## エージェント経済のために
-
-Open-Dome は **[Build with Gemini XPRIZE](https://xprize.devpost.com/)** への提出プロジェクトであり、*Small Business Services* および *Entrepreneurship & Job Creation* の趣旨に沿っています。会場とテナントが、人員増ではなく AI で運営される仕組みを得ることが狙いです。
+## この仕組みが成立する理由
 
 - 事業ループ（計画・見積・課金・履行・ゲート検証）を、デモではなく本番でエージェントが実行します。
 - Google Cloud が中核です。推論は Vertex AI、状態は Firestore、証跡は Cloud Logging と BigQuery。
-- Circle と USDC がインタラクション単位の収益を成立させ、契約交渉なしでテナントを迎えられます。
+- Circle が USDC を実際に使えるプロダクト体験にします。ゲスト用ウォレットを作成し、Gemini がツールで参照し、支払いごとに金額・ネットワーク・承認を明示します。
 - ドッキングするテナントが増えるたびに、会場は追加開発なしで収益面を増やせます。
+
+<sub>[Build with Gemini XPRIZE](https://xprize.devpost.com/) のために構築。</sub>
 
 ---
 

@@ -1,6 +1,6 @@
 # Open-Dome
 
-### The mini-app platform for venue super-apps
+### Gemini operates the venue. Circle makes every action payable in USDC.
 
 <p align="center">
   <img src="./Images/logo.png" alt="Open-Dome" width="70%" align="center"/>
@@ -17,6 +17,16 @@
 A venue like Tokyo Dome City is really many businesses: a stadium, concert halls, an amusement park, hotels, galleries, restaurants. Today each one wants its own app, and the guest ends up juggling all of them.
 
 Open-Dome replaces that with **one app the guest keeps, and many small apps that plug into it**. If you have seen mini-apps in Farcaster or the Base App, this is the same idea applied to a physical venue: the venue runs the main app, and any team can build an experience that opens inside it.
+
+The product loop is deliberately simple: **ask → decide → approve → settle → deliver**. Gemini on Google Cloud understands the request and calls the right venue or wallet tools. Circle gives each guest a programmable wallet and settles the approved USDC payment. The answer, transfer, or pass arrives in the same app.
+
+<table>
+  <tr>
+    <td align="center"><strong>Gemini finds the experience</strong><br><sub>Live venue data through agent tools</sub><br><img src="./Images/app-dome-agent-events.png" alt="Dome Agent answering with upcoming events" width="210"></td>
+    <td align="center"><strong>The guest approves USDC</strong><br><sub>Amount, model, network, and tariff stay visible</sub><br><img src="./Images/openagent-x402-payment.png" alt="OpenAgent USDC payment approval" width="210"></td>
+    <td align="center"><strong>Circle makes funds usable</strong><br><sub>Balances across supported networks in one conversation</sub><br><img src="./Images/wallet-agent-balances.png" alt="Wallet Agent showing Circle USDC balances" width="210"></td>
+  </tr>
+</table>
 
 Three pieces, nothing more:
 
@@ -41,12 +51,12 @@ flowchart LR
 
 ## For guests: one app instead of ten
 
-The guest logs in once with a passkey. After that, everything happens in the same place.
+The guest logs in once with a passkey. Circle wallets are provisioned behind that identity, so the guest can receive USDC, inspect balances, approve a price, and receive the result without managing keys or leaving the app.
 
 - Browse the venue, its halls, exhibits, and events without installing anything new.
-- Pay from one wallet. Tickets and passes land in that same wallet and scan at the gate.
+- Fund one wallet on EVM or Solana, then pay from the network that already has USDC.
 - Ask the AI concierge to plan an evening. It builds the plan, shows a price, and only continues **after the guest approves**. Nothing charges automatically.
-- Location and identity come from the host, so mini-apps stop asking for the same permissions over and over.
+- Receive the answer, transfer confirmation, or scannable pass immediately after settlement.
 
 ---
 
@@ -131,19 +141,27 @@ The agent is not a chat widget bolted onto a catalog. It executes the revenue lo
 ```mermaid
 sequenceDiagram
   participant Guest
-  participant Agent as AI concierge
-  participant Platform as OpenDome
+  participant Agent as Gemini on Vertex AI
+  participant Wallet as Circle wallet
+  participant Platform as OpenDome fulfillment
 
   Guest->>Agent: "Plan my evening around the 7pm game"
   Agent->>Guest: Proposal and USDC quote
   Guest->>Agent: Approve
-  Agent->>Platform: Pay and issue passes
+  Agent->>Wallet: Settle approved USDC
+  Wallet-->>Platform: Payment confirmed
   Platform-->>Guest: Passes ready to scan
 ```
 
 **What the AI decides:** which events match intent, which amenities fit each time slot, the schedule under travel and opening-hour constraints, the price of each answer, and which tools to call to inspect wallets and move funds.
 
 **What humans decide:** they approve payment. Nothing auto-charges a guest.
+
+<p align="center">
+  <strong>Dome Agent</strong><br>
+  <sub>Gemini turns a guest request into a tool-backed venue conversation</sub><br>
+  <img src="./Images/app-dome-agent.png" alt="Dome Agent venue chat" width="230">
+</p>
 
 Two agent layers run in production:
 
@@ -154,11 +172,23 @@ Two agent layers run in production:
 
 The council proposes; Gemini negotiates, explains, and executes tools. Splitting them keeps itinerary quality reproducible and keeps LLM spend tied to actual paid turns.
 
+### Where the agentic stack lives
+
+| Piece | Path |
+| --- | --- |
+| Host Gemini API (modes `dome` / `wallet` / `openagent`) | [`OpenDome/OpenDomeApp/src/app/api/agent+api.js`](./OpenDome/OpenDomeApp/src/app/api/agent+api.js) |
+| Tool-calling loop | [`OpenDome/OpenDomeApp/src/utilsAPI/geminiToolLoop.js`](./OpenDome/OpenDomeApp/src/utilsAPI/geminiToolLoop.js) |
+| Tool schemas (venue + Circle wallet) | [`open-dome-lib/src/agentSkills.js`](./open-dome-lib/src/agentSkills.js) |
+| Circle tool execution | [`OpenDome/OpenDomeApp/src/utilsAPI/circleAgentRuntime.js`](./OpenDome/OpenDomeApp/src/utilsAPI/circleAgentRuntime.js) |
+| USDC tariff for paid turns | [`open-dome-lib/src/agentTariff.js`](./open-dome-lib/src/agentTariff.js) |
+| OpenAgent mini-app UI | [`OpenDome/OpenDomeMiniApps/OpenAgent/`](./OpenDome/OpenDomeMiniApps/OpenAgent/) |
+| Deterministic planner agents | [`open-dome-lib/src/dayPlannerAgents.js`](./open-dome-lib/src/dayPlannerAgents.js) |
+
 ---
 
 ## Payments: Circle wallets, USDC, and x402
 
-Every priced interaction settles in USDC. There is no invoicing step and no card terminal.
+Every priced interaction settles in **USDC**. There is no invoicing step and no card terminal. Circle developer-controlled wallets hold funds; guests approve every spend.
 
 ```mermaid
 flowchart LR
@@ -176,13 +206,54 @@ flowchart LR
 | **Cross-chain** | CCTP moves USDC from EVM to Solana when the guest pays on a different network than the treasury holds. |
 | **Agent-callable** | Gemini can call wallet tools directly: `list_wallets`, `get_wallet_token_balance`, `estimate_transfer_fee`, `create_transaction`, `create_solana_pay`, `sign_message`. |
 
+A guest can fund the same Circle-backed identity on either family of networks:
+
+<table>
+  <tr>
+    <td align="center"><strong>Receive</strong><br><sub>EVM address QR</sub><br><img src="./Images/app-receive-evm.png" alt="EVM address QR" width="210"></td>
+    <td align="center"><strong>Receive</strong><br><sub>Solana address QR</sub><br><img src="./Images/app-receive-solana.png" alt="Solana address QR" width="210"></td>
+  </tr>
+</table>
+
+Gemini reads the wallet through Circle tools, so chain, address, balance, and transaction details come back conversationally rather than forcing the guest into a separate dashboard.
+
+<p align="center">
+  <strong>Wallet Agent</strong><br>
+  <sub>Gemini inspects the guest's Base wallet through Circle</sub><br>
+  <img src="./Images/wallet-agent-base-details.png" alt="Wallet Agent Base wallet details" width="230">
+</p>
+
+### Where the Circle / USDC stack lives
+
+| Piece | Path |
+| --- | --- |
+| Circle client + wallet creation | [`OpenDome/OpenDomeApp/src/utilsAPI/circleTools.js`](./OpenDome/OpenDomeApp/src/utilsAPI/circleTools.js) |
+| x402 USDC buyer (EVM + Solana) | [`OpenDome/OpenDomeApp/src/app/api/x402-pay+api.js`](./OpenDome/OpenDomeApp/src/app/api/x402-pay+api.js) |
+| Sponsored USDC transfer | [`OpenDome/OpenDomeApp/src/app/api/transfer+api.js`](./OpenDome/OpenDomeApp/src/app/api/transfer+api.js), [`sponsorUsdcTransfer.js`](./OpenDome/OpenDomeApp/src/utilsAPI/sponsorUsdcTransfer.js) |
+| Checkout + pass mint after payment | [`checkout+api.js`](./OpenDome/OpenDomeApp/src/app/api/checkout+api.js), [`mint+api.js`](./OpenDome/OpenDomeApp/src/app/api/mint+api.js) |
+| Shared x402 / EIP-3009 / USDC chains | [`open-dome-lib/src/x402.js`](./open-dome-lib/src/x402.js), [`eip3009.js`](./open-dome-lib/src/eip3009.js), [`usdcChains.js`](./open-dome-lib/src/usdcChains.js) |
+| Guest approval UI | [`TransactionModal.js`](./OpenDome/OpenDomeApp/src/components/TransactionModal.js) |
+
+Example (mini-app → host bridge, guest must approve in the host UI):
+
+```js
+import { Host } from 'opendome';
+
+await Host.transfer({
+  amount: '1.00',
+  destination: '0x…',
+  blockchain: 'BASE',
+  asset: 'USDC',
+});
+```
+
 Because settlement is per interaction, the unit economics are visible per guest, per turn, and per pass rather than at month end.
 
 ---
 
 ## Google Cloud footprint
 
-Google Cloud runs inference, state, and the evidence trail that proves the AI is operating live.
+Google Cloud runs inference, state, and the evidence trail that proves the AI is operating live — and that **USDC settlement** happened.
 
 ```mermaid
 flowchart LR
@@ -197,6 +268,16 @@ flowchart LR
 | **Cloud Firestore** | Guest identity and roles, Circle wallet references, issued passes and gate tickets, with separate dev and production namespaces. |
 | **Cloud Logging** | Two structured streams: `opendome-ai-events` (intent, model, latency, payment network) and `opendome-platform-events` (mints, transfers, checkouts, x402 payments, gate scans). |
 | **BigQuery** | Log sink into `ai_agent_logs.opendome_ai_events`, giving a queryable record of every agent decision and settlement for the operations dashboard. |
+
+### Where the Google Cloud stack lives
+
+| Piece | Path |
+| --- | --- |
+| Vertex Gemini host route | [`OpenDome/OpenDomeApp/src/app/api/agent+api.js`](./OpenDome/OpenDomeApp/src/app/api/agent+api.js) |
+| Firestore users / wallets | [`OpenDome/OpenDomeApp/src/utilsAPI/passkeyDb.js`](./OpenDome/OpenDomeApp/src/utilsAPI/passkeyDb.js) |
+| AI event logging | [`OpenDome/OpenDomeApp/src/utilsAPI/aiTelemetry.js`](./OpenDome/OpenDomeApp/src/utilsAPI/aiTelemetry.js) |
+| Platform / USDC event logging | [`OpenDome/OpenDomeApp/src/utilsAPI/platformTelemetry.js`](./OpenDome/OpenDomeApp/src/utilsAPI/platformTelemetry.js) |
+| Ops telemetry API | [`OpenDome/OpenDomeApp/src/app/api/ai-telemetry+api.js`](./OpenDome/OpenDomeApp/src/app/api/ai-telemetry+api.js) |
 
 Guest input is sanitized before logging: emails and wallet addresses are stripped, so the operational record stays useful without retaining personal data.
 
@@ -260,14 +341,14 @@ Full port map, environment matrix, and protocol rules: [`AGENTS.md`](./AGENTS.md
 
 ---
 
-## Built for the agent economy
-
-Open-Dome is our entry for **[Build with Gemini XPRIZE](https://xprize.devpost.com/)**, in the spirit of the *Small Business Services* and *Entrepreneurship & Job Creation* categories: the venue and its tenants get an operation that runs on AI instead of headcount.
+## Why this works
 
 - The business loop (plan, quote, charge, fulfill, verify at the gate) is executed by agents in production, not simulated in a demo.
 - Google Cloud is load-bearing: Vertex AI for inference, Firestore for state, Cloud Logging and BigQuery for the evidence trail.
-- Circle and USDC make per-interaction revenue viable, which is what lets a tenant onboard without a contract negotiation.
+- Circle turns USDC into a usable product surface: wallets are created for guests, Gemini can inspect them through tools, and every payment has a visible amount, network, and approval step.
 - Every tenant that docks is a new revenue surface that costs the venue no additional engineering—the same growth shape as a healthy mini-app ecosystem.
+
+<sub>Built for the [Build with Gemini XPRIZE](https://xprize.devpost.com/).</sub>
 
 ---
 
