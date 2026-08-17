@@ -1,4 +1,4 @@
-# Open-Dome
+# Open Dome OS
 
 ### Gemini operates the venue. Circle makes every action payable in USDC.
 
