@@ -155,7 +155,7 @@ sequenceDiagram
 
 **What the AI decides:** which events match intent, which amenities fit each time slot, the schedule under travel and opening-hour constraints, the price of each answer, and which tools to call to inspect wallets and move funds.
 
-**What humans decide:** they approve payment. Nothing auto-charges a guest.
+**What humans decide:** Approve once, the agent takes care of the rest.
 
 <p align="center">
   <strong>Dome Agent</strong><br>
